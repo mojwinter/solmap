@@ -46,12 +46,19 @@ export function createRateLimiter(perMinute: number, now: () => number = Date.no
 }
 
 /**
- * The client IP: the FIRST X-Forwarded-For entry. Safe only because Caddy sits in front and
- * replaces untrusted incoming X-Forwarded-For headers. Without a proxy (local dev) everyone is "local".
+ * The client IP, in order:
+ * 1. `CF-Connecting-IP`: prod sits behind Cloudflare (proxied), so the TCP peer Caddy sees, and
+ *    writes into X-Forwarded-For, is a Cloudflare edge shared by everyone at the same PoP.
+ *    Caveat: the origin is still reachable without Cloudflare, so someone bypassing it can spoof
+ *    this header and dodge the limit. Fine for a hackathon (the real caps are the Google quotas);
+ *    locking the origin to Cloudflare's IPs is a box-wide puckbank decision.
+ * 2. The first X-Forwarded-For entry (Caddy replaces untrusted incoming XFF with the TCP peer).
+ * 3. "local": no proxy (local dev), everyone shares one bucket.
  */
 export function clientIp(headers: Headers): string {
+  const cf = headers.get("cf-connecting-ip")?.trim();
   const first = headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  return first || headers.get("x-real-ip")?.trim() || "local";
+  return cf || first || headers.get("x-real-ip")?.trim() || "local";
 }
 
 const globalForLimiter = globalThis as typeof globalThis & { __solarRateLimiter?: RateLimiter };

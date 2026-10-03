@@ -173,8 +173,11 @@ Then:
   roof make one Google call.
 - API responses send `Cache-Control: private, no-store`.
 - Per-IP token bucket on `/api/solar/*` (`RATE_LIMIT_PER_MINUTE`). Return 429 with `{error:"RATE_LIMITED"}`.
-  Take the client IP from the **first** `X-Forwarded-For` entry. That's safe here because Caddy
-  replaces untrusted incoming `X-Forwarded-For` headers by default; without Caddy in front it wouldn't be.
+  The client IP is `CF-Connecting-IP` first: Cloudflare is proxied, so the peer Caddy sees (and puts in
+  `X-Forwarded-For`) is a Cloudflare edge shared by a whole room. Without that header, the **first**
+  `X-Forwarded-For` entry (Caddy replaces untrusted incoming XFF). The origin is still reachable directly,
+  so `CF-Connecting-IP` can be spoofed by bypassing Cloudflare; acceptable here (the Google quotas are the
+  real cap), and locking the origin to Cloudflare's IPs is a box-wide puckbank decision.
 - dataLayers is only called when the user opens the heatmap.
 
 ## Data sources (`SOLAR_SOURCE`)
