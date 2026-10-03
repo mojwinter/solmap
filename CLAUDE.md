@@ -150,6 +150,12 @@ Imports: `@/src/types/app`, `@/src/types/solar`, `@/src/config/bc` (alias `@/*` 
 ## When working with Claude Code
 
 - Start by reading this file, `PLAN.md` (your role's section), and the doc for your area.
+- **What to work on next:** the pinned Roadmap issue (#24) lists every issue in build order by checkpoint.
+  Take the next open item for your role in the current checkpoint; don't start P1 before P0 is done.
+- **Issues are a frame, not a script.** Each issue's *Goal* and *Done when* are fixed; change them only
+  with a comment saying why. Its *Starting sketch* (or *Plan*) was written before the work began: read the
+  current code first, then rewrite the sketch in the issue (`gh issue edit`) to match what you'll actually
+  build. New work gets an issue in the same format and a place in #24.
 - Ask Claude for a plan before multi-file changes. Keep changes inside your owned folders.
 - Stuck on a Solar or Maps problem (panel drawing, GeoTIFF decoding, overlays)? Check Google's sample app
   first: `docs/SOLAR_API.md` → Prior art lists what it already solved and which parts break our rules.
