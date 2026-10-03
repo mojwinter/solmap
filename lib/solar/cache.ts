@@ -14,7 +14,8 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { z } from "zod";
 import type { LatLngBounds, LatLngLiteral } from "@/src/types/app";
-import { errText, inDir, listDir, STALE_TMP_MS, writeFileAtomic } from "./disk";
+import { DailyBudgetError, getDailyBudget, type DailyBudget } from "./budget";
+import { dirMtime, errText, getDiskQuota, inDir, INDEX_CONCURRENCY, listDir, mapLimit, STALE_TMP_MS, writeFileAtomic, type DiskQuota } from "./disk";
 import { distanceMeters } from "./geo";
 import { imageryQualitySchema, buildingInsightsSchema, type SolarBuilding } from "./schema";
 import {
@@ -32,7 +33,7 @@ type Source = "live" | "cache" | "fixture";
 
 export type LookupResult =
   | { status: 200; building: SolarBuilding; source: Source; layer: Layer }
-  | { status: 404; source: Source; layer: Layer };
+  | { status: 404; source: Source; layer: Layer; reason?: "outside-bc" };
 
 export interface SolarStore {
   lookup(lat: number, lng: number): Promise<LookupResult>;
@@ -53,6 +54,12 @@ export interface StoreOptions {
   now?: () => number;
   findClosest?: (req: FindClosestRequest) => Promise<GoogleCallResult>;
   log?: (line: string) => void;
+  /** Daily cap on Google calls (getDailyBudget() in the app). Absent = no cap (tests, solar:warm). */
+  budget?: DailyBudget;
+  /** Disk cap (getDiskQuota() in the app). Absent = no cap. */
+  quota?: DiskQuota;
+  /** How long a failed lookup is remembered, so retries don't re-bill. Default 5 min. */
+  negativeTtlMs?: number;
 }
 
 const DAY_MS = 86_400_000;
@@ -62,6 +69,12 @@ export const MATCH_RADIUS_M = 5;
 export const SYNTHETIC_RADIUS_M = 250;
 const MEMORY_CAP = 500;
 export const PRUNE_INTERVAL_MS = 3_600_000;
+/** Failed lookups are remembered this long (security review H1). */
+export const NEGATIVE_TTL_MS = 5 * 60_000;
+/** A lookup waits for any in-flight lookup this close before calling Google itself (H2). */
+export const IN_FLIGHT_RADIUS_M = 30;
+/** Force a directory rescan at least this often, even if its mtime looks unchanged. */
+export const INDEX_RESCAN_MS = 60_000;
 export { distanceMeters };
 
 /* ───────────── pure helpers ───────────── */
@@ -79,6 +92,19 @@ const inBox = (p: LatLngLiteral, b: LatLngBounds) =>
 /** A cached answer matches if the point is in its building's bbox or ≤ 5 m from the point originally asked. */
 export function entryMatches(entry: { request: LatLngLiteral; bbox?: LatLngBounds }, p: LatLngLiteral): boolean {
   return (entry.bbox !== undefined && inBox(p, entry.bbox)) || distanceMeters(entry.request, p) <= MATCH_RADIUS_M;
+}
+
+/** 3 decimals ≈ 110 m: enough to debug, not a home address (logs show up in the box's shared log UI). */
+export const logCoord = (v: number) => v.toFixed(3);
+
+/**
+ * Google's answer is for a building outside BC (BC_BOUNDS includes bits of WA, ID and AB). Only judged
+ * when the field is present; "BC" or "British Columbia" both count.
+ */
+export function outsideBC(b: Pick<SolarBuilding, "regionCode" | "administrativeArea">): boolean {
+  if (b.regionCode !== undefined && b.regionCode.toUpperCase() !== "CA") return true;
+  const area = b.administrativeArea?.trim().toLowerCase();
+  return area !== undefined && area !== "bc" && area !== "british columbia";
 }
 
 const bboxOf = (b: SolarBuilding): LatLngBounds => ({
@@ -133,6 +159,8 @@ interface MemoryEntry {
   point: LatLngLiteral;
   promise: Promise<Resolved>;
   settled?: Resolved;
+  /** The lookup failed; kept for negativeTtlMs so retries share the failure instead of re-billing. */
+  failed?: boolean;
   expiresAt: number;
 }
 
@@ -153,7 +181,12 @@ export function createSolarStore(opts: StoreOptions): SolarStore {
   const memory = new Map<string, MemoryEntry>();
   const memKey = (p: LatLngLiteral) => `${p.lat.toFixed(5)},${p.lng.toFixed(5)}`;
 
-  function memoryGet(p: LatLngLiteral): Promise<Resolved> | undefined {
+  /**
+   * A memory answer for p: the exact point (in flight or settled), a settled building whose bbox holds p
+   * (or a 404 ≤ 5 m away), or a failure ≤ 30 m away. `wait` = an unrelated lookup ≤ 30 m away is still in
+   * flight: wait for it and ask again, since it's probably the same building (H2).
+   */
+  function memoryGet(p: LatLngLiteral): { promise: Promise<Resolved>; wait: boolean } | undefined {
     const t = now();
     let key: string | undefined = memKey(p);
     let hit = memory.get(key);
@@ -161,22 +194,38 @@ export function createSolarStore(opts: StoreOptions): SolarStore {
       memory.delete(key);
       hit = undefined;
     }
+    let wait = false;
     if (!hit) {
       key = undefined;
       let best = -Infinity;
+      let inFlight: [string, MemoryEntry] | undefined;
       for (const [k, e] of memory) {
-        if (!e.settled || e.expiresAt <= t || e.settled.origin === "none") continue;
+        if (e.expiresAt <= t) continue;
+        const near = distanceMeters(e.point, p) <= IN_FLIGHT_RADIUS_M;
+        if (e.failed) {
+          if (near && best < Infinity) [key, hit, best] = [k, e, Infinity]; // a nearby failure wins
+          continue;
+        }
+        if (!e.settled) {
+          if (near) inFlight ??= [k, e];
+          continue;
+        }
+        if (e.settled.origin === "none") continue;
         const bbox = e.settled.building ? bboxOf(e.settled.building) : undefined;
         const ts = e.settled.fetchedAtMs ?? 0;
         if (ts > best && entryMatches({ request: e.point, bbox }, p)) {
           [key, hit, best] = [k, e, ts];
         }
       }
+      if (!hit && inFlight) {
+        [key, hit] = inFlight;
+        wait = true;
+      }
     }
     if (!hit || key === undefined) return undefined;
     memory.delete(key); // bump to most recent
     memory.set(key, hit);
-    return hit.promise;
+    return { promise: hit.promise, wait };
   }
 
   function memorySet(p: LatLngLiteral, promise: Promise<Resolved>) {
@@ -191,8 +240,15 @@ export function createSolarStore(opts: StoreOptions): SolarStore {
         const ttlEnd = now() + opts.memoryTtlMs;
         entry.expiresAt = r.fetchedAtMs === undefined ? ttlEnd : Math.min(ttlEnd, r.fetchedAtMs + maxAgeMs);
       },
-      () => {
-        if (memory.get(key) === entry) memory.delete(key); // errors are never cached
+      (e) => {
+        // Remember failures for a while so retries don't re-bill (H1). Not the daily cap: that's not
+        // about this roof, and it lifts at midnight.
+        if (e instanceof DailyBudgetError) {
+          if (memory.get(key) === entry) memory.delete(key);
+          return;
+        }
+        entry.failed = true;
+        entry.expiresAt = now() + (opts.negativeTtlMs ?? NEGATIVE_TTL_MS);
       },
     );
   }
@@ -218,12 +274,19 @@ export function createSolarStore(opts: StoreOptions): SolarStore {
   }
 
   const listEntryFiles = () => listDir(buildingDir, log);
+  let indexedMtime = -2;
+  let indexedAt = -Infinity;
 
+  /** Rescans only when the directory changed (mtime) or every INDEX_RESCAN_MS, reading new files 16 at a time (M1). */
   async function refreshIndex(): Promise<DiskMeta[]> {
-    const files = new Set((await listEntryFiles()).filter((f) => f.endsWith(".json")));
-    for (const f of index.keys()) if (!files.has(f)) index.delete(f);
-    const fresh = [...files].filter((f) => !index.has(f));
-    await Promise.all(fresh.map(async (f) => index.set(f, (await readEntry(f))?.meta ?? null)));
+    const mtime = await dirMtime(buildingDir);
+    if (mtime !== indexedMtime || now() - indexedAt > INDEX_RESCAN_MS) {
+      const files = new Set((await listEntryFiles()).filter((f) => f.endsWith(".json")));
+      for (const f of index.keys()) if (!files.has(f)) index.delete(f);
+      const fresh = [...files].filter((f) => !index.has(f));
+      await mapLimit(fresh, INDEX_CONCURRENCY, async (f) => index.set(f, (await readEntry(f))?.meta ?? null));
+      [indexedMtime, indexedAt] = [mtime, now()];
+    }
     return [...index.values()].filter((m): m is DiskMeta => m !== null);
   }
 
@@ -259,8 +322,10 @@ export function createSolarStore(opts: StoreOptions): SolarStore {
   async function writeEntry(req: FindClosestRequest, res: GoogleCallResult, building: SolarBuilding | undefined, fetchedAtMs: number) {
     const file = entryFileName(fetchedAtMs, req);
     const entry: CacheEntry = { fetchedAt: new Date(fetchedAtMs).toISOString(), request: req, status: res.status, body: res.body };
+    const json = JSON.stringify(entry);
+    if (opts.quota && !(await opts.quota.allow(Buffer.byteLength(json)))) return; // cache full: serve, don't save
     try {
-      await writeFileAtomic(buildingDir, file, JSON.stringify(entry)); // warm-cache and the server may write concurrently
+      await writeFileAtomic(buildingDir, file, json); // warm-cache and the server may write concurrently
       index.set(file, { file, fetchedAtMs, request: req, status: res.status, bbox: building && bboxOf(building) });
     } catch (e) {
       // The user still gets their answer; we just pay for this roof again next time.
@@ -313,6 +378,7 @@ export function createSolarStore(opts: StoreOptions): SolarStore {
 
     let last: Resolved = { status: 404, origin: "google" };
     for (const req of steps.slice(next)) {
+      opts.budget?.take("building"); // throws DailyBudgetError past today's cap (C1)
       const res = await fetchGoogle(req);
       const fetchedAtMs = now();
       let building: SolarBuilding | undefined;
@@ -335,11 +401,17 @@ export function createSolarStore(opts: StoreOptions): SolarStore {
     const p = { lat, lng };
     const line = (source: string, layer: string, quality: string, status: number, extra = "") =>
       log(
-        `solar lat=${lat.toFixed(5)} lng=${lng.toFixed(5)} source=${source} layer=${layer} quality=${quality} status=${status} ms=${Math.round(performance.now() - started)}${extra}`,
+        `solar lat=${logCoord(lat)} lng=${logCoord(lng)} source=${source} layer=${layer} quality=${quality} status=${status} ms=${Math.round(performance.now() - started)}${extra}`,
       );
 
     let fromMemory = true;
-    let pending = memoryGet(p);
+    let pending: Promise<Resolved> | undefined;
+    for (let i = 0; i < 3 && !pending; i++) {
+      const hit = memoryGet(p);
+      if (!hit) break;
+      if (!hit.wait) pending = hit.promise;
+      else await hit.promise.catch(() => {}); // a nearby lookup is in flight: let it land, then ask again
+    }
     if (!pending) {
       fromMemory = false;
       pending = resolve(p);
@@ -351,13 +423,18 @@ export function createSolarStore(opts: StoreOptions): SolarStore {
       r = await pending;
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      line(opts.source === "fixtures" ? "fixture" : "live", fromMemory ? "memory" : "google", "-", 502, ` err=${JSON.stringify(msg)}`);
+      const status = e instanceof DailyBudgetError ? 503 : 502;
+      line(opts.source === "fixtures" ? "fixture" : "live", fromMemory ? "memory" : "google", "-", status, ` err=${JSON.stringify(msg)}`);
       throw e instanceof UpstreamError ? e : new UpstreamError(msg);
     }
 
     const synthetic = r.origin === "synthetic" || r.origin === "none";
     const source: Source = synthetic ? "fixture" : r.origin === "google" && !fromMemory ? "live" : "cache";
     const layer: Layer = fromMemory ? "memory" : r.origin === "synthetic" ? "synthetic" : r.origin;
+    if (r.status === 200 && r.building && outsideBC(r.building)) {
+      line(source, layer, r.building.imageryQuality, 404, " reason=outside-bc");
+      return { status: 404, source, layer, reason: "outside-bc" };
+    }
     line(source, layer, r.building?.imageryQuality ?? "-", r.status);
     return r.status === 200 && r.building
       ? { status: 200, building: r.building, source, layer }
@@ -421,7 +498,8 @@ const globalForSolar = globalThis as typeof globalThis & { __solarStore?: SolarS
 /** The app-wide store. First call prunes the disk cache and schedules an hourly prune. */
 export function getSolarStore(): SolarStore {
   if (!globalForSolar.__solarStore) {
-    const store = createSolarStore(storeOptionsFromEnv());
+    const o = storeOptionsFromEnv();
+    const store = createSolarStore({ ...o, budget: getDailyBudget(), quota: getDiskQuota(o.cacheDir) });
     globalForSolar.__solarStore = store;
     void store.prune();
     setInterval(() => void store.prune(), PRUNE_INTERVAL_MS).unref();

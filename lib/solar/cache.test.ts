@@ -219,7 +219,7 @@ describe("cache mode", () => {
     expect(logs.filter((l) => l.includes("readdir failed"))).toEqual([]);
   });
 
-  it("does not cache upstream errors", async () => {
+  it("never writes upstream errors to disk; remembers them in memory for 5 minutes (H1)", async () => {
     google = async () => {
       throw new UpstreamError("Google 503: UNAVAILABLE", 503);
     };
@@ -229,7 +229,11 @@ describe("cache mode", () => {
     expect(logs.some((l) => l.includes("status=502"))).toBe(true);
 
     google = async (req) => ({ status: 200, body: googleBody(req.lat, req.lng) });
+    await expect(s.lookup(P.lat, P.lng)).rejects.toBeInstanceOf(UpstreamError); // still the remembered failure
+    expect(calls).toHaveLength(1);
+    t += 5 * 60_000 + 1;
     expect(await s.lookup(P.lat, P.lng)).toMatchObject({ status: 200, layer: "google" });
+    expect(calls).toHaveLength(2);
   });
 
   it("treats a 200 that fails validation as upstream, and doesn't save it", async () => {

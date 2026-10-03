@@ -210,6 +210,18 @@ Then:
   so `CF-Connecting-IP` can be spoofed by bypassing Cloudflare; acceptable here (the Google quotas are the
   real cap), and locking the origin to Cloudflare's IPs is a box-wide puckbank decision.
 - dataLayers is only called when the user opens the heatmap.
+- **Spend caps** (all in memory, per process; defaults are safe, so the env vars are optional):
+  - A daily budget of real Google calls per SKU, reset at UTC midnight: `SOLAR_DAILY_MAX_BUILDING` (300) and
+    `SOLAR_DAILY_MAX_LAYERS` (50). Past it, `/api/solar/*` answers 503 `{error:"UPSTREAM", message:"daily limit reached"}`
+    and logs `solar budget EXHAUSTED`. Cached roofs keep working.
+  - A stricter per-IP bucket for `/api/solar/layers` and for heatmap renders that miss memory:
+    `RATE_LIMIT_LAYERS_PER_MINUTE` (3).
+  - Failed lookups are remembered for 5 minutes (within ~30 m), so retries don't buy the same call again, and a
+    lookup waits for any in-flight lookup within 30 m before calling Google.
+  - Disk cap for the whole cache dir: `SOLAR_CACHE_MAX_FILES` (5,000) and `SOLAR_CACHE_MAX_MB` (2,048). Past it,
+    answers are served but not saved (`solar cache FULL` in the log).
+  - Buildings Google places outside BC (`regionCode` / `administrativeArea`) are a 404, with no Data Layers call.
+  - Log lines carry lat/lng to 3 decimals (~110 m): the box's log viewer is shared.
 
 ## Data sources (`SOLAR_SOURCE`)
 

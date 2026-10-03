@@ -16,9 +16,11 @@ function get(query: string, ip = `192.0.2.${++ipSeq}`) {
 }
 
 const resetSingletons = () => {
-  const g = globalThis as { __solarStore?: unknown; __solarRateLimiter?: unknown };
+  const g = globalThis as { __solarStore?: unknown; __solarRateLimiter?: unknown; __solarDailyBudget?: unknown; __solarDiskQuota?: unknown };
   delete g.__solarStore;
   delete g.__solarRateLimiter;
+  delete g.__solarDailyBudget;
+  delete g.__solarDiskQuota;
 };
 
 beforeAll(() => {
@@ -95,5 +97,15 @@ describe("GET /api/solar/building (SOLAR_SOURCE=fixtures)", () => {
     expect(res.status).toBe(502);
     expect(res.headers.get("cache-control")).toBe("private, no-store");
     expect(await res.json()).toMatchObject({ error: "UPSTREAM" });
+  });
+
+  it("503 'daily limit reached' once the Google budget is spent (C1)", async () => {
+    resetSingletons();
+    process.env.SOLAR_SOURCE = "live";
+    process.env.SOLAR_DAILY_MAX_BUILDING = "0";
+    const res = await get("lat=49.31&lng=-123.1");
+    expect(res.status).toBe(503);
+    expect(res.headers.get("cache-control")).toBe("private, no-store");
+    expect(await res.json()).toEqual({ error: "UPSTREAM", message: "daily limit reached" });
   });
 });

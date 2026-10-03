@@ -176,14 +176,19 @@ describe("cache mode", () => {
     expect(files("layers")).toEqual([]);
   });
 
-  it("doesn't cache upstream errors", async () => {
+  it("never writes upstream errors to disk; remembers them for 5 minutes (H1)", async () => {
     google = async () => {
       throw new UpstreamError("Google 429: RESOURCE_EXHAUSTED", 429);
     };
     const s = store({ memoryTtlMs: 60_000 });
     await expect(s.lookup(P.lat, P.lng)).rejects.toBeInstanceOf(UpstreamError);
+    expect(files("layers")).toEqual([]);
     google = async () => ({ status: 200, body: layersBody });
+    await expect(s.lookup(P.lat, P.lng)).rejects.toBeInstanceOf(UpstreamError);
+    expect(layersCalls).toHaveLength(1);
+    t += 5 * 60_000 + 1;
     expect(await s.lookup(P.lat, P.lng)).toMatchObject({ status: 200, layer: "google" });
+    expect(layersCalls).toHaveLength(2);
   });
 
   it("shares the in-flight call between simultaneous lookups", async () => {

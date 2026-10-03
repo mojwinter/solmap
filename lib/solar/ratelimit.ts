@@ -68,3 +68,16 @@ export function getSolarRateLimiter(): RateLimiter {
   globalForLimiter.__solarRateLimiter ??= createRateLimiter(Number(process.env.RATE_LIMIT_PER_MINUTE));
   return globalForLimiter.__solarRateLimiter;
 }
+
+const globalForLayersLimiter = globalThis as typeof globalThis & { __solarLayersRateLimiter?: RateLimiter };
+
+/**
+ * A second, stricter bucket for /api/solar/layers and heatmap renders that miss memory (security review
+ * C1): one /layers request can cost a Building Insights call, a Data Layers call ($0.075), two raster
+ * downloads and a render. RATE_LIMIT_LAYERS_PER_MINUTE, default 3.
+ */
+export function getLayersRateLimiter(): RateLimiter {
+  const n = Number(process.env.RATE_LIMIT_LAYERS_PER_MINUTE);
+  globalForLayersLimiter.__solarLayersRateLimiter ??= createRateLimiter(Number.isFinite(n) && n > 0 ? n : 3);
+  return globalForLayersLimiter.__solarLayersRateLimiter;
+}

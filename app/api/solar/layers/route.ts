@@ -3,11 +3,13 @@
 import { UpstreamError } from "@/lib/solar/client";
 import { parseLatLng, rateLimited, reply, upstreamReply } from "@/lib/solar/http";
 import { getLayersStore } from "@/lib/solar/layers-cache";
+import { getLayersRateLimiter } from "@/lib/solar/ratelimit";
 import { FLUX_SCALE } from "@/lib/solar/raster";
 import type { SolarLayersResponse } from "@/src/types/app";
 
 export async function GET(request: Request) {
-  const limited = rateLimited(request);
+  // The general bucket, then a stricter one: this route can buy a Data Layers call (C1).
+  const limited = rateLimited(request) ?? rateLimited(request, getLayersRateLimiter());
   if (limited) return limited;
   const point = parseLatLng(request);
   if (point instanceof Response) return point;
@@ -30,6 +32,6 @@ export async function GET(request: Request) {
     );
   } catch (e) {
     if (!(e instanceof UpstreamError)) console.error("solar layers: unexpected error", e);
-    return upstreamReply();
+    return upstreamReply(e);
   }
 }
