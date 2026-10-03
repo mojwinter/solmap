@@ -1,0 +1,195 @@
+# DESIGN.md — product, UX and architecture
+
+## 1. User and job
+
+**Primary user:** a BC homeowner (detached house, townhouse or duplex) who's curious about
+solar but doesn't know if it's worth it. They know their address and roughly what they pay
+BC Hydro. They don't know kW from kWh.
+
+**Job to be done:** "Tell me in one minute whether solar makes sense for my house, how big,
+what it costs and what I get back, and give me something I can take to an installer."
+
+**Not our user (for now):** installers, commercial buildings, non-BC Hydro customers.
+
+## 2. Core flow
+
+```
+Landing ──► type address (PlaceAutocompleteElement → place.location)
+              │
+              ▼
+        /report/{lat}/{lng}
+              │  GET /api/solar/building?lat&lng
+              ▼
+   ┌───────────────────────────────┐
+   │ Map (left / top on mobile)    │   Results (right / below)
+   │  • building outline           │    • Verdict card
+   │  • panels for current size    │    • Money card (cost → rebate → net → payback)
+   │  • [P1] sun heatmap toggle    │    • Size slider (recommended mark)
+   │                               │    • Your usage inputs (bill, rate plan)
+   │                               │    • Spec sheet
+   │                               │    • [P1] charts, assumptions drawer
+   └───────────────────────────────┘
+```
+
+- The URL carries lat/lng (plus later `?panels=&kwh=&plan=`), so a report is shareable
+  without a database. Put **derived annual kWh** in the URL, not the bill amount; it's the same
+  number for the model and reveals less about the household.
+- On first load we pre-fill usage with the **BC average (~10,000 kWh/yr)** and label it
+  "Typical BC home, enter your bill for accuracy". The verdict shows immediately, and
+  entering the bill makes it personal.
+
+## 3. Screens and components
+
+### Landing
+- Headline: *"Is solar worth it on your roof? Find out under BC's new 2026 rules."*
+- One big address input. Three example chips ("Try: a sunny Kitsilano roof", ...) that route
+  to pre-verified demo addresses.
+- Small print: "Uses Google aerial imagery. Estimates only, not a quote."
+
+### Report page
+
+**VerdictCard** (the hero element)
+- Badge: **Strong / Moderate / Weak / Not recommended** (colour + icon + word, never colour alone).
+- One sentence: "A 4 kW system pays for itself in about 13 years and saves ~$7,000 over 25."
+- Three reason chips, picked from the rules in §5 (e.g., "☀ 1,180 sun-hours, above BC average",
+  "↗ South-west roof, 28° pitch", "⚠ Rebate maxes out at 5 kW").
+- Confidence badge: imagery quality + date ("High-res aerial, Aug 2024").
+
+**MoneyCard**
+- A waterfall row: Install cost → − BC Hydro rebate → **Net cost** → Payback → 25-yr net savings.
+- Year-1 breakdown: "You use $X of your solar directly (saves ~12.7¢/kWh) and sell $Y back at 10¢/kWh."
+
+**SizeSlider**
+- Snaps to `solarPanelConfigs` steps. Label: "10 panels · 4.0 kW".
+- A star marks the **recommended** size. A faint band shows sizes with payback < lifetime.
+- Dragging redraws panels on the map and recomputes everything client-side (<16 ms).
+
+**UsageInputs**
+- Toggle: "My bill ($)" ↔ "Annual usage (kWh)". Rate plan: Tiered (default) / Flat.
+- The bill input asks **"This bill covers: 1 month / 2 months"**. Many BC Hydro accounts are billed
+  every two months, and a 2-month bill typed in as monthly doubles the usage. The amount is
+  "as printed, including GST" (the engine strips GST).
+- Best input of all: "Annual kWh" from the BC Hydro account's consumption history. Link to where to find it.
+- "Electric heat?" hint text that links to the flat rate explanation.
+
+**SpecSheet** (printable)
+| Field | Source |
+|---|---|
+| System size (kW DC) | panelsCount × panel W |
+| Panels | count × wattage, dimensions (`panelHeightMeters` × `panelWidthMeters`) |
+| Array area (m²) | panelsCount × panel area |
+| Est. production (kWh AC/yr) | config `yearlyEnergyDcKwh` × scale × derate |
+| Specific yield (kWh/kW) | production ÷ kW, with a BC range check |
+| Roof segments used | from `roofSegmentSummaries`: pitch, azimuth (as compass words), panels, kWh |
+| Whole roof | area, max panels, max sun-hours/yr |
+| Suggested inverter size (kW AC) | ≈ kW DC ÷ 1.2 (label as rule of thumb) |
+| Imagery | quality + capture date |
+| Next steps | "Get 3 quotes from Home Performance Contractor Network members; apply for self-generation **before** buying equipment (required for the rebate)." |
+
+**[P1] Charts**
+- *Sweet-spot chart:* x = system kW (each config), y1 = NPV, y2 = payback years. Recommended point highlighted.
+- *Cash-flow chart:* cumulative net savings, years 0–25, break-even marked.
+
+**[P1] AssumptionsDrawer**: every knob from `FinanceInputs` with default, unit and source link.
+"Reset to BC defaults".
+
+### States
+| State | Behaviour |
+|---|---|
+| Loading | Map flies to the place's location immediately, skeleton cards on the right |
+| Wrong building | `findClosest` can pick a neighbour or a garage. Always show "Not your roof? Click your roof on the map" |
+| 404 / no coverage | "We don't have roof imagery for this address yet." P0: link to the demo addresses. P1: manual estimate form (sun-facing roof area + facing) → `source: 'manual'` report with a "Rough estimate" badge |
+| Low quality (BASE / LOW) | Show results + a "Satellite-based, lower confidence" badge |
+| Outside BC | `administrativeArea` present and not "BC" → banner: "This tool uses BC Hydro rates; this address looks like it's outside BC" |
+| Roof too small | `configs` empty → verdict Not recommended, `roof_small` chip, no slider |
+| Multi-unit / huge roof | If `maxArrayPanelsCount > 150`, note "This looks like a large or multi-unit building; results assume one BC Hydro account" |
+| API error / quota | Friendly retry; in fixtures mode, fall back silently |
+
+## 4. Visual direction
+
+- Calm and trustworthy, not "salesy solar". Warm off-white background, one accent (sun amber),
+  slate text; green/amber/red only for the verdict.
+- Numbers are big and tabular (`font-variant-numeric: tabular-nums`). Units small and grey.
+- Map takes ~55% width on desktop; stacks on mobile with the verdict first.
+- Panels on the map: dark blue fill, thin light stroke; opacity encodes each panel's
+  `yearlyEnergyDcKwh` (brighter = more productive). That makes shading visible without the heatmap.
+- Attribution line under the results column: "Source: Includes solar data from Google."
+  Keep the Google Maps logo visible on the map.
+
+## 5. Verdict rules (implemented in `lib/finance/verdict.ts`)
+
+Computed for the **recommended** configuration; first match wins. Thresholds live in
+`TUNING.verdict` (`src/config/bc.ts`), and the reasoning is in docs/FINANCIAL_MODEL.md → Verdict.
+
+| Verdict | Rule |
+|---|---|
+| Strong | payback ≤ 12 yrs **and** NPV ≥ $2,500 |
+| Moderate | payback ≤ 18 yrs **and** NPV ≥ $1,000 |
+| Weak | pays back within lifetime (25 yrs) |
+| Not recommended | never pays back within lifetime, or no configs (roof too small) |
+
+Reason chips (top 3; order: the chip that explains the verdict first, then warnings, then positives):
+
+| kind | When | Tone | Example text |
+|---|---|---|---|
+| `sun` | `maxSunshineHoursPerYear` vs `TUNING.bcReferenceSunHours` | good / warn | "☀ 1,350 sun-hours a year, above the BC typical" |
+| `orientation` | dominant used segment's azimuth as compass words; 315–45° = warn | good / warn | "↗ South-west roof, 28° pitch" |
+| `shading` | used segment `(q[5] − q[1]) / q[5] > TUNING.shadingSpread` | warn | "Partial shading on the main roof" |
+| `rebate_cap` | recommended kW ≥ 5 **or** the max-size config is > 5 kW | neutral | "BC Hydro's rebate stops growing at 5 kW" |
+| `export_share` | year-1 exported / produced > `TUNING.exportShareWarn` for the **selected** size | warn | "62% of this size would sell at 10¢; smaller pays back faster" |
+| `oversized` | `offsetPct > 1` | warn | "Produces more than you use" |
+| `small_savings` | missed Moderate only because of the NPV floor | warn | "Pays back, but saves only ~$700 over 25 years" |
+| `roof_small` | no configs | warn | "Not enough usable roof for panels" |
+| `imagery` | quality BASE/LOW, or imagery older than 5 years | neutral | "Satellite imagery, lower confidence" |
+
+## 6. Architecture
+
+```
+Browser (Next.js client)
+  ├─ Maps JS + Places (browser key, referrer-restricted)
+  ├─ lib/finance (pure TS, runs on every slider move)
+  └─ fetch /api/solar/*  ─────────────┐
+                                      ▼
+Next.js server (Docker on VPS, behind Caddy)
+  ├─ /api/solar/building   → solar.googleapis.com/v1/buildingInsights:findClosest
+  ├─ /api/solar/layers     → solar.googleapis.com/v1/dataLayers:get          (P1)
+  ├─ /api/solar/geotiff    → solar.googleapis.com/v1/geoTiff:get + key      (P1)
+  ├─ zod validation → trim to BuildingResponse
+  ├─ in-memory LRU (process lifetime only) + per-IP rate limit
+  └─ USE_FIXTURES=1 → serve fixtures/solar/*.json (recorded, local only) + fixtures/synthetic/*.json
+Postgres (P2, optional): share links = inputs only
+```
+
+### Our API contract
+
+`GET /api/solar/building?lat={number}&lng={number}`
+
+- 200 → `BuildingResponse` (see `src/types/app.ts`)
+- 404 → `{ error: "NO_COVERAGE", message }` (no data at any quality we accept; see below)
+- 400 → `{ error: "BAD_REQUEST", message }` (zod failure; lat/lng must be inside BC's bounding box: lat 48.2–60.0, lng −139.1 to −114.0)
+- All responses: `Cache-Control: private, no-store` (Google's terms cap caching at 30 days; don't let a CDN or browser decide).
+- 429 → `{ error: "RATE_LIMITED" }`
+- 502 → `{ error: "UPSTREAM", message }`
+
+Server-side, make **one** call with `requiredQuality=LOW`. It's a *minimum*, and the API always
+returns the best quality it has, so a single call gets HIGH where HIGH exists and still widens
+coverage. Only if that 404s **and** `SOLAR_EXPANDED_COVERAGE=1`, retry once with
+`experiments=EXPANDED_COVERAGE&requiredQuality=BASE` (pre-GA satellite data; B confirms before the
+event whether it returns anything in BC). See docs/SOLAR_API.md → Quality and coverage.
+
+In fixtures mode, the route returns the fixture whose `center` is nearest to the request, if it's
+within 250 m; otherwise 404 `NO_COVERAGE`. That gives the error state for free.
+
+`GET /api/solar/layers?lat&lng&radius=30` (P1): returns `{ annualFluxUrl, maskUrl, rgbUrl, imageryQuality }`
+rewritten to point at `/api/solar/geotiff?id=...` so the key never leaves the server.
+
+### Data flow for the slider
+
+```
+BuildingResponse.configs[i] ──┐
+FinanceInputs (bill, plan, …) ├─► lib/finance.evaluate() ─► ScenarioResult ─► cards + map
+selected i (slider) ──────────┘
+lib/finance.recommend(building, inputs) ─► Recommendation (index, all ScenarioResults for charts)
+```
+
+`recommend` evaluates every config once per input change (typically < 100 configs × 25 years, trivial).

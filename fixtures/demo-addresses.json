@@ -1,0 +1,16 @@
+{
+  "note": "Fill in `live` before the event. Verify each returns 200 from the live API (coverage is patchy) and that findClosest picks the right building. Keep one NO_COVERAGE address for the error-state demo. Use addresses whose owners are OK with being shown. `fixtures` works today with USE_FIXTURES=1 (synthetic roofs, no key needed).",
+  "fixtures": [
+    { "label": "Synthetic south gable (hero)",   "lat": 49.25,   "lng": -123.15,   "ratePlan": "tiered", "annualKwh": 10000, "expectedVerdict": "strong" },
+    { "label": "Synthetic south, electric heat", "lat": 49.25,   "lng": -123.15,   "ratePlan": "flat",   "annualKwh": 16000, "expectedVerdict": "strong" },
+    { "label": "Synthetic shaded gable",         "lat": 49.2615, "lng": -123.1702, "ratePlan": "tiered", "annualKwh": 10000, "expectedVerdict": "weak" },
+    { "label": "No fixture nearby (error state)", "lat": 53.9171, "lng": -122.7497, "ratePlan": "tiered", "annualKwh": 10000, "expectedVerdict": "NO_COVERAGE" }
+  ],
+  "live": [
+    { "label": "Sunny south roof (hero)",          "address": "TODO", "lat": 0, "lng": 0, "ratePlan": "tiered", "annualKwh": 10000, "expectedVerdict": "strong" },
+    { "label": "Small system clearly wins",        "address": "TODO", "lat": 0, "lng": 0, "ratePlan": "tiered", "annualKwh": 8000,  "expectedVerdict": "moderate" },
+    { "label": "Electric heat, big usage, flat",   "address": "TODO", "lat": 0, "lng": 0, "ratePlan": "flat",   "annualKwh": 16000, "expectedVerdict": "strong" },
+    { "label": "Really poor roof (contrast)",      "address": "TODO", "lat": 0, "lng": 0, "ratePlan": "tiered", "annualKwh": 10000, "expectedVerdict": "weak" },
+    { "label": "No coverage (error state)",        "address": "TODO", "lat": 0, "lng": 0, "ratePlan": "tiered", "annualKwh": 10000, "expectedVerdict": "NO_COVERAGE" }
+  ]
+}

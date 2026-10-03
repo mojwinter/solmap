@@ -1,0 +1,9 @@
+# Append to the Next.js .gitignore
+.env*
+!.env.example
+!.env.vps.example
+# Real Google Solar responses: local/VPS only, delete within 30 days of recording (Google terms). Never commit.
+# Committed fixtures live in fixtures/synthetic/ (hand-made, not Google content).
+fixtures/solar/
+# Personal Claude Code settings (the shared ones are .claude/settings.json)
+.claude/settings.local.json

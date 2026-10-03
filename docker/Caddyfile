@@ -1,0 +1,15 @@
+# Automatic HTTPS for both hosts. DNS A records must point at the VPS first.
+{$PROD_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy prod:3000
+}
+
+{$STAGING_DOMAIN} {
+	encode zstd gzip
+	# Keep staging private so judges/randoms don't burn our Solar API quota.
+	# Generate the hash with: docker run --rm caddy:2 caddy hash-password --plaintext 'yourpass'
+	basic_auth {
+		{$STAGING_USER} {$STAGING_PASS_HASH}
+	}
+	reverse_proxy staging:3000
+}

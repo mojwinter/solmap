@@ -1,0 +1,22 @@
+name: CI
+# PRs run this directly. Pushes to main/tags run it via deploy.yml (workflow_call), so it runs once.
+on:
+  pull_request:
+  workflow_call:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      # Synthetic fixtures only (fixtures/synthetic/). CI never has a Solar key.
+      USE_FIXTURES: "1"
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm build

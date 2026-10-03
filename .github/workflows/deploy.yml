@@ -1,0 +1,43 @@
+name: Deploy
+# main → staging automatically. Tags v* (e.g. v0-demo, v1-final) → prod.
+# Every deploy runs CI first (ci.yml is reusable), so a red main never ships.
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      env:
+        description: Environment
+        type: choice
+        options: [staging, prod]
+        default: staging
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    needs: ci
+    runs-on: ubuntu-latest
+    # One queue per environment, so a staging push can never cancel a pending prod deploy.
+    # Cross-env safety (shared checkout on the VPS) comes from flock in deploy.sh.
+    concurrency:
+      group: deploy-${{ github.event_name == 'workflow_dispatch' && inputs.env || (startsWith(github.ref, 'refs/tags/') && 'prod' || 'staging') }}
+      cancel-in-progress: false
+    steps:
+      - name: Pick environment
+        id: env
+        env:
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          INPUT_ENV: ${{ inputs.env }}
+        run: |
+          if [ "$EVENT" = "workflow_dispatch" ]; then echo "name=$INPUT_ENV" >> "$GITHUB_OUTPUT"
+          elif [[ "$REF" == refs/tags/* ]]; then echo "name=prod" >> "$GITHUB_OUTPUT"
+          else echo "name=staging" >> "$GITHUB_OUTPUT"; fi
+      - uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: /srv/solmap/src/scripts/deploy.sh ${{ steps.env.outputs.name }} ${{ github.sha }}

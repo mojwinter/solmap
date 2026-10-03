@@ -1,0 +1,575 @@
+{
+  "note": "Golden cases for lib/finance, generated 2026-10-03 from the reference formulas in docs/FINANCIAL_MODEL.md (self-use curve model). Numbers must match within `tolerance` (relative; absolute 0.01 when expected is 0). recommendedIndex, panelsCount, verdict and null paybacks must match exactly. Never edit an expected value to make a test pass: if the model changes, regenerate the whole file and explain why in the PR.",
+  "tolerance": 0.005,
+  "defaults": {
+    "annualConsumptionKwh": 10000,
+    "ratePlan": "tiered",
+    "panelWatts": 400,
+    "costPerWatt": 2.5,
+    "dcToAcDerate": 0.85,
+    "daytimeLoadShare": 0.35,
+    "exportRate": 0.1,
+    "degradation": 0.995,
+    "lifetimeYears": 25,
+    "costIncrease": 1.03,
+    "discountRate": 1.04,
+    "rebateEligible": true
+  },
+  "bill": {
+    "monthlyBill": [
+      {
+        "plan": "tiered",
+        "monthlyKwh": 500,
+        "expectedMonthlyBill": 66.48
+      },
+      {
+        "plan": "tiered",
+        "monthlyKwh": 675.0,
+        "expectedMonthlyBill": 87.25
+      },
+      {
+        "plan": "tiered",
+        "monthlyKwh": 1000,
+        "expectedMonthlyBill": 133.01
+      },
+      {
+        "plan": "flat",
+        "monthlyKwh": 833.3333,
+        "expectedMonthlyBill": 113.44
+      }
+    ],
+    "annualKwhFromBill": [
+      {
+        "plan": "tiered",
+        "billAmountInclGst": 250,
+        "periodMonths": 2,
+        "expectedAnnualKwh": 10809.8
+      },
+      {
+        "plan": "tiered",
+        "billAmountInclGst": 120,
+        "periodMonths": 1,
+        "expectedAnnualKwh": 10404.0
+      },
+      {
+        "plan": "flat",
+        "billAmountInclGst": 300,
+        "periodMonths": 2,
+        "expectedAnnualKwh": 12779.8
+      },
+      {
+        "plan": "tiered",
+        "billAmountInclGst": 10,
+        "periodMonths": 1,
+        "expectedAnnualKwh": 242.0
+      }
+    ]
+  },
+  "scenarios": [
+    {
+      "name": "flat_8kw_10MWh",
+      "why": "Baseline: full-size system, rebate capped at $5,000",
+      "apiPanelWatts": 400,
+      "config": { "panelsCount": 20, "yearlyEnergyDcKwh": 9000 },
+      "inputs": {
+        "ratePlan": "flat"
+      },
+      "expected": {
+        "systemKwDc": 8.0,
+        "acKwhYear1": 7650.0,
+        "specificYield": 956.25,
+        "offsetPct": 0.765,
+        "installCost": 20000.0,
+        "rebate": 5000,
+        "netCost": 15000.0,
+        "billWithoutSolarYear1": 1361.25,
+        "year1": {
+          "selfUsedKwh": 3106.61,
+          "exportedKwh": 4543.39,
+          "selfUsedValue": 394.54,
+          "exportValue": 454.34,
+          "total": 848.88
+        },
+        "paybackYears": 16.26,
+        "lifetimeNetSavings": 9490.43,
+        "npv": 512.81
+      }
+    },
+    {
+      "name": "tiered_8kw_14MWh_electric_heat",
+      "why": "Tiered heavy user: self-use trims Step 2 (14.08c) first",
+      "apiPanelWatts": 400,
+      "config": { "panelsCount": 20, "yearlyEnergyDcKwh": 9000 },
+      "inputs": {
+        "annualConsumptionKwh": 14000
+      },
+      "expected": {
+        "systemKwDc": 8.0,
+        "acKwhYear1": 7650.0,
+        "specificYield": 956.25,
+        "offsetPct": 0.5464,
+        "installCost": 20000.0,
+        "rebate": 5000,
+        "netCost": 15000.0,
+        "billWithoutSolarYear1": 1877.75,
+        "year1": {
+          "selfUsedKwh": 3871.59,
+          "exportedKwh": 3778.41,
+          "selfUsedValue": 545.12,
+          "exportValue": 377.84,
+          "total": 922.96
+        },
+        "paybackYears": 14.7,
+        "lifetimeNetSavings": 12891.31,
+        "npv": 2540.82
+      }
+    },
+    {
+      "name": "flat_4kw_10MWh_rebate_not_capped",
+      "why": "Demo insight: half the system, full $1,000/kW rebate, less exported",
+      "apiPanelWatts": 400,
+      "config": { "panelsCount": 10, "yearlyEnergyDcKwh": 4600 },
+      "inputs": {
+        "ratePlan": "flat"
+      },
+      "expected": {
+        "systemKwDc": 4.0,
+        "acKwhYear1": 3910.0,
+        "specificYield": 977.5,
+        "offsetPct": 0.391,
+        "installCost": 10000.0,
+        "rebate": 4000.0,
+        "netCost": 6000.0,
+        "billWithoutSolarYear1": 1361.25,
+        "year1": {
+          "selfUsedKwh": 2354.75,
+          "exportedKwh": 1555.25,
+          "selfUsedValue": 299.05,
+          "exportValue": 155.52,
+          "total": 454.58
+        },
+        "paybackYears": 12.08,
+        "lifetimeNetSavings": 8016.82,
+        "npv": 2789.0
+      }
+    },
+    {
+      "name": "flat_8kw_440W_panels",
+      "why": "Panel wattage scaling: DC energy x 440/400",
+      "apiPanelWatts": 400,
+      "config": { "panelsCount": 20, "yearlyEnergyDcKwh": 9000 },
+      "inputs": {
+        "ratePlan": "flat",
+        "panelWatts": 440
+      },
+      "expected": {
+        "systemKwDc": 8.8,
+        "acKwhYear1": 8415.0,
+        "specificYield": 956.25,
+        "offsetPct": 0.8415,
+        "installCost": 22000.0,
+        "rebate": 5000,
+        "netCost": 17000.0,
+        "billWithoutSolarYear1": 1361.25,
+        "year1": {
+          "selfUsedKwh": 3183.85,
+          "exportedKwh": 5231.15,
+          "selfUsedValue": 404.35,
+          "exportValue": 523.12,
+          "total": 927.46
+        },
+        "paybackYears": 16.92,
+        "lifetimeNetSavings": 9472.86,
+        "npv": -202.89
+      }
+    },
+    {
+      "name": "tiered_3.2kw_6MWh_under_threshold",
+      "why": "Small user always under the Step 1 threshold: savings at 11.87c only",
+      "apiPanelWatts": 400,
+      "config": { "panelsCount": 8, "yearlyEnergyDcKwh": 3600 },
+      "inputs": {
+        "annualConsumptionKwh": 6000
+      },
+      "expected": {
+        "systemKwDc": 3.2,
+        "acKwhYear1": 3060.0,
+        "specificYield": 956.25,
+        "offsetPct": 0.51,
+        "installCost": 8000.0,
+        "rebate": 3200.0,
+        "netCost": 4800.0,
+        "billWithoutSolarYear1": 797.76,
+        "year1": {
+          "selfUsedKwh": 1610.91,
+          "exportedKwh": 1449.09,
+          "selfUsedValue": 191.21,
+          "exportValue": 144.91,
+          "total": 336.12
+        },
+        "paybackYears": 13.15,
+        "lifetimeNetSavings": 5248.56,
+        "npv": 1530.04
+      }
+    },
+    {
+      "name": "tiered_8kw_5MWh_oversized",
+      "why": "Production > consumption: export-heavy, offsetPct > 1",
+      "apiPanelWatts": 400,
+      "config": { "panelsCount": 20, "yearlyEnergyDcKwh": 9000 },
+      "inputs": {
+        "annualConsumptionKwh": 5000
+      },
+      "expected": {
+        "systemKwDc": 8.0,
+        "acKwhYear1": 7650.0,
+        "specificYield": 956.25,
+        "offsetPct": 1.53,
+        "installCost": 20000.0,
+        "rebate": 5000,
+        "netCost": 15000.0,
+        "billWithoutSolarYear1": 679.06,
+        "year1": {
+          "selfUsedKwh": 1727.89,
+          "exportedKwh": 5922.11,
+          "selfUsedValue": 205.1,
+          "exportValue": 592.21,
+          "total": 797.31
+        },
+        "paybackYears": 18.13,
+        "lifetimeNetSavings": 6162.3,
+        "npv": -1408.92
+      }
+    },
+    {
+      "name": "flat_6.4kw_poor_roof_expensive_never_pays",
+      "why": "Poor roof + high price: paybackYears is null",
+      "apiPanelWatts": 400,
+      "config": { "panelsCount": 16, "yearlyEnergyDcKwh": 4800 },
+      "inputs": {
+        "ratePlan": "flat",
+        "costPerWatt": 3.5
+      },
+      "expected": {
+        "systemKwDc": 6.4,
+        "acKwhYear1": 4080.0,
+        "specificYield": 637.5,
+        "offsetPct": 0.408,
+        "installCost": 22400.0,
+        "rebate": 5000,
+        "netCost": 17400.0,
+        "billWithoutSolarYear1": 1361.25,
+        "year1": {
+          "selfUsedKwh": 2409.05,
+          "exportedKwh": 1670.95,
+          "selfUsedValue": 305.95,
+          "exportValue": 167.09,
+          "total": 473.04
+        },
+        "paybackYears": null,
+        "lifetimeNetSavings": -2866.25,
+        "npv": -8282.03
+      }
+    },
+    {
+      "name": "tiered_4.8kw_no_rebate",
+      "why": "rebateEligible=false (e.g. FortisBC customer, or bought before approval): rebate 0",
+      "apiPanelWatts": 400,
+      "config": { "panelsCount": 12, "yearlyEnergyDcKwh": 5520 },
+      "inputs": {
+        "rebateEligible": false
+      },
+      "expected": {
+        "systemKwDc": 4.8,
+        "acKwhYear1": 4692.0,
+        "specificYield": 977.5,
+        "offsetPct": 0.4692,
+        "installCost": 12000.0,
+        "rebate": 0,
+        "netCost": 12000.0,
+        "billWithoutSolarYear1": 1314.55,
+        "year1": {
+          "selfUsedKwh": 2584.06,
+          "exportedKwh": 2107.94,
+          "selfUsedValue": 348.72,
+          "exportValue": 210.79,
+          "total": 559.51
+        },
+        "paybackYears": 18.61,
+        "lifetimeNetSavings": 5128.33,
+        "npv": -1249.43
+      }
+    }
+  ],
+  "recommend": [
+    {
+      "name": "synthetic_south_tiered_10MWh",
+      "fixture": "fixtures/synthetic/south-gable.json",
+      "apiPanelWatts": 400,
+      "inputs": {},
+      "configs": [
+        { "panelsCount": 4, "yearlyEnergyDcKwh": 1900.0 },
+        { "panelsCount": 5, "yearlyEnergyDcKwh": 2370.0 },
+        { "panelsCount": 6, "yearlyEnergyDcKwh": 2838.0 },
+        { "panelsCount": 7, "yearlyEnergyDcKwh": 3304.0 },
+        { "panelsCount": 8, "yearlyEnergyDcKwh": 3768.0 },
+        { "panelsCount": 9, "yearlyEnergyDcKwh": 4230.0 },
+        { "panelsCount": 10, "yearlyEnergyDcKwh": 4690.0 },
+        { "panelsCount": 11, "yearlyEnergyDcKwh": 5148.0 },
+        { "panelsCount": 12, "yearlyEnergyDcKwh": 5604.0 },
+        { "panelsCount": 13, "yearlyEnergyDcKwh": 6058.0 },
+        { "panelsCount": 14, "yearlyEnergyDcKwh": 6510.0 },
+        { "panelsCount": 15, "yearlyEnergyDcKwh": 6960.0 },
+        { "panelsCount": 16, "yearlyEnergyDcKwh": 7408.0 },
+        { "panelsCount": 17, "yearlyEnergyDcKwh": 7854.0 },
+        { "panelsCount": 18, "yearlyEnergyDcKwh": 8298.0 },
+        { "panelsCount": 19, "yearlyEnergyDcKwh": 8740.0 },
+        { "panelsCount": 20, "yearlyEnergyDcKwh": 9180.0 },
+        { "panelsCount": 21, "yearlyEnergyDcKwh": 9618.0 },
+        { "panelsCount": 22, "yearlyEnergyDcKwh": 10054.0 },
+        { "panelsCount": 23, "yearlyEnergyDcKwh": 10488.0 },
+        { "panelsCount": 24, "yearlyEnergyDcKwh": 10920.0 },
+        { "panelsCount": 25, "yearlyEnergyDcKwh": 11312.0 },
+        { "panelsCount": 26, "yearlyEnergyDcKwh": 11698.8 },
+        { "panelsCount": 27, "yearlyEnergyDcKwh": 12080.3 },
+        { "panelsCount": 28, "yearlyEnergyDcKwh": 12456.5 },
+        { "panelsCount": 29, "yearlyEnergyDcKwh": 12827.5 },
+        { "panelsCount": 30, "yearlyEnergyDcKwh": 13127.5 },
+        { "panelsCount": 31, "yearlyEnergyDcKwh": 13425.8 },
+        { "panelsCount": 32, "yearlyEnergyDcKwh": 13722.5 },
+        { "panelsCount": 33, "yearlyEnergyDcKwh": 14017.5 },
+        { "panelsCount": 34, "yearlyEnergyDcKwh": 14310.9 },
+        { "panelsCount": 35, "yearlyEnergyDcKwh": 14602.6 },
+        { "panelsCount": 36, "yearlyEnergyDcKwh": 14892.7 },
+        { "panelsCount": 37, "yearlyEnergyDcKwh": 15181.1 },
+        { "panelsCount": 38, "yearlyEnergyDcKwh": 15467.9 },
+        { "panelsCount": 39, "yearlyEnergyDcKwh": 15753.0 },
+        { "panelsCount": 40, "yearlyEnergyDcKwh": 16036.5 },
+        { "panelsCount": 41, "yearlyEnergyDcKwh": 16318.3 },
+        { "panelsCount": 42, "yearlyEnergyDcKwh": 16598.5 },
+        { "panelsCount": 43, "yearlyEnergyDcKwh": 16877.0 },
+        { "panelsCount": 44, "yearlyEnergyDcKwh": 17153.9 },
+        { "panelsCount": 45, "yearlyEnergyDcKwh": 17429.1 },
+        { "panelsCount": 46, "yearlyEnergyDcKwh": 17702.7 },
+        { "panelsCount": 47, "yearlyEnergyDcKwh": 17974.6 },
+        { "panelsCount": 48, "yearlyEnergyDcKwh": 18244.9 },
+        { "panelsCount": 49, "yearlyEnergyDcKwh": 18513.5 },
+        { "panelsCount": 50, "yearlyEnergyDcKwh": 18780.5 },
+        { "panelsCount": 51, "yearlyEnergyDcKwh": 19045.8 },
+        { "panelsCount": 52, "yearlyEnergyDcKwh": 19309.5 },
+        { "panelsCount": 53, "yearlyEnergyDcKwh": 19571.5 }
+      ],
+      "expected": {
+        "recommendedIndex": 8,
+        "panelsCount": 12,
+        "systemKwDc": 4.8,
+        "npv": 3680.32,
+        "paybackYears": 11.7,
+        "verdict": "strong"
+      }
+    },
+    {
+      "name": "synthetic_south_flat_16MWh",
+      "fixture": "fixtures/synthetic/south-gable.json",
+      "apiPanelWatts": 400,
+      "inputs": {
+        "ratePlan": "flat",
+        "annualConsumptionKwh": 16000
+      },
+      "configs": [
+        { "panelsCount": 4, "yearlyEnergyDcKwh": 1900.0 },
+        { "panelsCount": 5, "yearlyEnergyDcKwh": 2370.0 },
+        { "panelsCount": 6, "yearlyEnergyDcKwh": 2838.0 },
+        { "panelsCount": 7, "yearlyEnergyDcKwh": 3304.0 },
+        { "panelsCount": 8, "yearlyEnergyDcKwh": 3768.0 },
+        { "panelsCount": 9, "yearlyEnergyDcKwh": 4230.0 },
+        { "panelsCount": 10, "yearlyEnergyDcKwh": 4690.0 },
+        { "panelsCount": 11, "yearlyEnergyDcKwh": 5148.0 },
+        { "panelsCount": 12, "yearlyEnergyDcKwh": 5604.0 },
+        { "panelsCount": 13, "yearlyEnergyDcKwh": 6058.0 },
+        { "panelsCount": 14, "yearlyEnergyDcKwh": 6510.0 },
+        { "panelsCount": 15, "yearlyEnergyDcKwh": 6960.0 },
+        { "panelsCount": 16, "yearlyEnergyDcKwh": 7408.0 },
+        { "panelsCount": 17, "yearlyEnergyDcKwh": 7854.0 },
+        { "panelsCount": 18, "yearlyEnergyDcKwh": 8298.0 },
+        { "panelsCount": 19, "yearlyEnergyDcKwh": 8740.0 },
+        { "panelsCount": 20, "yearlyEnergyDcKwh": 9180.0 },
+        { "panelsCount": 21, "yearlyEnergyDcKwh": 9618.0 },
+        { "panelsCount": 22, "yearlyEnergyDcKwh": 10054.0 },
+        { "panelsCount": 23, "yearlyEnergyDcKwh": 10488.0 },
+        { "panelsCount": 24, "yearlyEnergyDcKwh": 10920.0 },
+        { "panelsCount": 25, "yearlyEnergyDcKwh": 11312.0 },
+        { "panelsCount": 26, "yearlyEnergyDcKwh": 11698.8 },
+        { "panelsCount": 27, "yearlyEnergyDcKwh": 12080.3 },
+        { "panelsCount": 28, "yearlyEnergyDcKwh": 12456.5 },
+        { "panelsCount": 29, "yearlyEnergyDcKwh": 12827.5 },
+        { "panelsCount": 30, "yearlyEnergyDcKwh": 13127.5 },
+        { "panelsCount": 31, "yearlyEnergyDcKwh": 13425.8 },
+        { "panelsCount": 32, "yearlyEnergyDcKwh": 13722.5 },
+        { "panelsCount": 33, "yearlyEnergyDcKwh": 14017.5 },
+        { "panelsCount": 34, "yearlyEnergyDcKwh": 14310.9 },
+        { "panelsCount": 35, "yearlyEnergyDcKwh": 14602.6 },
+        { "panelsCount": 36, "yearlyEnergyDcKwh": 14892.7 },
+        { "panelsCount": 37, "yearlyEnergyDcKwh": 15181.1 },
+        { "panelsCount": 38, "yearlyEnergyDcKwh": 15467.9 },
+        { "panelsCount": 39, "yearlyEnergyDcKwh": 15753.0 },
+        { "panelsCount": 40, "yearlyEnergyDcKwh": 16036.5 },
+        { "panelsCount": 41, "yearlyEnergyDcKwh": 16318.3 },
+        { "panelsCount": 42, "yearlyEnergyDcKwh": 16598.5 },
+        { "panelsCount": 43, "yearlyEnergyDcKwh": 16877.0 },
+        { "panelsCount": 44, "yearlyEnergyDcKwh": 17153.9 },
+        { "panelsCount": 45, "yearlyEnergyDcKwh": 17429.1 },
+        { "panelsCount": 46, "yearlyEnergyDcKwh": 17702.7 },
+        { "panelsCount": 47, "yearlyEnergyDcKwh": 17974.6 },
+        { "panelsCount": 48, "yearlyEnergyDcKwh": 18244.9 },
+        { "panelsCount": 49, "yearlyEnergyDcKwh": 18513.5 },
+        { "panelsCount": 50, "yearlyEnergyDcKwh": 18780.5 },
+        { "panelsCount": 51, "yearlyEnergyDcKwh": 19045.8 },
+        { "panelsCount": 52, "yearlyEnergyDcKwh": 19309.5 },
+        { "panelsCount": 53, "yearlyEnergyDcKwh": 19571.5 }
+      ],
+      "expected": {
+        "recommendedIndex": 8,
+        "panelsCount": 12,
+        "systemKwDc": 4.8,
+        "npv": 3880.29,
+        "paybackYears": 11.63,
+        "verdict": "strong"
+      }
+    },
+    {
+      "name": "synthetic_south_cost_3.50",
+      "fixture": "fixtures/synthetic/south-gable.json",
+      "apiPanelWatts": 400,
+      "inputs": {
+        "costPerWatt": 3.5
+      },
+      "configs": [
+        { "panelsCount": 4, "yearlyEnergyDcKwh": 1900.0 },
+        { "panelsCount": 5, "yearlyEnergyDcKwh": 2370.0 },
+        { "panelsCount": 6, "yearlyEnergyDcKwh": 2838.0 },
+        { "panelsCount": 7, "yearlyEnergyDcKwh": 3304.0 },
+        { "panelsCount": 8, "yearlyEnergyDcKwh": 3768.0 },
+        { "panelsCount": 9, "yearlyEnergyDcKwh": 4230.0 },
+        { "panelsCount": 10, "yearlyEnergyDcKwh": 4690.0 },
+        { "panelsCount": 11, "yearlyEnergyDcKwh": 5148.0 },
+        { "panelsCount": 12, "yearlyEnergyDcKwh": 5604.0 },
+        { "panelsCount": 13, "yearlyEnergyDcKwh": 6058.0 },
+        { "panelsCount": 14, "yearlyEnergyDcKwh": 6510.0 },
+        { "panelsCount": 15, "yearlyEnergyDcKwh": 6960.0 },
+        { "panelsCount": 16, "yearlyEnergyDcKwh": 7408.0 },
+        { "panelsCount": 17, "yearlyEnergyDcKwh": 7854.0 },
+        { "panelsCount": 18, "yearlyEnergyDcKwh": 8298.0 },
+        { "panelsCount": 19, "yearlyEnergyDcKwh": 8740.0 },
+        { "panelsCount": 20, "yearlyEnergyDcKwh": 9180.0 },
+        { "panelsCount": 21, "yearlyEnergyDcKwh": 9618.0 },
+        { "panelsCount": 22, "yearlyEnergyDcKwh": 10054.0 },
+        { "panelsCount": 23, "yearlyEnergyDcKwh": 10488.0 },
+        { "panelsCount": 24, "yearlyEnergyDcKwh": 10920.0 },
+        { "panelsCount": 25, "yearlyEnergyDcKwh": 11312.0 },
+        { "panelsCount": 26, "yearlyEnergyDcKwh": 11698.8 },
+        { "panelsCount": 27, "yearlyEnergyDcKwh": 12080.3 },
+        { "panelsCount": 28, "yearlyEnergyDcKwh": 12456.5 },
+        { "panelsCount": 29, "yearlyEnergyDcKwh": 12827.5 },
+        { "panelsCount": 30, "yearlyEnergyDcKwh": 13127.5 },
+        { "panelsCount": 31, "yearlyEnergyDcKwh": 13425.8 },
+        { "panelsCount": 32, "yearlyEnergyDcKwh": 13722.5 },
+        { "panelsCount": 33, "yearlyEnergyDcKwh": 14017.5 },
+        { "panelsCount": 34, "yearlyEnergyDcKwh": 14310.9 },
+        { "panelsCount": 35, "yearlyEnergyDcKwh": 14602.6 },
+        { "panelsCount": 36, "yearlyEnergyDcKwh": 14892.7 },
+        { "panelsCount": 37, "yearlyEnergyDcKwh": 15181.1 },
+        { "panelsCount": 38, "yearlyEnergyDcKwh": 15467.9 },
+        { "panelsCount": 39, "yearlyEnergyDcKwh": 15753.0 },
+        { "panelsCount": 40, "yearlyEnergyDcKwh": 16036.5 },
+        { "panelsCount": 41, "yearlyEnergyDcKwh": 16318.3 },
+        { "panelsCount": 42, "yearlyEnergyDcKwh": 16598.5 },
+        { "panelsCount": 43, "yearlyEnergyDcKwh": 16877.0 },
+        { "panelsCount": 44, "yearlyEnergyDcKwh": 17153.9 },
+        { "panelsCount": 45, "yearlyEnergyDcKwh": 17429.1 },
+        { "panelsCount": 46, "yearlyEnergyDcKwh": 17702.7 },
+        { "panelsCount": 47, "yearlyEnergyDcKwh": 17974.6 },
+        { "panelsCount": 48, "yearlyEnergyDcKwh": 18244.9 },
+        { "panelsCount": 49, "yearlyEnergyDcKwh": 18513.5 },
+        { "panelsCount": 50, "yearlyEnergyDcKwh": 18780.5 },
+        { "panelsCount": 51, "yearlyEnergyDcKwh": 19045.8 },
+        { "panelsCount": 52, "yearlyEnergyDcKwh": 19309.5 },
+        { "panelsCount": 53, "yearlyEnergyDcKwh": 19571.5 }
+      ],
+      "expected": {
+        "recommendedIndex": 0,
+        "panelsCount": 4,
+        "systemKwDc": 1.6,
+        "npv": 361.27,
+        "paybackYears": 15.88,
+        "verdict": "weak"
+      }
+    },
+    {
+      "name": "synthetic_shaded_tiered_10MWh",
+      "fixture": "fixtures/synthetic/shaded-gable.json",
+      "apiPanelWatts": 400,
+      "inputs": {},
+      "configs": [
+        { "panelsCount": 4, "yearlyEnergyDcKwh": 1289.8 },
+        { "panelsCount": 5, "yearlyEnergyDcKwh": 1599.6 },
+        { "panelsCount": 6, "yearlyEnergyDcKwh": 1904.4 },
+        { "panelsCount": 7, "yearlyEnergyDcKwh": 2204.1 },
+        { "panelsCount": 8, "yearlyEnergyDcKwh": 2498.8 },
+        { "panelsCount": 9, "yearlyEnergyDcKwh": 2788.5 },
+        { "panelsCount": 10, "yearlyEnergyDcKwh": 3073.1 },
+        { "panelsCount": 11, "yearlyEnergyDcKwh": 3352.7 },
+        { "panelsCount": 12, "yearlyEnergyDcKwh": 3627.2 },
+        { "panelsCount": 13, "yearlyEnergyDcKwh": 3896.7 },
+        { "panelsCount": 14, "yearlyEnergyDcKwh": 4161.1 },
+        { "panelsCount": 15, "yearlyEnergyDcKwh": 4420.5 },
+        { "panelsCount": 16, "yearlyEnergyDcKwh": 4674.8 },
+        { "panelsCount": 17, "yearlyEnergyDcKwh": 4924.1 },
+        { "panelsCount": 18, "yearlyEnergyDcKwh": 5168.4 },
+        { "panelsCount": 19, "yearlyEnergyDcKwh": 5407.6 },
+        { "panelsCount": 20, "yearlyEnergyDcKwh": 5643.6 },
+        { "panelsCount": 21, "yearlyEnergyDcKwh": 5877.8 },
+        { "panelsCount": 22, "yearlyEnergyDcKwh": 6106.9 },
+        { "panelsCount": 23, "yearlyEnergyDcKwh": 6331.0 },
+        { "panelsCount": 24, "yearlyEnergyDcKwh": 6554.5 },
+        { "panelsCount": 25, "yearlyEnergyDcKwh": 6773.5 },
+        { "panelsCount": 26, "yearlyEnergyDcKwh": 6987.5 },
+        { "panelsCount": 27, "yearlyEnergyDcKwh": 7198.5 },
+        { "panelsCount": 28, "yearlyEnergyDcKwh": 7397.0 },
+        { "panelsCount": 29, "yearlyEnergyDcKwh": 7587.0 },
+        { "panelsCount": 30, "yearlyEnergyDcKwh": 7774.8 },
+        { "panelsCount": 31, "yearlyEnergyDcKwh": 7960.8 },
+        { "panelsCount": 32, "yearlyEnergyDcKwh": 8146.5 },
+        { "panelsCount": 33, "yearlyEnergyDcKwh": 8330.0 },
+        { "panelsCount": 34, "yearlyEnergyDcKwh": 8511.3 },
+        { "panelsCount": 35, "yearlyEnergyDcKwh": 8690.4 },
+        { "panelsCount": 36, "yearlyEnergyDcKwh": 8867.4 },
+        { "panelsCount": 37, "yearlyEnergyDcKwh": 9042.2 },
+        { "panelsCount": 38, "yearlyEnergyDcKwh": 9214.8 },
+        { "panelsCount": 39, "yearlyEnergyDcKwh": 9385.2 },
+        { "panelsCount": 40, "yearlyEnergyDcKwh": 9553.5 },
+        { "panelsCount": 41, "yearlyEnergyDcKwh": 9719.6 },
+        { "panelsCount": 42, "yearlyEnergyDcKwh": 9883.5 },
+        { "panelsCount": 43, "yearlyEnergyDcKwh": 10045.2 },
+        { "panelsCount": 44, "yearlyEnergyDcKwh": 10204.8 },
+        { "panelsCount": 45, "yearlyEnergyDcKwh": 10362.2 },
+        { "panelsCount": 46, "yearlyEnergyDcKwh": 10517.4 },
+        { "panelsCount": 47, "yearlyEnergyDcKwh": 10670.4 },
+        { "panelsCount": 48, "yearlyEnergyDcKwh": 10821.3 },
+        { "panelsCount": 49, "yearlyEnergyDcKwh": 10970.0 },
+        { "panelsCount": 50, "yearlyEnergyDcKwh": 11116.5 },
+        { "panelsCount": 51, "yearlyEnergyDcKwh": 11260.8 },
+        { "panelsCount": 52, "yearlyEnergyDcKwh": 11403.0 },
+        { "panelsCount": 53, "yearlyEnergyDcKwh": 11543.0 }
+      ],
+      "expected": {
+        "recommendedIndex": 1,
+        "panelsCount": 5,
+        "systemKwDc": 2.0,
+        "npv": 722.67,
+        "paybackYears": 14.24,
+        "verdict": "weak"
+      }
+    }
+  ]
+}
