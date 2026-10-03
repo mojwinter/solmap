@@ -32,6 +32,18 @@ services:
     networks:
       - puckbank
 
+    # The box is shared with puckbank and yardstick: cap what a runaway request (e.g. a heatmap
+    # render) can take from them. Idle is ~150–250 MB; past the limit the kernel OOM-kills this
+    # container, and `restart: unless-stopped` brings it back.
+    mem_limit: 768m
+    cpus: 1
+    # The app runs as uid 1001 and binds 3000 (> 1024), so it needs no capabilities at all, and
+    # nothing in it should ever gain privileges (setuid binaries etc.).
+    security_opt:
+      - "no-new-privileges:true"
+    cap_drop:
+      - ALL
+
     logging:
       driver: json-file
       options:

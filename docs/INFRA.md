@@ -9,7 +9,8 @@ yardstick and deploys exactly the way yardstick does.
 ```
 GitHub ──CI on PRs (typecheck, lint, test, build w/ synthetic fixtures; Docker smoke test)──► main
    │ push main → deploy.yml: CI → build image → ghcr.io/mojwinter/solmap:{latest, sha-<7>}
-   │                              → SSH deploy@VPS → git pull ~/solmap → compose pull + up -d solmap
+   │                              → SSH deploy@VPS (host key pinned) → ff ~/solmap to the commit
+   │                              → compose pull + up -d solmap on sha-<7> (skipped if .env pins SOLMAP_TAG)
    ▼
 Shared VPS 2.24.120.101 (Hostinger, Ubuntu 24.04, ~8 GB RAM): also runs puckbank and yardstick
    ~/solmap/                    git checkout of this repo (box-wide GitHub key, like yardstick)
@@ -93,7 +94,23 @@ gh secret set VPS_SSH_KEY < solmap_gha            # the private key from the box
 gh variable set NEXT_PUBLIC_MAPS_API_KEY --body "<browser key>"   # baked into the client at build
 gh variable set NEXT_PUBLIC_MAP_ID --body "<map id>"
 gh variable set DEPLOY_ENABLED --body true        # until this is set, the SSH step is skipped
+gh variable set VPS_HOST_FINGERPRINT --body 'SHA256:AjYFycy/LNCUJqeqdad2gEv7JV50bx70lmsqc9kO+Vc'
 ```
+
+`VPS_HOST_FINGERPRINT` pins the box's SSH host key (`appleboy/ssh-action`'s `fingerprint:` input), so the
+deploy job won't hand its root-equivalent `deploy` session to anything else answering on `VPS_HOST`. The
+deploy job fails up front if it's unset. The format is the whole `SHA256:…` string, exactly as
+`ssh-keygen -l` prints it (no `=` padding). The value above is the box's **ED25519** key, read on the box:
+
+```bash
+ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub | cut -d' ' -f2
+```
+
+Watch out for which key the action sees: its Go SSH client asks for **ECDSA before ED25519**, so if the box
+also has an ECDSA host key (`ls /etc/ssh/ssh_host_*_key.pub`; Ubuntu creates one by default), the server
+presents that one and the deploy fails with `ssh: host key fingerprint mismatch`. In that case set the
+variable to `ssh-keygen -lf /etc/ssh/ssh_host_ecdsa_key.pub | cut -d' ' -f2` instead. Either way, a wrong
+value fails closed. If the host key ever changes (rebuilt box), update the variable.
 
 **5. First deploy and the image.** Run Actions → Deploy → Run workflow (or merge anything to main). The
 first push creates the `ghcr.io/mojwinter/solmap` package as **private**, so the box's pull fails until you
@@ -101,8 +118,11 @@ make it public: github.com/users/mojwinter/packages/container/solmap/settings �
 Public (same as puckbank's images). Then re-run the workflow and check
 `https://solmap.yardstick.football/api/health` → `{"ok":true}`.
 
-**Box budget.** The `solmap` container idles at ~150–250 MB; heatmap renders spike briefly. Don't build on
-the box during the event. If Actions is down (e.g. minutes exhausted), the fallback is puckbank's pattern:
+**Box budget.** The `solmap` container idles at ~150–250 MB; heatmap renders spike briefly. Compose caps it
+at 768 MB and 1 CPU (`mem_limit`, `cpus`) so it can't starve puckbank or yardstick; past the memory cap it's
+OOM-killed and restarted. It also runs with every capability dropped and `no-new-privileges`, and its code
+is root-owned and read-only to the app user (only `.next/cache`, `.next/server/route-cache` and the
+solar-cache mount are writable). Don't build on the box during the event. If Actions is down (e.g. minutes exhausted), the fallback is puckbank's pattern:
 
 ```bash
 cd ~/solmap && git pull --ff-only && docker build -f docker/Dockerfile -t ghcr.io/mojwinter/solmap:latest .
@@ -114,19 +134,30 @@ your local build and reports `Running` instead of `Recreated`.
 
 ## Rollback and demo freeze
 
-Every build is also tagged `sha-<7-char commit>`. The box follows `latest` unless `SOLMAP_TAG` is set in
-`~/solmap-ops/.env`:
+Every build is tagged `sha-<7-char commit>`; builds from `main` (and only `main`) also move `latest`. The
+deploy job runs the exact image of the commit it deploys: it fast-forwards `~/solmap` to that commit, then
+`SOLMAP_TAG=sha-<7> docker compose pull solmap && … up -d solmap`. It never relies on `latest`, which only
+matters for a manual `docker compose up` with no tag set.
+
+**Roll back** by pinning a tag in `~/solmap-ops/.env`:
 
 ```bash
 cd ~/solmap-ops && nano .env        # SOLMAP_TAG=sha-abc1234 (a known-good commit on main)
 docker compose up -d solmap
 ```
 
-The same line **freezes the demo**. Pin the known-good sha about an hour before presenting; later merges
-still build, but the deploy job's `compose pull` keeps fetching the pinned tag. Delete the line to follow
-`latest` again. (`git tag v0-demo` on that commit is still a useful marker.)
+The same line **freezes the demo**. Pin the known-good sha about an hour before presenting. While `.env` pins
+a `SOLMAP_TAG` (anything other than empty or `latest`), the deploy job still builds and pushes every merge
+but **skips the box**: no `git` update, no pull, no restart. Its log says `DEPLOY SKIPPED: ~/solmap-ops/.env
+pins SOLMAP_TAG=…`, and the job stays green. To resume, delete the line, then re-run the latest Deploy
+workflow on `main` (or merge anything), which deploys that commit's sha. A plain `docker compose up -d
+solmap` also works and lands on `latest`, the newest `main` build. (`git tag v0-demo` on the pinned commit is
+still a useful marker.)
 
-CI builds and smoke-tests the image (`.github/workflows/docker.yml`: `/api/health`, uid 1001, writable solar-cache mount) on every PR that touches `docker/`, `.dockerignore`, `package.json`, the pnpm lockfile/workspace or `next.config.ts`, so a broken Dockerfile shows up before a deploy does.
+CI builds and smoke-tests the image (`.github/workflows/docker.yml`: `/api/health`, uid 1001, the compose file's
+hardening flags, only the cache dirs writable, writable solar-cache mount) on every PR that touches `docker/`,
+`.dockerignore`, `package.json`, the pnpm lockfile/workspace, `next.config.ts` or `ops/docker-compose.yml`, so a
+broken Dockerfile shows up before a deploy does.
 
 Google Cloud: restrict the **server key** to the VPS's public IPv4 **and** IPv6. Restrict the **browser key**
 to `https://solmap.yardstick.football/*` and `http://localhost:3000/*`.
