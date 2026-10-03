@@ -80,7 +80,9 @@ tailscale sidecar. The recreate drops connections for every site on the box for 
   The zone already runs Full (Strict).
 - Zero Trust → Access → Applications → Self-hosted: `solmap.yardstick.football`, policy "Allow" for the
   team's emails (one-time PIN). Scripts (e.g. `/demo-check`) need an Access **service token**
-  (`CF-Access-Client-Id` / `CF-Access-Client-Secret` headers) while it's on. Remove the app on demo day.
+  (`CF-Access-Client-Id` / `CF-Access-Client-Secret` headers) while it's on, and the policy needs a
+  **Service Auth** rule for that token. On demo day remove the app **and** clear `CF_ACCESS_TEAM_DOMAIN` /
+  `CF_ACCESS_AUD` on the box (Demo-day runbook → step 4), or the origin rejects everyone.
 
 **4. GitHub (this repo).** Give Actions its own login key, so it can be revoked without touching
 puckbank/yardstick. On the box: `ssh-keygen -t ed25519 -f ~/.ssh/solmap_gha -N '' -C solmap-gha &&
@@ -161,6 +163,272 @@ broken Dockerfile shows up before a deploy does.
 
 Google Cloud: restrict the **server key** to the VPS's public IPv4 **and** IPv6. Restrict the **browser key**
 to `https://solmap.yardstick.football/*` and `http://localhost:3000/*`.
+
+## Demo-day runbook
+
+Exact commands, in the order you'll need them. Every step ends with how to check it worked. Unless a step
+says otherwise, run it on the box as `deploy`:
+
+```bash
+ssh deploy@2.24.120.101
+cd ~/solmap-ops
+```
+
+Two things that bite:
+
+- **Pin first (step 1).** With no `SOLMAP_TAG` in `.env`, any manual `docker compose up` runs `latest`, which
+  is the newest `main` build and not necessarily what the deploy job last started. Every step below assumes
+  prod is pinned.
+- **`.env` changes need a recreate, not a restart.** `docker compose up -d solmap` recreates the container
+  when `.env` changed (the output says `Recreated`). `docker compose restart` keeps the old environment.
+
+Quick status at any point:
+
+```bash
+docker inspect -f '{{.Config.Image}} {{.State.Health.Status}}' "$(docker compose ps -q solmap)"
+grep -E '^(SOLMAP_TAG|SOLAR_SOURCE|CF_ACCESS_[A-Z_]+)=' .env
+docker compose logs --since 10m solmap | grep -c layer=google      # Google calls in the last 10 min
+```
+
+### 1. Pin prod to a known-good image (demo freeze), roll back, unpin
+
+Images are tagged `sha-<first 7 chars of the commit>`. List candidates (the box checkout sits at the last
+commit the deploy job deployed):
+
+```bash
+git -C ~/solmap log -10 --format='%H %s' | sed -E 's/^([0-9a-f]{7})[0-9a-f]+/sha-\1/'
+docker inspect -f '{{.Config.Image}}' "$(docker compose ps -q solmap)"   # what's running now
+```
+
+Pin (replace `sha-abc1234` in both lines). The first line fails with `manifest unknown` if that tag was never
+built, before anything changes:
+
+```bash
+SOLMAP_TAG=sha-abc1234 docker compose pull solmap
+sed -i '/^SOLMAP_TAG=/d' .env && echo 'SOLMAP_TAG=sha-abc1234' >> .env
+docker compose up -d solmap
+```
+
+Verify:
+- `grep '^SOLMAP_TAG=' .env` prints exactly one line, the tag you pinned.
+- After ~30 s, the status line above prints `ghcr.io/mojwinter/solmap:sha-abc1234 healthy`.
+- The next Deploy run on `main` logs `DEPLOY SKIPPED: ~/solmap-ops/.env pins SOLMAP_TAG=sha-abc1234` and stays green.
+
+**Roll back** = the same three lines with the previous good tag. Try it once before the event (issue #35):
+pin the current tag, roll back to the one before it, then pin forward again, checking the status line each time.
+
+**Unpin** (after the event, or to resume auto-deploys):
+
+```bash
+sed -i '/^SOLMAP_TAG=/d' .env
+```
+
+then Actions → Deploy → Run workflow on `main` (or `gh workflow run deploy.yml --ref main` from a laptop),
+which deploys that commit's `sha-` tag. Verify: the run logs `solmap healthy on sha-…` and the status line
+shows that tag. (A plain `docker compose up -d solmap` also works but lands on `latest`.)
+
+### 2. Offline fallback: `SOLAR_SOURCE=fixtures` and back (target: under a minute)
+
+In `fixtures` mode the app never calls Google. It answers from the disk cache (every roof looked up in the
+last 25 days, still shown as `cache` with Google attribution) and the synthetic roofs; any other roof is a
+404 `NO_COVERAGE`. Use it if Google, the key or the quota misbehaves. Prod is pinned and its image is
+already on the box, so skip the registry with `--pull never`:
+
+```bash
+time (sed -i 's/^SOLAR_SOURCE=.*/SOLAR_SOURCE=fixtures/' .env && docker compose up -d --pull never solmap)
+```
+
+Back to normal:
+
+```bash
+time (sed -i 's/^SOLAR_SOURCE=.*/SOLAR_SOURCE=cache/' .env && docker compose up -d --pull never solmap)
+```
+
+Verify each switch:
+- Compose printed `Recreated` (not `Running`), and `time` shows well under a minute (a few seconds).
+- `docker compose exec solmap printenv SOLAR_SOURCE` prints the new mode.
+- Reload a demo roof in the browser: it still renders. In `fixtures` mode,
+  `docker compose logs --since 2m solmap | grep -c layer=google` stays `0`.
+
+If `grep '^SOLAR_SOURCE=' .env` prints nothing, the line is missing: add it with
+`echo 'SOLAR_SOURCE=fixtures' >> .env`. Don't switch with prod unpinned (see the top of this section).
+
+### 3. Demo roofs are cached and fresh
+
+Every `live` roof in `fixtures/demo-addresses.json` must have a disk-cache entry younger than
+`SOLAR_CACHE_MAX_AGE_DAYS` (25) on demo day; the app ignores and deletes older ones. List the cache with the
+age of each entry (runs inside the container, which can read the uid-1001 files):
+
+```bash
+docker compose exec solmap node -e '
+const fs = require("fs"), dir = "fixtures/solar/building";
+for (const f of fs.readdirSync(dir).filter((f) => f.endsWith(".json")).sort()) {
+  const e = JSON.parse(fs.readFileSync(dir + "/" + f, "utf8"));
+  const days = (Date.now() - Date.parse(e.fetchedAt)) / 864e5;
+  console.log(days.toFixed(1).padStart(5) + "d", e.status, e.request.lat, e.request.lng, days > 22 ? "RE-WARM" : "ok", f);
+}'
+```
+
+Verify: each demo roof's lat/lng appears with `ok` (status 200, or 404 for the no-coverage roof). `ENOENT`
+means nothing is cached yet. The end-to-end check is `/demo-check https://solmap.yardstick.football`: every
+`live` address must come back with `source` `cache`. A `live` there means it wasn't warm (and that request
+just warmed it).
+
+**Re-warm.** A fresh entry is never re-fetched, so to renew one marked `RE-WARM` delete it first, then
+restart so the in-memory copy goes too (`restart` is fine here: nothing in `.env` changed):
+
+```bash
+docker compose exec solmap rm fixtures/solar/building/<file from the list above>
+docker compose restart solmap
+```
+
+Then warm with **one** of:
+
+- **Through the site** (simplest; prod must be on `SOLAR_SOURCE=cache`, and the call goes out from the box's
+  whitelisted IP): open each demo address on the site once, or run `/demo-check` (it fetches every `live`
+  address). While Access is on, scripts need the service token (step 4 has the Windows curl syntax):
+
+  ```bash
+  curl -s -H "CF-Access-Client-Id: $CF_ACCESS_CLIENT_ID" -H "CF-Access-Client-Secret: $CF_ACCESS_CLIENT_SECRET" \
+    "https://solmap.yardstick.football/api/solar/building?lat=<lat>&lng=<lng>"
+  ```
+
+- **`pnpm solar:warm` on B's machine** (its IP must be on the server key; `SOLAR_API_KEY` in `.env.local`).
+  The image has no `tsx` or scripts, so it doesn't run on the box. On the laptop:
+
+  ```bash
+  pnpm solar:warm -- --file fixtures/demo-addresses.json        # add --layers once the heatmap ships
+  scp -r fixtures/solar deploy@2.24.120.101:~/warm-upload
+  ```
+
+  Expect one `200   <label>: HIGH buildings/… (fetched)` line per roof (`already cached` = no Google call).
+  The cache dir belongs to uid 1001, so `deploy` can't scp straight into it. Copy it in through docker on the box:
+
+  ```bash
+  docker run --rm -v ~/warm-upload:/src:ro -v ~/solmap-ops/solar-cache:/c alpine \
+    sh -c 'cp -r /src/. /c/ && chown -R 1001:1001 /c' && rm -rf ~/warm-upload
+  ```
+
+  The app notices new files on its next lookup; a roof it already holds in memory switches over within 15 min
+  (`SOLAR_CACHE_TTL_SECONDS`), or straight away after `docker compose restart solmap`.
+
+Verify: re-run the listing above. The renewed roofs show `0.0d ok`.
+
+### 4. Open the site to judges
+
+Two locks guard the site, and both must come off: the Cloudflare Access **app** (at the edge) and the
+**origin check** in `proxy.ts`, which is on while `CF_ACCESS_TEAM_DOMAIN` and `CF_ACCESS_AUD` are both set.
+Delete only the app and the origin answers every request with 403 (`{"error":"FORBIDDEN"}` from the API, a
+plain-text "403 Forbidden" page otherwise). So turn the origin check off first; the edge still keeps
+strangers out until the app goes:
+
+```bash
+cp .env .env.with-access && chmod 600 .env.with-access       # keep the values for putting Access back
+sed -i -e 's/^CF_ACCESS_TEAM_DOMAIN=.*/CF_ACCESS_TEAM_DOMAIN=/' -e 's/^CF_ACCESS_AUD=.*/CF_ACCESS_AUD=/' .env
+docker compose up -d --pull never solmap
+docker compose exec solmap sh -c 'echo "team=[$CF_ACCESS_TEAM_DOMAIN] aud=[$CF_ACCESS_AUD]"'
+```
+
+The last line must print `team=[] aud=[]`. Then Cloudflare Zero Trust → Access → Applications →
+`solmap.yardstick.football` → Delete.
+
+Verify from a laptop that isn't logged in to Access (private window, or no cookies with curl). This query
+is rejected before any lookup, so it never costs a Google call:
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" https://solmap.yardstick.football/
+curl -s "https://solmap.yardstick.football/api/solar/building?lat=0&lng=0"
+```
+
+- Good: `200`, then `{"error":"BAD_REQUEST",…}`.
+- A `302` (redirect to `….cloudflareaccess.com`) or a Cloudflare login page means the Access app is still there.
+- A `403` or `{"error":"FORBIDDEN"}` means the origin check is still on: check `.env` and recreate.
+
+Then re-run `/demo-check https://solmap.yardstick.football` **without** `CF_ACCESS_CLIENT_ID` /
+`CF_ACCESS_CLIENT_SECRET` in the shell, from a laptop tethered to a phone on cellular data (not the venue
+Wi-Fi). Also open the site on that phone with Wi-Fi off, search the hero address and check the report loads
+with no Access login.
+
+**Windows `cmd.exe`** (curl ships with Windows 10+): use double quotes only (single quotes aren't quotes there,
+and an unquoted `&` splits the command), `NUL` instead of `/dev/null`, `%VAR%` instead of `$VAR`, one line
+(no `\` continuations), and no `# comment` at the end of a line: cmd has no inline comments, so curl gets the
+words as extra URLs. In PowerShell, type `curl.exe`, because `curl` there is `Invoke-WebRequest`.
+
+```bat
+curl -s -o NUL -w "%{http_code}\n" https://solmap.yardstick.football/
+curl -s "https://solmap.yardstick.football/api/solar/building?lat=0&lng=0"
+curl -s -H "CF-Access-Client-Id: %CF_ACCESS_CLIENT_ID%" -H "CF-Access-Client-Secret: %CF_ACCESS_CLIENT_SECRET%" "https://solmap.yardstick.football/api/solar/building?lat=0&lng=0"
+```
+
+(In a `.bat` file, double the `%` in `%{http_code}`: `%%{http_code}`.)
+
+### 5. If something breaks on stage
+
+| Symptom | First move (steps above) | Who |
+|---|---|---|
+| Site down / 502 from Caddy | Status line; `docker compose logs --tail=60 solmap`; roll back (1) | B: _TBD_ |
+| A bad merge got deployed | Roll back to the pinned known-good tag (1) | B: _TBD_ |
+| Roof lookups fail / slow / `daily limit reached` | `SOLAR_SOURCE=fixtures` (2) | B: _TBD_ |
+| A demo roof shows "we can't see this roof yet" | Check the cache (3); present a different demo roof meanwhile | B: _TBD_, D: _TBD_ |
+| Judges get a login page or 403 | Step 4 checks (Access app vs. origin env vars) | B: _TBD_ |
+| Map doesn't load (Maps key / referrer) | Google Cloud → browser key restrictions | A: _TBD_ |
+| Numbers look wrong | Note the inputs; don't hot-fix on stage | C: _TBD_ |
+| Venue Wi-Fi dies | Present from a phone hotspot | D: _TBD_ |
+
+Fill in names (and who holds the SSH key, the Cloudflare login and the Google Cloud login) before the event.
+
+### 6. After the event
+
+Google's terms: no Solar content kept past 30 days, and the server key shouldn't stay usable from the box.
+
+**a. Stop serving and storing Google content.** Either take the site down:
+
+```bash
+gh variable set DEPLOY_ENABLED --body false     # from a laptop, first: otherwise the next merge brings it back up
+docker compose down                             # on the box; leaves puckbank's network alone (it's external)
+```
+
+Verify: `docker compose ps` lists nothing, and `https://solmap.yardstick.football/` gives an error page (502).
+
+Or put Access back. Recreating the Access app gives it a **new AUD tag**, so copy the new tag from the app's
+Overview, restore the env vars from the backup, and set the new AUD:
+
+```bash
+grep '^CF_ACCESS_TEAM_DOMAIN=' .env.with-access     # the team domain didn't change
+nano .env                                           # CF_ACCESS_TEAM_DOMAIN=<from above>, CF_ACCESS_AUD=<new tag>, SOLAR_SOURCE=fixtures
+docker compose up -d --pull never solmap && rm .env.with-access
+```
+
+Verify: from a private window the site redirects to the Access login (`302` from the curl above); logged in, it
+works; and `docker compose exec solmap printenv SOLAR_SOURCE` prints `fixtures`, so nothing new gets cached.
+
+**b. Wipe the cache** (on the box, and B's laptop):
+
+```bash
+docker run --rm -v ~/solmap-ops/solar-cache:/c alpine find /c -mindepth 1 -delete
+docker run --rm -v ~/solmap-ops/solar-cache:/c alpine find /c -type f | wc -l     # expect 0
+```
+
+If the site stays up, recreate it so the in-memory copies go too: `docker compose up -d --force-recreate --pull never solmap`.
+On B's laptop: `rm -rf fixtures/solar/*` (PowerShell: `Remove-Item -Recurse -Force fixtures\solar\*`). Verify:
+`git status --ignored fixtures/solar` lists no files.
+
+**c. Lock the server key.** Google Cloud console → APIs & Services → Credentials → the server key →
+Application restrictions → IP addresses: remove the VPS's IPv4 and IPv6 and B's IP. If that empties the
+list, delete the key instead: an empty list with the restriction set to **None** leaves the key open to
+anyone who has it.
+
+Verify on the box, then take the key off it. The call should be refused (`API_KEY_IP_ADDRESS_BLOCKED`, or
+`API key not valid` if you deleted it). A refused call isn't billed; if it returns a building instead, the key
+still works from the box (and that one call was billed):
+
+```bash
+KEY=$(grep '^SOLAR_API_KEY=' .env | cut -d= -f2-)
+curl -s "https://solar.googleapis.com/v1/buildingInsights:findClosest?location.latitude=49.25&location.longitude=-123.15&key=$KEY" | head -c 300; echo; unset KEY
+sed -i 's/^SOLAR_API_KEY=.*/SOLAR_API_KEY=/' .env
+```
+
+Restriction changes can take a few minutes to apply; re-run the curl if the first try still works.
 
 ## Repo bootstrap (hour 0, the lead)
 
@@ -266,15 +534,15 @@ inside the file, not the file's mtime. Synthetic fixtures never expire.
 **Warming.** `scripts/warm-cache.ts` (B writes it in hour 1; `pnpm solar:warm -- --lat … --lng … --label …`
 or `--file fixtures/demo-addresses.json`) runs the same `cache`-mode code path with the server key, so a
 warmed roof is byte-for-byte what the app would have saved. Run it from B's whitelisted machine and copy
-the files up: `scp -r fixtures/solar/* deploy@<vps>:~/solmap-ops/solar-cache/`, then
-`docker run --rm -v ~/solmap-ops/solar-cache:/c alpine chown -R 1001:1001 /c`. Simpler still: while the VPS runs `SOLAR_SOURCE=cache`,
-open each demo address on the deployed site once. That warms the box's own cache.
+the files up (the cache dir is owned by uid 1001, so through docker: Demo-day runbook → step 3). Simpler
+still: while the VPS runs `SOLAR_SOURCE=cache`, open each demo address on the deployed site once. That warms
+the box's own cache.
 
-**Demo-day fallback.** If the API or venue Wi-Fi misbehaves, set `SOLAR_SOURCE=fixtures` in
-`~/solmap-ops/.env` and run `docker compose up -d solmap` (env changes don't need a rebuild).
-Every roof that was ever looked up in the last 25 days keeps working; nothing calls Google.
+**Demo-day fallback.** If the API or venue Wi-Fi misbehaves, switch prod to `SOLAR_SOURCE=fixtures`
+(Demo-day runbook → step 2; env changes don't need a rebuild). Every roof that was looked up in the last
+25 days keeps working; nothing calls Google.
 
-**After the event:** `docker run --rm -v ~/solmap-ops/solar-cache:/c alpine sh -c 'rm -rf /c/*'` and `rm -rf fixtures/solar/*` on B's laptop.
+**After the event:** wipe the cache on the box and B's laptop (Demo-day runbook → step 6).
 
 ### Test bank
 
