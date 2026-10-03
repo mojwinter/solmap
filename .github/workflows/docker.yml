@@ -30,13 +30,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
 
       # Same as deploy.sh's `docker build -f docker/Dockerfile .`, plus the GitHub Actions layer cache.
       - name: Build image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: docker/Dockerfile
@@ -96,6 +96,10 @@ jobs:
           docker exec "$NAME" grep -E '^(Uid|Gid):' /proc/1/status
           docker exec "$NAME" sh -c 'awk "/^Uid:/{print \$2}" /proc/1/status' | grep -qx 1001
           docker exec "$NAME" sh -c 'awk "/^Gid:/{print \$2}" /proc/1/status' | grep -qx 1001
+
+      - name: Next's runtime disk cache (.next) is writable
+        run: |
+          docker exec "$NAME" sh -euc 'mkdir -p /app/.next/cache/ci && rmdir /app/.next/cache/ci && test -w /app/.next/server'
 
       - name: Synthetic fixtures ship in the image
         run: docker exec "$NAME" test -s /app/fixtures/synthetic/south-gable.json
