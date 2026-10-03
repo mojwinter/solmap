@@ -9,7 +9,7 @@
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
-    "solar:warm": "tsx scripts/warm-cache.ts"
+    "solar:warm": "tsx --conditions=react-server scripts/warm-cache.ts"
   },
   "dependencies": {
     "@vis.gl/react-google-maps": "^1.10.1",
