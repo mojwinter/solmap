@@ -230,6 +230,20 @@ Every roof that was ever looked up in the last 25 days keeps working; nothing ca
 
 **After the event:** `docker run --rm -v ~/solmap-ops/solar-cache:/c alpine sh -c 'rm -rf /c/*'` and `rm -rf fixtures/solar/*` on B's laptop.
 
+### Test bank
+
+`fixtures/bank.json` holds 19 BC test locations, all public buildings (schools, libraries, rec centres,
+city halls) for privacy: Metro Vancouver, Victoria, Okanagan, Kamloops, Prince George and the Kootenays,
+plus 3 `"Rural"` points expected to 404. Each entry is `{label, lat, lng, region, why}`. Coordinates come
+from OpenStreetMap via Nominatim (© OpenStreetMap contributors, ODbL). They're not Google content, so they're safe to commit.
+
+- `pnpm solar:warm -- --file fixtures/bank.json [--layers]` warms them all (≈ 19 Building Insights calls,
+  plus 19 Data Layers calls with `--layers`, once per 25 days).
+- `pnpm solar:check` uses the first `"Metro Vancouver"` entry as its known-good point and the `"Rural"` ones
+  for the EXPANDED_COVERAGE test (PLAN.md → Pre-event checklist).
+- Keep every point ≥ 1 km from 53.9171,-122.7497 (the fixtures no-coverage demo point) and > 250 m from
+  every synthetic roof, so fixtures mode never answers a bank point with a fake roof.
+
 ## Observability (cheap)
 
 - `cd ~/solmap-ops && docker compose logs -f solmap` during the demo, or puckbank's Dozzle UI
