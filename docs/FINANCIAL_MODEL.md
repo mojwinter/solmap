@@ -214,6 +214,7 @@ New Westminster only); property-value effects.
 - BC Hydro flat rate: https://app.bchydro.com/accounts-billing/rates-energy-use/electricity-rates/residential-rates/flat.html
 - RS 2289 self-generation rate (10¢/kWh, effective July 1, 2026): https://www.bchydro.com/toolbar/about/strategies-plans-regulatory/rate-design/self-generation-rate-updates.html
 - Solar & battery rebates: https://app.bchydro.com/accounts-billing/electrical-connections/customer-generation/solar-battery-rebates.html
+- Rebate Terms and Conditions (effective 2026-07-29; §8 defines the residential single-family solar rebate as $1,000/kW, capped at the lesser of 50% of cost and $5,000): https://app.bchydro.com/content/dam/BCHydro/customer-portal/documents/power-smart/residential/programs/solar-battery-rebate-terms-and-conditions.pdf
 - Costs, yield, lifespan, degradation: https://www.bchydro.com/powersmart/residential/tips-technologies/solar-panels.html
 - Google non-US cost method: https://developers.google.com/maps/documentation/solar/calculate-costs-non-us
 - Orientation factors (manual estimate): https://pvwatts.nrel.gov/

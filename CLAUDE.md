@@ -112,7 +112,7 @@ Imports: `@/src/types/app`, `@/src/types/solar`, `@/src/config/bc` (alias `@/*` 
    `Source: Includes solar data from Google`. Keep the Google Maps logo visible on the map.
 4. **Every BC constant lives in `src/config/bc.ts`** with a source URL and an as-of date.
    Never hard-code a rate, rebate or cost anywhere else.
-5. **Finance code is pure.** No `Date.now()`, no fetch, no React. Inputs in, numbers out.
+5. **Finance code is pure.** No fetch, no React. Inputs in, numbers out.
    Any change to `lib/finance` must keep `fixtures/finance-golden.json` passing (±0.5%).
 6. **Honesty over hype.** If payback is longer than the panel lifetime, say so plainly.
    Show assumptions next to results. Never claim meaningful CO₂ savings for BC

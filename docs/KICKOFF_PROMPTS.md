@@ -60,17 +60,23 @@ Read CLAUDE.md and docs/FINANCIAL_MODEL.md end to end. Constants are in src/conf
 The engine's exact API is the FinanceEngine interface in src/types/app.ts.
 I own lib/finance/*, src/config/bc.ts and fixtures/finance-golden.json.
 
-Implement pure TypeScript (no React, no fetch, no Date):
+Implement pure TypeScript (no React, no fetch):
+Use only the `inputs` argument and constants imported from bc.ts (TARIFFS, REBATES, TUNING, INPUT_RANGES).
+Never read DEFAULT_INPUTS inside the engine; that's the caller's job. Ignore inputs.battery and Peak Saver for now (P1).
 1. bill.ts: monthlyBill(kWh, plan) and annualKwhFromBill(amount, periodMonths, plan) (exact inverse, strips GST).
 2. project.ts: evaluate(config, configIndex, apiPanelWatts, inputs) → ScenarioResult, per the formulas,
    including the self-use curve, input clamping (INPUT_RANGES → CLAMPED_INPUT) and warnings.
+   Rebate is residential single-family only:
+   min(REBATES.solar.perKwDc × kW, maxFractionOfCost × installCost, maxResidential), per §8 of BC Hydro's
+   terms (REBATES.terms). Use the REBATES values; don't hard-code the numbers.
 3. recommend.ts: recommend(building, inputs) → Recommendation (smallest config within
    TUNING.recommendNpvTolerance of max NPV; null index when there are no configs).
 4. verdict.ts: verdict (TUNING.verdict, first match wins) + top-3 ReasonChips per DESIGN.md §5.
 5. index.ts exporting an object that `satisfies FinanceEngine`.
 6. Vitest: every case in fixtures/finance-golden.json (bill, scenarios, recommend) within ±0.5%, plus
    assert golden `defaults` equals DEFAULT_INPUTS. Edge cases: 0 configs, consumption below the clamp,
-   production > consumption, bill below the basic charge, rebateEligible=false.
+   production > consumption, bill below the basic charge, rebateEligible=false,
+   rebate limited by 50% of cost (4 kW at $1.60/W → $3,200).
 Write the tests first from the golden file, then the code. Plan first.
 ```
 
