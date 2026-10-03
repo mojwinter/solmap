@@ -45,6 +45,10 @@ export const SELF_GENERATION = {
 } as const;
 
 export const REBATES = {
+  /**
+   * Residential Dwelling – Single Family (T&C §8): $1,000/kW DC, capped at the lesser of
+   * 50% of installed product cost and $5,000 → min(perKwDc × kW, maxFractionOfCost × cost, maxResidential).
+   */
   solar: {
     perKwDc: 1000,
     maxFractionOfCost: 0.5,
@@ -67,6 +71,9 @@ export const REBATES = {
   ],
   source:
     'https://app.bchydro.com/accounts-billing/electrical-connections/customer-generation/solar-battery-rebates.html',
+  /** Terms and Conditions, effective 2026-07-29, checked 2026-10-03. §8 states the "lesser of" rule. */
+  terms:
+    'https://app.bchydro.com/content/dam/BCHydro/customer-portal/documents/power-smart/residential/programs/solar-battery-rebate-terms-and-conditions.pdf',
 } as const;
 
 export const INSTALL = {
@@ -131,6 +138,8 @@ export const TUNING = {
   largeBuildingPanels: 150,
   /** Export share of year-1 production above this → "export_share" chip */
   exportShareWarn: 0.5,
+  /** Imagery captured more than this many years ago → "imagery" chip (DESIGN.md §5) */
+  imageryMaxAgeYears: 5,
 } as const;
 
 /**
