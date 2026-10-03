@@ -21,7 +21,9 @@ not the app itself. Drop it into a fresh Next.js repo at hour 0 (see `docs/INFRA
 | `.claude/commands/` | everyone | `/verify`, `/contract-check`, `/demo-check` |
 | `.claude/settings.json` | everyone | Shared Claude Code permissions: check commands allowed, real `.env` files unreadable |
 | `docker/`, `scripts/deploy.sh`, `.github/workflows/`, `.dockerignore` | B | Dockerfile, compose, Caddyfile, deploy script with health check + rollback, CI + deploy workflows |
-| `.env.example`, `.env.vps.example`, `.gitignore.additions` | B | Env templates |
+| `.env.example`, `.env.vps.example` | B | Env templates |
+| `AGENTS.md` | Claude Code | Next.js 16's own agent rules (managed by `next dev`, imported from CLAUDE.md) |
+| `app/`, `package.json`, configs | everyone | The scaffolded Next.js 16 app (hour 0). Only `app/api/health` and one config test so far |
 
 "Solmap" is the working name. Identifiers (Docker images, `/srv/solmap`, hostnames, the repo) use lowercase `solmap`.
 

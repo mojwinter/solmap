@@ -18,6 +18,9 @@ jobs:
 
   deploy:
     needs: ci
+    # Off until the VPS exists: set the repo variable DEPLOY_ENABLED=true (docs/INFRA.md → One-time VPS setup).
+    # Until then pushes to main still run CI through this workflow; only the SSH deploy is skipped.
+    if: vars.DEPLOY_ENABLED == 'true'
     runs-on: ubuntu-latest
     # One queue per environment, so a staging push can never cancel a pending prod deploy.
     # Cross-env safety (shared checkout on the VPS) comes from flock in deploy.sh.
