@@ -6,9 +6,10 @@ import { panelPolygon, type OffsetFn } from "./panels";
 const DIMS = { widthMeters: 1.045, heightMeters: 1.879 };
 const DIAGONAL = Math.hypot(0.5225, 0.9395);
 
-const segment = (azimuthDegrees: number, index = 0): SegmentLite => ({
+// Flat by default so the rotation tests aren't mixed up with foreshortening.
+const segment = (azimuthDegrees: number, index = 0, pitchDegrees = 0): SegmentLite => ({
   index,
-  pitchDegrees: 30,
+  pitchDegrees,
   azimuthDegrees,
   areaMeters2: 50,
   sunshineQuantiles: [],
@@ -74,6 +75,27 @@ describe("panelPolygon", () => {
       [60.92, 119.08, 240.92, 299.08],
     );
     calls.forEach((c) => expect(c.distance).toBeCloseTo(DIAGONAL, 6));
+  });
+
+  it("foreshortens the downslope side by cos(pitch) on a 30° roof", () => {
+    const { fn, calls } = recorder();
+    panelPolygon(panel(), [segment(0, 0, 30)], DIMS, fn);
+
+    // h = 0.9395 × cos 30° ≈ 0.8136, w unchanged → atan2(0.5225, 0.8136) ≈ 32.71°
+    expectHeadings(
+      calls.map((c) => c.heading),
+      [32.71, 147.29, 212.71, 327.29],
+    );
+    calls.forEach((c) => expect(c.distance).toBeCloseTo(Math.hypot(0.5225, 0.9395 * Math.cos(Math.PI / 6)), 6));
+  });
+
+  it("foreshortens the downslope side for landscape panels too", () => {
+    const { fn, calls } = recorder();
+    panelPolygon(panel({ landscape: true }), [segment(0, 0, 30)], DIMS, fn);
+
+    // Landscape: across = 0.9395, downslope = 0.5225 × cos 30° ≈ 0.4525
+    expect(calls[0].heading).toBeCloseTo(64.28, 2);
+    expect(calls[0].distance).toBeCloseTo(Math.hypot(0.9395, 0.5225 * Math.cos(Math.PI / 6)), 6);
   });
 
   it("uses the panel's own segment", () => {

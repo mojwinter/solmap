@@ -1,7 +1,7 @@
 /**
  * Panel centre + segment azimuth → the 4 polygon corners to draw on the map.
  * Pure: no React, no fetch, and no `google` global touched at import time, so it runs in Node tests.
- * Maths from docs/SOLAR_API.md → "Drawing a panel".
+ * Maths from docs/SOLAR_API.md → "Drawing a panel", plus pitch foreshortening (same doc, Prior art).
  */
 import type { LatLngLiteral, PanelLite, SegmentLite } from "@/src/types/app";
 
@@ -47,7 +47,10 @@ export function panelPolygon(
 
   const halfW = panelDims.widthMeters / 2;
   const halfH = panelDims.heightMeters / 2;
-  const [w, h] = panel.landscape ? [halfH, halfW] : [halfW, halfH];
+  const [w, slopeH] = panel.landscape ? [halfH, halfW] : [halfW, halfH];
+  // y runs downslope. Seen from above, a tilted panel is shorter by cos(pitch) in that direction
+  // (≈13% on a 30° roof); without this, rows on a pitched roof overlap on the map.
+  const h = slopeH * Math.cos((segment.pitchDegrees * Math.PI) / 180);
   const azimuth = segment.azimuthDegrees;
   const center = { lat: panel.lat, lng: panel.lng };
 
