@@ -6,6 +6,6 @@ coverage
 *.log
 .env*
 !.env.example
-!.env.vps.example
 fixtures/solar
+ops/
 .claude/settings.local.json

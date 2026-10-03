@@ -1,46 +1,103 @@
 name: Deploy
-# main → staging automatically. Tags v* (e.g. v0-demo, v1-final) → prod.
-# Every deploy runs CI first (ci.yml is reusable), so a red main never ships.
+# Every push to main: CI → build the image → push to GHCR → SSH to the shared VPS → pull
+# and restart the one `solmap` service. Same flow as yardstick's deploy.yml.
+# The SSH step is skipped until the repo variable DEPLOY_ENABLED is `true` (docs/INFRA.md).
 on:
   push:
     branches: [main]
-    tags: ["v*"]
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
   workflow_dispatch:
-    inputs:
-      env:
-        description: Environment
-        type: choice
-        options: [staging, prod]
-        default: staging
+
+# Deploys mutate one container on a box shared with other apps: queue, never cancel
+# mid `up -d`.
+concurrency:
+  group: deploy-solmap
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: mojwinter/solmap
+
 jobs:
   ci:
     uses: ./.github/workflows/ci.yml
 
-  deploy:
+  build-and-push:
     needs: ci
-    # Off until the VPS exists: set the repo variable DEPLOY_ENABLED=true (docs/INFRA.md → One-time VPS setup).
-    # Until then pushes to main still run CI through this workflow; only the SSH deploy is skipped.
-    if: vars.DEPLOY_ENABLED == 'true'
     runs-on: ubuntu-latest
-    # One queue per environment, so a staging push can never cancel a pending prod deploy.
-    # Cross-env safety (shared checkout on the VPS) comes from flock in deploy.sh.
-    concurrency:
-      group: deploy-${{ github.event_name == 'workflow_dispatch' && inputs.env || (startsWith(github.ref, 'refs/tags/') && 'prod' || 'staging') }}
-      cancel-in-progress: false
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
     steps:
-      - name: Pick environment
-        id: env
-        env:
-          EVENT: ${{ github.event_name }}
-          REF: ${{ github.ref }}
-          INPUT_ENV: ${{ inputs.env }}
-        run: |
-          if [ "$EVENT" = "workflow_dispatch" ]; then echo "name=$INPUT_ENV" >> "$GITHUB_OUTPUT"
-          elif [[ "$REF" == refs/tags/* ]]; then echo "name=prod" >> "$GITHUB_OUTPUT"
-          else echo "name=staging" >> "$GITHUB_OUTPUT"; fi
-      - uses: appleboy/ssh-action@v1
+      - uses: actions/checkout@v7
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tags and labels
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          # `latest` is what the VPS tracks; a sha tag is what a rollback pins to.
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=sha-
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: docker/Dockerfile
+          push: true
+          # Browser values are baked into the client bundle at build time, so they come
+          # from repo variables, not the VPS .env. The Maps key is referrer-restricted,
+          # which is what protects it (it ships to every visitor anyway).
+          build-args: |
+            NEXT_PUBLIC_MAPS_API_KEY=${{ vars.NEXT_PUBLIC_MAPS_API_KEY }}
+            NEXT_PUBLIC_MAP_ID=${{ vars.NEXT_PUBLIC_MAP_ID }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=solmap
+          cache-to: type=gha,scope=solmap,mode=max
+
+  deploy:
+    needs: build-and-push
+    if: github.ref == 'refs/heads/main' && vars.DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Pull and restart on the VPS
+        uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          script: /srv/solmap/src/scripts/deploy.sh ${{ steps.env.outputs.name }} ${{ github.sha }}
+          # set -e for fail-fast (no script_stop: drone-ssh's per-line check exits 1 on
+          # any else-branch).
+          script: |
+            set -e
+            # The compose file lives in this checkout, so the pull is how an ops change
+            # reaches the box.
+            git -C ~/solmap pull --ff-only
+            cd ~/solmap-ops
+            docker compose pull solmap
+            docker compose up -d solmap
+            # Wait up to 90 s for the container's own healthcheck before calling it deployed.
+            for _ in $(seq 1 45); do
+              status=$(docker inspect -f '{{.State.Health.Status}}' "$(docker compose ps -q solmap)")
+              if [ "$status" = healthy ]; then docker image prune -f >/dev/null; echo "solmap healthy"; exit 0; fi
+              sleep 2
+            done
+            docker compose logs --tail=60 solmap
+            echo "solmap did not become healthy. Roll back: set SOLMAP_TAG=sha-<previous> in ~/solmap-ops/.env, then docker compose up -d solmap" >&2
+            exit 1

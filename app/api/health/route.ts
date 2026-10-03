@@ -1,4 +1,4 @@
-// Called by scripts/deploy.sh and the Docker HEALTHCHECK. Keep it dependency-free.
+// Called by the Docker HEALTHCHECK, the compose healthcheck and the deploy job's health wait. Keep it dependency-free.
 export const dynamic = "force-dynamic";
 
 export function GET() {

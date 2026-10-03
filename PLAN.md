@@ -57,7 +57,7 @@ ever (within 25 days), thanks to the disk cache. Mechanics: docs/INFRA.md → Da
 |---|---|---|---|---|
 | **0. Synthetic** | Hours 0–5 | `fixtures` everywhere | 2 hand-made roofs (Strong, Weak) + the 404 state | 0 |
 | **1. Demo roofs** | Pre-event (≤ 25 days out) or hour 1 | B runs `pnpm solar:warm` on the demo list | + 5 real roofs, incl. the no-coverage one | ~5–10, once |
-| **2. Real roofs on staging** | Checkpoint 1 (hour 5) | staging `cache`; laptops stay `fixtures` | + any roof the team tries on staging | 1 per new roof |
+| **2. Real roofs on the VPS** | Checkpoint 1 (hour 5) | VPS `cache`; laptops stay `fixtures` | + any roof the team tries on the deployed site | 1 per new roof |
 | **3. Production** | Checkpoint 2 (hour 10) | prod `cache` (demo roofs already warm) | + roofs judges try | 1 per new roof |
 | **4. Sun heatmap** | P1 | same, cache extended to dataLayers + GeoTIFF bytes | + annual flux + roof mask rasters | 1 Data Layers call per roof (the $75/1,000 SKU) |
 
@@ -104,9 +104,9 @@ integrates, 10-minute sync.
 |---|---|
 | **0:00–0:45** | Kickoff. Re-read CLAUDE.md/DESIGN.md. Lead scaffolds repo (`create-next-app`, shadcn init, drop in this kit), pushes, confirms CI is green. B confirms keys work with one live call from the VPS. **Freeze contracts.** |
 | **0:45–5:00** | Parallel build **against the synthetic fixtures** (`SOLAR_SOURCE=fixtures`, no keys needed; Data roadmap phase 0). A: map + panels. B: API routes + deploy pipeline. C: finance engine + golden tests. D: report layout with a mock `Recommendation`. |
-| **5:00** | **Checkpoint 1**: real building on map, real numbers on screen for one fixture address. Deployed to staging, which switches to `SOLAR_SOURCE=cache` (phase 2). |
+| **5:00** | **Checkpoint 1**: real building on map, real numbers on screen for one fixture address. Deployed to solmap.yardstick.football (behind Cloudflare Access), which switches to `SOLAR_SOURCE=cache` (phase 2). |
 | **5:00–10:00** | Wire live API. Slider end-to-end. Verdict + recommendation. Spec sheet. Error states. |
-| **10:00** | **Checkpoint 2 = P0 done.** Full demo path works on the deployed URL with 3 demo addresses. Tag `v0-demo`. If P0 isn't done, **nobody starts P1**. |
+| **10:00** | **Checkpoint 2 = P0 done.** Full demo path works on the deployed URL with 3 demo addresses. Tag `v0-demo` and note its `sha-` image tag (that's what the demo freeze pins). If P0 isn't done, **nobody starts P1**. |
 | 10:00–12:00 | Sleep rotation starts (2 on / 2 off, 3-hour blocks). Whoever's up picks from the P1 list. |
 | **12:00–18:00** | P1 features, each behind a small flag so it can be switched off. |
 | **18:00** | **Checkpoint 3 = feature freeze.** Only bug fixes, copy and polish after this. |
@@ -129,7 +129,7 @@ integrates, 10-minute sync.
 - [ ] **Server key** (Solar API only), restricted by **IP** to the VPS's IPv4 **and IPv6** (`curl -4 ifconfig.me`,
       `curl -6 ifconfig.me`), plus B's IP for recording fixtures. Remove B's IP after the event.
 - [ ] **Browser key** (Maps JS + Places (New) only), restricted by **website**: `http://localhost:3000/*`,
-      `https://solmap.<domain>/*`, `https://staging.solmap.<domain>/*` (no `*.<domain>` wildcard).
+      `https://solmap.yardstick.football/*` (no wildcard).
 - [ ] Create a **Map ID** (JavaScript, vector) for advanced markers.
 - [ ] **Set quotas** (each API → Quotas & system limits; per-day where offered, else per-minute):
 
@@ -188,12 +188,13 @@ integrates, 10-minute sync.
       and no feature code. If even that is off-limits, bring only the docs and re-type the rest at hour 0.
 
 **VPS & repo (B)**
-- [ ] DNS: `solmap.<yourdomain>` and `staging.solmap.<yourdomain>` → VPS.
+- [ ] The VPS is shared with puckbank + yardstick: follow docs/INFRA.md → One-time VPS setup (checkout,
+      Caddy block PR in mojwinter/puckbank, Cloudflare DNS + Access for `solmap.yardstick.football`).
 - [ ] Docker + Compose installed, Caddy config tested with a hello-world container.
 - [ ] GitHub repo, branch protection on `main` (PR + passing CI), deploy key / SSH secret in Actions.
-- [ ] `.env`, `.env.prod`, `.env.staging` on the VPS (docs/INFRA.md → One-time VPS setup).
+- [ ] `~/solmap-ops/.env` on the VPS; GHCR package made public after the first build.
 - [ ] **Dry-run the whole pipeline** with a throwaway `create-next-app` repo: push → CI → deploy →
-      HTTPS on both hostnames → basic auth on staging → rollback command. Delete the repo after.
+      HTTPS → Cloudflare Access prompt → rollback by pinning `SOLMAP_TAG`. Delete the repo after.
       Finding a broken SSH key at hour 4 costs much more than at T-3 days.
 
 **Everyone**

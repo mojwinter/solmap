@@ -260,7 +260,7 @@ export function createSolarStore(opts: StoreOptions): SolarStore {
     const file = entryFileName(fetchedAtMs, req);
     const entry: CacheEntry = { fetchedAt: new Date(fetchedAtMs).toISOString(), request: req, status: res.status, body: res.body };
     try {
-      await writeFileAtomic(buildingDir, file, JSON.stringify(entry)); // prod and staging share the folder
+      await writeFileAtomic(buildingDir, file, JSON.stringify(entry)); // warm-cache and the server may write concurrently
       index.set(file, { file, fetchedAtMs, request: req, status: res.status, bbox: building && bboxOf(building) });
     } catch (e) {
       // The user still gets their answer; we just pay for this roof again next time.

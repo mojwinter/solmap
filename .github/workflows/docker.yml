@@ -34,7 +34,7 @@ jobs:
 
       - uses: docker/setup-buildx-action@v4
 
-      # Same as deploy.sh's `docker build -f docker/Dockerfile .`, plus the GitHub Actions layer cache.
+      # Same build as deploy.yml's (`-f docker/Dockerfile .`), plus the GitHub Actions layer cache.
       - name: Build image
         uses: docker/build-push-action@v7
         with:
@@ -56,7 +56,7 @@ jobs:
 
       - name: Start container
         run: |
-          # Stand-in for /srv/solmap/solar-cache on the VPS: a host dir owned by uid 1001.
+          # Stand-in for ~/solmap-ops/solar-cache on the VPS: a host dir owned by uid 1001.
           cache_dir="$RUNNER_TEMP/solar-cache"
           mkdir -p "$cache_dir"
           sudo chown 1001:1001 "$cache_dir"
@@ -87,7 +87,7 @@ jobs:
           echo "HTTP $code: $(cat health.json)"
           test "$code" = 200
           jq -e '. == {"ok": true}' health.json
-          # The exact command deploy.sh uses to decide a deploy succeeded (busybox wget inside the container).
+          # The exact command the compose healthcheck runs (busybox wget inside the container).
           docker exec "$NAME" wget -qO- http://127.0.0.1:3000/api/health
 
       - name: Runs as uid/gid 1001

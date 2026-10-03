@@ -33,7 +33,7 @@ out there still assume the old rules, so this is how we stand out. See
 | Tests | Vitest | Finance engine is pure TS; golden cases in `fixtures/finance-golden.json` |
 | Rasters (P1) | `geotiff` npm | Decode dataLayers GeoTIFFs for the sun heatmap overlay |
 | DB (P1, optional) | Postgres + Drizzle | Only for share links: store inputs, **never** Solar API responses |
-| Deploy | Docker Compose on our VPS, Caddy for HTTPS | See `docs/INFRA.md` |
+| Deploy | GHCR image → shared VPS (with puckbank + yardstick), puckbank's Caddy for HTTPS | See `docs/INFRA.md` |
 
 Package manager: **pnpm**. Node 22 LTS.
 
@@ -49,8 +49,7 @@ pnpm solar:warm -- --lat 49.24 --lng -123.07 --label hero   # fetch one roof int
 ```
 
 `SOLAR_SOURCE` decides where roof data comes from: `fixtures` (never calls Google; the default
-for every laptop and CI), `cache` (calls Google once per roof and saves it, used on staging and
-prod) or `live` (memory only). The committed synthetic roofs are at `49.25, -123.15` (south-gable,
+for every laptop and CI), `cache` (calls Google once per roof and saves it, used on the VPS) or `live` (memory only). The committed synthetic roofs are at `49.25, -123.15` (south-gable,
 Strong) and `49.2615, -123.1702` (shaded-gable, Weak); anything else → 404 in fixtures mode.
 **Build all UI against fixtures first** so nobody is blocked on keys, quota or coverage.
 PLAN.md → Data roadmap says which data comes online when.
@@ -84,8 +83,8 @@ fixtures/synthetic/             # hand-made roofs in the Google response shape: 
 fixtures/solar/                 # disk cache of real Google responses: gitignored, auto-deleted after 25 days
 lib/solar/cache.ts              # memory + disk cache, matching, expiry (server-only)
 scripts/warm-cache.ts           # pnpm solar:warm: fetch roofs into the disk cache (B)
-scripts/deploy.sh               # run on the VPS by the deploy workflow
-docker/                         # Dockerfile, compose.yml, Caddyfile (see docs/INFRA.md)
+ops/docker-compose.yml          # the VPS stack: one `solmap` service on puckbank's network (see docs/INFRA.md)
+docker/Dockerfile               # the image CI builds and pushes to ghcr.io/mojwinter/solmap
 ```
 
 Imports: `@/src/types/app`, `@/src/types/solar`, `@/src/config/bc` (alias `@/*` → repo root).
@@ -125,7 +124,7 @@ Imports: `@/src/types/app`, `@/src/types/solar`, `@/src/config/bc` (alias `@/*` 
    `EXPANDED_COVERAGE` retry is behind `SOLAR_EXPANDED_COVERAGE`; see docs/SOLAR_API.md.
 8. Money in the UI is **CAD**, rounded to whole dollars. Energy in **kWh**, power in **kW**.
 9. Small PRs, one owner per folder (see `PLAN.md` → Team). Rebase on `main` before
-   pushing. `main` auto-deploys to staging.
+   pushing. `main` auto-deploys to https://solmap.yardstick.football (behind Cloudflare Access until demo day).
 
 ## Domain cheat-sheet
 
