@@ -1,0 +1,133 @@
+name: Docker
+# Builds docker/Dockerfile and smoke-tests the image, so a broken Dockerfile shows up on the PR
+# instead of on the VPS's first deploy. Runs the container the way compose.yml does (uid 1001,
+# solar-cache mounted at /app/fixtures/solar) but with SOLAR_SOURCE=fixtures: no keys, no Google.
+on:
+  pull_request:
+    paths:
+      - docker/**
+      - .dockerignore
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - next.config.ts
+      - .github/workflows/docker.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IMAGE: solmap:ci
+  NAME: solmap-ci
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Same as deploy.sh's `docker build -f docker/Dockerfile .`, plus the GitHub Actions layer cache.
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          build-args: |
+            NEXT_PUBLIC_MAPS_API_KEY=ci-dummy-maps-key
+            NEXT_PUBLIC_MAP_ID=ci-dummy-map-id
+          tags: ${{ env.IMAGE }}
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: No Google responses baked into the image
+        run: |
+          docker run --rm --entrypoint sh "$IMAGE" -c \
+            'test -z "$(ls -A /app/fixtures/solar 2>/dev/null)"' \
+            || { echo "::error::/app/fixtures/solar in the image is not empty (Google content must never ship)"; exit 1; }
+
+      - name: Start container
+        run: |
+          # Stand-in for /srv/solmap/solar-cache on the VPS: a host dir owned by uid 1001.
+          cache_dir="$RUNNER_TEMP/solar-cache"
+          mkdir -p "$cache_dir"
+          sudo chown 1001:1001 "$cache_dir"
+          # --health-interval only shortens the Dockerfile's HEALTHCHECK interval so CI doesn't wait 30 s.
+          docker run -d --name "$NAME" -p 3000:3000 \
+            -e SOLAR_SOURCE=fixtures \
+            -v "$cache_dir:/app/fixtures/solar" \
+            --health-interval 2s \
+            "$IMAGE"
+
+      - name: Wait for the HEALTHCHECK to report healthy
+        run: |
+          for _ in $(seq 1 45); do
+            state=$(docker inspect -f '{{.State.Status}} {{.State.Health.Status}}' "$NAME")
+            echo "$state"
+            case "$state" in
+              "running healthy") exit 0 ;;
+              running*) sleep 2 ;;
+              *) echo "::error::container is not running ($state)"; exit 1 ;;
+            esac
+          done
+          echo "::error::container did not become healthy within 90 s"
+          exit 1
+
+      - name: GET /api/health returns 200 {"ok":true}
+        run: |
+          code=$(curl -sS -o health.json -w '%{http_code}' http://127.0.0.1:3000/api/health)
+          echo "HTTP $code: $(cat health.json)"
+          test "$code" = 200
+          jq -e '. == {"ok": true}' health.json
+          # The exact command deploy.sh uses to decide a deploy succeeded (busybox wget inside the container).
+          docker exec "$NAME" wget -qO- http://127.0.0.1:3000/api/health
+
+      - name: Runs as uid/gid 1001
+        run: |
+          # PID 1 is `node server.js`; check the real process, not just the image's USER.
+          docker exec "$NAME" grep -E '^(Uid|Gid):' /proc/1/status
+          docker exec "$NAME" sh -c 'awk "/^Uid:/{print \$2}" /proc/1/status' | grep -qx 1001
+          docker exec "$NAME" sh -c 'awk "/^Gid:/{print \$2}" /proc/1/status' | grep -qx 1001
+
+      - name: Synthetic fixtures ship in the image
+        run: docker exec "$NAME" test -s /app/fixtures/synthetic/south-gable.json
+
+      - name: Mounted solar-cache is writable (atomic temp + rename, like the disk cache)
+        run: |
+          docker exec "$NAME" sh -euc '
+            dir=/app/fixtures/solar/building
+            mkdir -p "$dir"
+            echo "{}" > "$dir/.ci.tmp"
+            mv "$dir/.ci.tmp" "$dir/ci.json"
+            test -s "$dir/ci.json"
+            rm -r "$dir"
+          '
+
+      - name: Serves the page, .next/static and public/
+        run: |
+          curl -fsS -o index.html http://127.0.0.1:3000/
+          asset=$(grep -oE '/_next/static/[^"]+\.(js|css)' index.html | head -n1)
+          test -n "$asset" || { echo "::error::no /_next/static asset referenced by /"; exit 1; }
+          curl -fsS -o /dev/null "http://127.0.0.1:3000$asset" && echo "OK $asset"
+          public_file=$(cd public 2>/dev/null && find . -type f | head -n1 | sed 's|^\./||')
+          if [ -n "$public_file" ]; then
+            curl -fsS -o /dev/null "http://127.0.0.1:3000/$public_file" && echo "OK /$public_file"
+          fi
+
+      - name: Container logs
+        if: failure()
+        run: |
+          docker inspect -f '{{json .State}}' "$NAME" || true
+          docker logs "$NAME" || true
+
+      - name: Clean up
+        if: always()
+        run: docker rm -f "$NAME" || true

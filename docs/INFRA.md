@@ -71,6 +71,8 @@ cd /srv/solmap && docker tag solmap:prod-prev solmap:prod && docker compose up -
 
 Or redeploy a known-good tag: Actions → Deploy → Run workflow, or `src/scripts/deploy.sh prod v0-demo`.
 
+CI builds and smoke-tests the image (`.github/workflows/docker.yml`: `/api/health`, uid 1001, writable solar-cache mount) on every PR that touches `docker/`, `.dockerignore`, `package.json`, the pnpm lockfile/workspace or `next.config.ts`, so a broken Dockerfile shows up before a deploy does.
+
 Google Cloud: restrict the **server key** to the VPS's public IP. Restrict the **browser key**
 to `https://solmap.<domain>/*`, `https://staging.solmap.<domain>/*`, `http://localhost:3000/*`.
 
