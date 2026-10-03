@@ -1,5 +1,7 @@
 # CLAUDE.md — Solmap (working name)
 
+@AGENTS.md
+
 Read this before touching the repo. It's the shared context for every developer
 and every Claude Code session on the team.
 

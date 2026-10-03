@@ -54,6 +54,8 @@ src/scripts/deploy.sh prod main
 
 GitHub → Settings → Secrets → Actions: `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY` (a *separate*
 key in the deploy user's `authorized_keys`, used only by Actions; not the deploy key).
+Then turn deploys on: Settings → Secrets and variables → Actions → **Variables** → `DEPLOY_ENABLED` = `true`
+(or `gh variable set DEPLOY_ENABLED --body true`). Until it's set, pushes to `main` run CI only.
 
 If you change `compose.yml` or `Caddyfile` in the repo, copy them to `/srv/solmap` again and run
 `docker compose up -d` by hand. `deploy.sh` only rebuilds the app container and makes sure Caddy is up.
@@ -74,13 +76,17 @@ to `https://solmap.<domain>/*`, `https://staging.solmap.<domain>/*`, `http://loc
 
 ## Repo bootstrap (hour 0, the lead)
 
+> **Done on 2026-10-03** (Next.js 16.3.8, pnpm 10.33.0). The kit repo *is* the app repo, so the app was
+> scaffolded in a temp folder and moved in; `.gitignore.additions` was merged into `.gitignore`. Next 16's
+> generated `AGENTS.md` is kept and imported from `CLAUDE.md`. The steps below are kept for reference.
+
 ```bash
 pnpm create next-app@latest solmap --ts --tailwind --eslint --app --no-src-dir \
   --import-alias "@/*" --use-pnpm        # accept the defaults for any remaining prompts
 cd solmap
 pnpm dlx shadcn@latest init
 pnpm add @vis.gl/react-google-maps zod recharts server-only
-pnpm add -D vitest vite-tsconfig-paths tsx @types/google.maps
+pnpm add -D vitest tsx @types/google.maps
 # P1: pnpm add geotiff
 # If pnpm prints "Ignored build scripts", run `pnpm approve-builds` and allow the ones listed.
 # Copy this kit in: CLAUDE.md PLAN.md DESIGN.md docs/ src/ fixtures/ docker/ scripts/ .github/ .claude/
@@ -91,9 +97,9 @@ cat .gitignore.additions >> .gitignore && rm .gitignore.additions
 Then:
 - `next.config.ts`: `output: 'standalone'`.
 - `package.json`: add `"packageManager": "pnpm@<version>"` (needed by `pnpm/action-setup`; use the
-  output of `pnpm --version`), and scripts `typecheck: "tsc --noEmit"`, `test: "vitest run"`,
+  output of `pnpm --version`), and scripts `typecheck: "next typegen && tsc --noEmit"` (Next 16's global `LayoutProps`/`PageProps` types come from typegen), `test: "vitest run"`,
   `solar:warm: "tsx scripts/warm-cache.ts"`.
-- `vitest.config.ts`: `plugins: [tsconfigPaths()]` (so `@/src/...` imports resolve in tests), `environment: 'node'`.
+- `vitest.config.mts`: `resolve: { tsconfigPaths: true }` (Vite 8 resolves `@/src/...` natively), `environment: 'node'`.
 - Add `app/api/health/route.ts` returning `{ ok: true }` (deploy.sh and the Docker healthcheck call it).
 - `lib/solar/client.ts` starts with `import 'server-only'`, so importing it from a client component
   fails the build instead of leaking the key.
