@@ -209,6 +209,16 @@ describe("cache mode", () => {
     expect(entryFiles()).toEqual([keep]);
   });
 
+  it("prune and lookup cope with an empty or missing cache dir (fresh image / fresh mount)", async () => {
+    // `dir` exists but is empty, like the image's /app/fixtures/solar
+    expect(await store().prune()).toBe(0);
+    const missing = path.join(dir, "does", "not", "exist");
+    const s = store({ cacheDir: missing, source: "fixtures" });
+    expect(await s.prune()).toBe(0);
+    expect(await s.lookup(SOUTH.lat, SOUTH.lng)).toMatchObject({ status: 200, source: "fixture" });
+    expect(logs.filter((l) => l.includes("readdir failed"))).toEqual([]);
+  });
+
   it("does not cache upstream errors", async () => {
     google = async () => {
       throw new UpstreamError("Google 503: UNAVAILABLE", 503);
