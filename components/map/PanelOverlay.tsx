@@ -15,6 +15,7 @@ function energyColor(t: number): string {
 }
 
 interface Props {
+  /** Polygons are rebuilt when this object changes, so keep it referentially stable (state, not re-parsed per render). */
   building: BuildingResponse;
   /** Draw the best `visibleCount` panels (panels are best-first, so this is config.panelsCount). */
   visibleCount: number;

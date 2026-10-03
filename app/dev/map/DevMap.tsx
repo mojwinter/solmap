@@ -36,7 +36,11 @@ export function DevMap() {
         setBuilding(body);
         setConfigIndex(body.configs.length - 1);
       })
-      .catch((e) => !cancelled && setError(String(e)));
+      .catch((e) => {
+        if (cancelled) return;
+        setBuilding(null);
+        setError(String(e));
+      });
     return () => {
       cancelled = true;
     };
@@ -55,6 +59,7 @@ export function DevMap() {
           <button
             key={r.label}
             onClick={() => setRoof(r)}
+            aria-pressed={r === roof}
             className={`rounded-full border px-3 py-1 text-sm ${
               r === roof ? "border-indigo-700 bg-indigo-700 text-white" : "border-zinc-300"
             }`}

@@ -28,31 +28,55 @@ export function SolarMap({ building, visibleCount, className }: Props) {
           defaultZoom={20}
           mapTypeId="satellite"
           tilt={0}
-          gestureHandling="greedy"
+          // The map sits in a scrolling page: plain scroll wheel scrolls the page, ctrl+scroll zooms.
+          gestureHandling="cooperative"
           streetViewControl={false}
           mapTypeControl={false}
         >
-          <FitBuilding building={building} />
+          <FitBuilding bounds={building.boundingBox} />
           <PanelOverlay building={building} visibleCount={visibleCount} />
         </Map>
       </APIProvider>
       <p className="mt-1 text-xs text-zinc-500">
-        {building.source === "fixture"
-          ? "Synthetic roof for development (not Google data)."
-          : "Source: Includes solar data from Google"}
-        {!API_KEY && " · No NEXT_PUBLIC_MAPS_API_KEY set: Google shows the map in development mode."}
+        {ATTRIBUTION[building.source]}
+        {!API_KEY &&
+          process.env.NODE_ENV !== "production" &&
+          " · No NEXT_PUBLIC_MAPS_API_KEY set: Google shows the map in development mode."}
       </p>
     </div>
   );
 }
 
-/** Re-fit the camera whenever the building changes (a new address keeps the same map instance). */
-function FitBuilding({ building }: { building: BuildingResponse }) {
+// CLAUDE.md rule 3: Google's attribution wherever their Solar data is shown (live and cache only).
+const ATTRIBUTION: Record<BuildingResponse["source"], string> = {
+  live: "Source: Includes solar data from Google",
+  cache: "Source: Includes solar data from Google",
+  fixture: "Synthetic roof for development (not Google data).",
+  manual: "Estimate from your inputs (no solar data for this roof).",
+};
+
+/** Re-fit the camera when the bounds change (a new address keeps the same map instance). */
+function FitBuilding({ bounds }: { bounds: BuildingResponse["boundingBox"] }) {
   const map = useMap();
+  const { sw, ne } = bounds;
   useEffect(() => {
     if (!map) return;
-    const { sw, ne } = building.boundingBox;
-    map.fitBounds({ south: sw.lat, west: sw.lng, north: ne.lat, east: ne.lng }, 40);
-  }, [map, building]);
+    const fit = () => map.fitBounds({ south: sw.lat, west: sw.lng, north: ne.lat, east: ne.lng }, 40);
+    const div = map.getDiv();
+    const hasSize = () => div.offsetWidth > 0 && div.offsetHeight > 0;
+    if (hasSize()) {
+      fit();
+      return;
+    }
+    // fitBounds on a hidden (0×0) map zooms out to city level, so wait until it's laid out
+    // (a collapsed section or tab that opens later).
+    const observer = new ResizeObserver(() => {
+      if (!hasSize()) return;
+      observer.disconnect();
+      fit();
+    });
+    observer.observe(div);
+    return () => observer.disconnect();
+  }, [map, sw.lat, sw.lng, ne.lat, ne.lng]);
   return null;
 }
