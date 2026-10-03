@@ -4,47 +4,219 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Design tokens from the Solmap design system ("Daylight", Claude Design):
+ * https://claude.ai/artifact/K7zzamvLTAppqvdqZcZtK3 — read its README for usage rules.
+ * Raw tokens keep the design's names; shadcn's variables below point at them.
+ * Day = :root, Dusk = .dark.
+ */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  /* Sky: the interface. sky-600 is the one action colour. */
+  --sky-050: #f4f9ff;
+  --sky-100: #e6f2ff;
+  --sky-200: #c4e2ff;
+  --sky-400: #5cb8ff;
+  --sky-600: #0a6fd8;
+  --on-sky-600: #ffffff;
+  --sky-700: #064e9e;
+  /* Sun: energy, sunshine, the break-even point. */
+  --sun-300: #ffe066;
+  --sun-500: #ffb800;
+  --on-sun-500: #0b1d33;
+  /* Text. */
+  --ink: #0b1d33;
+  --ink-secondary: #34445a;
+  --ink-tertiary: #55647a;
+  /* Glass and fills. */
+  --glass: rgba(255, 255, 255, 0.86);
+  --glass-thin: rgba(255, 255, 255, 0.76);
+  --glass-edge: rgba(255, 255, 255, 0.72);
+  --fill-quiet: rgba(11, 29, 51, 0.05);
+  --fill-selected: rgba(10, 111, 216, 0.13);
+  --separator: rgba(11, 29, 51, 0.1);
+  --control-border: #66768c;
+  --focus-ring: #0a6fd8;
+  /* Verdict only: fill, text (*-ink) and badge ground (*-soft). Always with a word + glyph. */
+  --good: #1e9e4f;
+  --good-ink: #0d6131;
+  --good-soft: rgba(30, 158, 79, 0.14);
+  --fair: #f2b100;
+  --fair-ink: #6b4800;
+  --fair-soft: rgba(242, 177, 0, 0.2);
+  --poor: #e5484d;
+  --poor-ink: #a11d24;
+  --poor-soft: rgba(229, 72, 77, 0.13);
+  /* Depth. Prefixed so they don't clash with Tailwind's --shadow-* theme names. */
+  --elev-float: 0 24px 60px rgba(10, 42, 74, 0.22), 0 2px 8px rgba(10, 42, 74, 0.1);
+  --elev-control: 0 6px 18px rgba(10, 42, 74, 0.16);
+  --elev-sheen: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --backdrop-glass: blur(40px) saturate(180%);
+  --backdrop-soft: blur(20px) saturate(160%);
+
+  /* shadcn */
+  --background: var(--sky-050);
+  --foreground: var(--ink);
+  --card: var(--glass);
+  --card-foreground: var(--ink);
+  --popover: #ffffff;
+  --popover-foreground: var(--ink);
+  --primary: var(--sky-600);
+  --primary-foreground: var(--on-sky-600);
+  --secondary: var(--fill-quiet);
+  --secondary-foreground: var(--ink);
+  --muted: var(--fill-quiet);
+  --muted-foreground: var(--ink-secondary);
+  --accent: var(--fill-selected);
+  --accent-foreground: var(--ink);
+  --destructive: var(--poor);
+  --border: var(--separator);
+  --input: var(--control-border);
+  --ring: var(--focus-ring);
+  --chart-1: var(--sky-600);
+  --chart-2: var(--sun-500);
+  --chart-3: var(--good);
+  --chart-4: var(--sky-400);
+  --chart-5: var(--poor);
+  --radius: 14px;
+  --sidebar: var(--sky-050);
+  --sidebar-foreground: var(--ink);
+  --sidebar-primary: var(--sky-600);
+  --sidebar-primary-foreground: var(--on-sky-600);
+  --sidebar-accent: var(--fill-selected);
+  --sidebar-accent-foreground: var(--ink);
+  --sidebar-border: var(--separator);
+  --sidebar-ring: var(--focus-ring);
+}
+
+.dark {
+  --sky-050: #0b1726;
+  --sky-100: #10223a;
+  --sky-200: #173556;
+  --sky-400: #4aa8ff;
+  --sky-600: #3d9bff;
+  --on-sky-600: #04192e;
+  --sky-700: #9ad0ff;
+  --sun-300: #ffd84d;
+  --sun-500: #ffc233;
+  --on-sun-500: #0b1d33;
+  --ink: #f2f7fd;
+  --ink-secondary: #c3cfde;
+  --ink-tertiary: #9eadc0;
+  --glass: rgba(20, 28, 40, 0.84);
+  --glass-thin: rgba(20, 28, 40, 0.78);
+  --glass-edge: rgba(255, 255, 255, 0.14);
+  --fill-quiet: rgba(255, 255, 255, 0.07);
+  --fill-selected: rgba(61, 155, 255, 0.22);
+  --separator: rgba(255, 255, 255, 0.12);
+  --control-border: #8597ad;
+  --focus-ring: #8cc8ff;
+  --good: #34c46a;
+  --good-ink: #7beaa4;
+  --good-soft: rgba(52, 196, 106, 0.2);
+  --fair: #ffc933;
+  --fair-ink: #ffd666;
+  --fair-soft: rgba(255, 201, 51, 0.18);
+  --poor: #ff6b6e;
+  --poor-ink: #ffa3a5;
+  --poor-soft: rgba(255, 107, 110, 0.18);
+  --elev-float: 0 24px 60px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
+  --elev-control: 0 6px 18px rgba(0, 0, 0, 0.4);
+  --elev-sheen: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+
+  --popover: #141c28;
+}
+
+@theme {
+  /* Apple system faces; no web font to load. */
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", "Segoe UI Variable", system-ui, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", "Segoe UI Variable Display", system-ui, sans-serif;
+  --font-rounded: ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-heading: var(--font-display);
+
+  /* Type scale: text-display-xl … text-footnote. Numbers (metric*) pair with font-rounded tabular-nums. */
+  --text-display-xl: 64px;
+  --text-display-xl--line-height: 68px;
+  --text-display-xl--letter-spacing: -0.03em;
+  --text-display-xl--font-weight: 700;
+  --text-display: 40px;
+  --text-display--line-height: 44px;
+  --text-display--letter-spacing: -0.025em;
+  --text-display--font-weight: 700;
+  --text-title: 26px;
+  --text-title--line-height: 32px;
+  --text-title--letter-spacing: -0.02em;
+  --text-title--font-weight: 600;
+  --text-metric-xl: 44px;
+  --text-metric-xl--line-height: 48px;
+  --text-metric-xl--letter-spacing: -0.02em;
+  --text-metric-xl--font-weight: 700;
+  --text-metric: 22px;
+  --text-metric--line-height: 28px;
+  --text-metric--letter-spacing: -0.01em;
+  --text-metric--font-weight: 600;
+  --text-headline: 17px;
+  --text-headline--line-height: 22px;
+  --text-headline--letter-spacing: -0.01em;
+  --text-headline--font-weight: 600;
+  --text-body: 15px;
+  --text-body--line-height: 21px;
+  --text-body--font-weight: 400;
+  --text-callout: 13px;
+  --text-callout--line-height: 18px;
+  --text-callout--font-weight: 500;
+  --text-footnote: 11px;
+  --text-footnote--line-height: 14px;
+  --text-footnote--letter-spacing: 0.01em;
+  --text-footnote--font-weight: 500;
+
+  /* Corners nest: card xl → tile md → icon tile sm; pills for buttons, badges, tracks. */
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 22px;
+  --radius-xl: 30px;
+  --radius-pill: 999px;
+
+  /* Drop Tailwind's own sky palette so only the design's sky steps exist. */
+  --color-sky-*: initial;
 }
 
 @theme inline {
+  --color-sky-050: var(--sky-050);
+  --color-sky-100: var(--sky-100);
+  --color-sky-200: var(--sky-200);
+  --color-sky-400: var(--sky-400);
+  --color-sky-600: var(--sky-600);
+  --color-on-sky-600: var(--on-sky-600);
+  --color-sky-700: var(--sky-700);
+  --color-sun-300: var(--sun-300);
+  --color-sun-500: var(--sun-500);
+  --color-on-sun-500: var(--on-sun-500);
+  --color-ink: var(--ink);
+  --color-ink-secondary: var(--ink-secondary);
+  --color-ink-tertiary: var(--ink-tertiary);
+  --color-glass: var(--glass);
+  --color-glass-thin: var(--glass-thin);
+  --color-glass-edge: var(--glass-edge);
+  --color-fill-quiet: var(--fill-quiet);
+  --color-fill-selected: var(--fill-selected);
+  --color-separator: var(--separator);
+  --color-control-border: var(--control-border);
+  --color-focus-ring: var(--focus-ring);
+  --color-good: var(--good);
+  --color-good-ink: var(--good-ink);
+  --color-good-soft: var(--good-soft);
+  --color-fair: var(--fair);
+  --color-fair-ink: var(--fair-ink);
+  --color-fair-soft: var(--fair-soft);
+  --color-poor: var(--poor);
+  --color-poor-ink: var(--poor-ink);
+  --color-poor-soft: var(--poor-soft);
+  --shadow-float: var(--elev-float);
+  --shadow-control: var(--elev-control);
+  --shadow-sheen: var(--elev-sheen);
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-geist-sans);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -74,47 +246,36 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+/* Frosted surface for anything floating over the map. Never glass on glass: use fill-quiet inside. */
+@utility glass {
+  background-color: var(--glass);
+  -webkit-backdrop-filter: var(--backdrop-glass);
+  backdrop-filter: var(--backdrop-glass);
+  border: 1px solid var(--glass-edge);
+  box-shadow: var(--elev-sheen), var(--elev-float);
+  color: var(--ink);
+  @media (prefers-reduced-transparency: reduce) {
+    background-color: var(--sky-050);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* Lighter frost for small bold controls on the map (zoom, layer toggle). */
+@utility glass-thin {
+  background-color: var(--glass-thin);
+  -webkit-backdrop-filter: var(--backdrop-glass);
+  backdrop-filter: var(--backdrop-glass);
+  border: 1px solid var(--glass-edge);
+  box-shadow: var(--elev-sheen), var(--elev-control);
+  color: var(--ink);
+  @media (prefers-reduced-transparency: reduce) {
+    background-color: var(--sky-050);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 }
 
 @layer base {

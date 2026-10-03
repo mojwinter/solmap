@@ -45,14 +45,23 @@ Landing ──► type address (PlaceAutocompleteElement → place.location)
 - One big address input. Three example chips ("Try: a sunny Kitsilano roof", ...) that route
   to pre-verified demo addresses.
 - Small print: "Uses Google aerial imagery. Estimates only, not a quote."
+- Layout (see §4): sky gradient with a soft sun glow, centred `display-xl` headline, one body line,
+  the bare frosted address search as the only call to action, example chips below it.
 
 ### Report page
 
+Layout (see §4): the map fills the screen. Address search floats top-left; one wide frosted
+results panel (~440px, scrolls) floats on the right, holding the cards below in this order:
+verdict → money → size slider → inputs → spec sheet → attribution. On phones the panel becomes
+a bottom sheet with the verdict visible first.
+
 **VerdictCard** (the hero element)
-- Badge: **Strong / Moderate / Weak / Not recommended** (colour + icon + word, never colour alone).
+- Badge: **Strong / Moderate / Weak / Not recommended** (colour + glyph + word, never colour alone),
+  styled as the design's VerdictBadge: strong = `good`, moderate = `fair`, weak and not recommended = `poor`
+  (not recommended gets its own glyph).
 - One sentence: "A 4 kW system pays for itself in about 13 years and saves ~$7,000 over 25."
-- Three reason chips, picked from the rules in §5 (e.g., "☀ 1,180 sun-hours, above BC average",
-  "↗ South-west roof, 28° pitch", "⚠ Rebate maxes out at 5 kW").
+- Three reason chips, picked from the rules in §5 (e.g., [sun] "1,180 sun-hours, above BC average",
+  [roof] "South-west roof, 28° pitch", [warning] "Rebate maxes out at 5 kW"). Icons, not emoji.
 - Confidence badge: imagery quality + date ("High-res aerial, Aug 2024").
 
 **MoneyCard**
@@ -60,7 +69,8 @@ Landing ──► type address (PlaceAutocompleteElement → place.location)
 - Year-1 breakdown: "You use $X of your solar directly (saves ~12.7¢/kWh) and sell $Y back at 10¢/kWh."
 
 **SizeSlider**
-- Snaps to `solarPanelConfigs` steps. Label: "10 panels · 4.0 kW".
+- Snaps to `solarPanelConfigs` steps. Label: "10 panels · 4.0 kW". Looks like the design's
+  PanelSlider (−/+ steppers, `sky-600` filled track, white thumb).
 - A star marks the **recommended** size. A faint band shows sizes with payback < lifetime.
 - Dragging redraws panels on the map and recomputes everything client-side (<16 ms).
 
@@ -96,7 +106,7 @@ Landing ──► type address (PlaceAutocompleteElement → place.location)
 ### States
 | State | Behaviour |
 |---|---|
-| Loading | Map flies to the place's location immediately, skeleton cards on the right |
+| Loading | Map flies to the place's location immediately, skeleton cards in the floating panel |
 | Wrong building | `findClosest` can pick a neighbour or a garage. Always show "Not your roof? Click your roof on the map" |
 | 404 / no coverage | "We don't have roof imagery for this address yet." P0: link to the demo addresses. P1: manual estimate form (sun-facing roof area + facing) → `source: 'manual'` report with a "Rough estimate" badge |
 | Low quality (BASE / LOW) | Show results + a "Satellite-based, lower confidence" badge |
@@ -107,13 +117,40 @@ Landing ──► type address (PlaceAutocompleteElement → place.location)
 
 ## 4. Visual direction
 
-- Calm and trustworthy, not "salesy solar". Warm off-white background, one accent (sun amber),
-  slate text; green/amber/red only for the verdict.
-- Numbers are big and tabular (`font-variant-numeric: tabular-nums`). Units small and grey.
-- Map takes ~55% width on desktop; stacks on mobile with the verdict first.
-- Panels on the map: dark blue fill, thin light stroke; opacity encodes each panel's
-  `yearlyEnergyDcKwh` (brighter = more productive). That makes shading visible without the heatmap.
-- Attribution line under the results column: "Source: Includes solar data from Google."
+**Source of truth for anything visual: the Solmap design system (Claude Design, "Daylight")**:
+https://claude.ai/artifact/K7zzamvLTAppqvdqZcZtK3. Its README has the full rules and every
+component's guidelines. Tokens are in `app/globals.css` under the same names. If this section
+and the design disagree, the design wins; data, finance and copy rules elsewhere in this
+file and in CLAUDE.md still apply.
+
+- **Feel:** a sunny day seen through frosted glass. Bright sky colours, heavy frost over the map,
+  calm type, one clear money answer. Money leads; roof facts support it.
+- **Colour:** sky blues carry the interface (`sky-050` page ground, `sky-600` the one action
+  colour, `sky-700` links). `sun-500` marks energy, sunshine and the break-even point.
+  `good` / `fair` / `poor` (with `*-ink` text and `*-soft` grounds) are **only** for the verdict
+  and gains/losses. Text is `ink`, labels and units `ink-secondary`, footnotes `ink-tertiary`.
+  Day theme is the default; Dusk (`.dark`) is ready for later.
+- **Glass:** anything floating over the map uses the `glass` utility (frost + 1px edge + sheen +
+  float shadow); small map controls use `glass-thin`. Never glass on glass: group content inside a
+  card on `fill-quiet` tiles. Falls back to solid `sky-050` under `prefers-reduced-transparency`.
+- **Type:** system faces (SF Pro on Apple, Segoe UI / system-ui elsewhere), no web font.
+  `display-xl` once on the landing page; `title` for the address; `headline` / `body` / `callout`
+  for text; `footnote` for assumptions only. Numbers use `font-rounded` + `tabular-nums` at
+  `metric-xl` (the hero number) or `metric`. Units are small and `ink-secondary`.
+- **Shape:** 4px spacing. Cards `rounded-xl` (30px) padded 20px; tiles `rounded-md`; icon
+  tiles `rounded-sm`; buttons, badges, segmented controls and tracks are pills.
+- **Layout:** the map is the canvas (full screen); cards float over it, inset 24px on desktop and
+  16px on phones, and never split the screen. Below 640px the results panel is a bottom sheet with
+  the verdict first.
+- **Map:** panels on the roof as dark blue polygons with a thin light stroke; opacity encodes each
+  panel's `yearlyEnergyDcKwh` (brighter = more productive), which shows shading without the heatmap.
+  The selected building is outlined in `sun-500`.
+- **Motion:** 150ms press (scale .97); numbers update instantly with the slider; cards fade and rise
+  8px over 250ms. Respect `prefers-reduced-motion`.
+- **Focus:** 2px solid `focus-ring` outline, 2px offset, on every interactive element.
+- **Voice:** plain, warm, second person, sentence case, no exclamation marks or emoji, no jargon
+  ("ROI", "LCOE") on screen. Net money figures carry a sign and a true minus (−$4,200).
+- Attribution line under the results: "Source: Includes solar data from Google."
   Keep the Google Maps logo visible on the map.
 
 ## 5. Verdict rules (implemented in `lib/finance/verdict.ts`)
