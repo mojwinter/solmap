@@ -43,13 +43,15 @@ pnpm build          # production build (standalone output)
 pnpm test           # vitest (finance engine + parsers)
 pnpm typecheck      # tsc --noEmit
 pnpm lint           # eslint
-pnpm fixtures:record -- --lat 49.24 --lng -123.07   # save a live Solar response to fixtures/ (dev only, gitignored)
+pnpm solar:warm -- --lat 49.24 --lng -123.07 --label hero   # fetch one roof into the disk cache (B only, needs the server key)
 ```
 
-Set `USE_FIXTURES=1` in `.env.local` to serve fixtures from our API routes instead of calling
-Google. The committed synthetic roofs are at `49.25, -123.15` (south-gable, Strong) and
-`49.2615, -123.1702` (shaded-gable, Weak); anything else → 404. **Build all UI against fixtures
-first** so nobody is blocked on keys, quota or coverage.
+`SOLAR_SOURCE` decides where roof data comes from: `fixtures` (never calls Google; the default
+for every laptop and CI), `cache` (calls Google once per roof and saves it, used on staging and
+prod) or `live` (memory only). The committed synthetic roofs are at `49.25, -123.15` (south-gable,
+Strong) and `49.2615, -123.1702` (shaded-gable, Weak); anything else → 404 in fixtures mode.
+**Build all UI against fixtures first** so nobody is blocked on keys, quota or coverage.
+PLAN.md → Data roadmap says which data comes online when.
 
 ## Repo layout (target)
 
@@ -77,8 +79,9 @@ src/types/app.ts                # OUR contracts (provided in this kit) — chang
 src/config/bc.ts                # every BC number with its source (provided in this kit)
 fixtures/finance-golden.json    # golden finance cases (C)
 fixtures/synthetic/             # hand-made roofs in the Google response shape: CI + hour-0 dev (committed)
-fixtures/solar/                 # real recorded responses: local/VPS only, gitignored, delete ≤ 30 days
-scripts/record-fixture.ts       # saves a live response to fixtures/solar/ (dev only)
+fixtures/solar/                 # disk cache of real Google responses: gitignored, auto-deleted after 25 days
+lib/solar/cache.ts              # memory + disk cache, matching, expiry (server-only)
+scripts/warm-cache.ts           # pnpm solar:warm: fetch roofs into the disk cache (B)
 scripts/deploy.sh               # run on the VPS by the deploy workflow
 docker/                         # Dockerfile, compose.yml, Caddyfile (see docs/INFRA.md)
 ```
@@ -99,10 +102,11 @@ Imports: `@/src/types/app`, `@/src/types/solar`, `@/src/config/bc` (alias `@/*` 
 1. **Keys**: `SOLAR_API_KEY` is server-only. `lib/solar/client.ts` starts with `import 'server-only'`,
    so a client import fails the build. Only `NEXT_PUBLIC_MAPS_API_KEY` (HTTP-referrer-restricted) goes to the browser.
    GeoTIFF URLs from dataLayers need a key appended, so we always proxy them.
-2. **No persisting Google content.** Google lets us cache Building Insights / Data Layers
-   temporarily, for **at most 30 days**. So: in-memory LRU is fine; recorded fixtures in `fixtures/solar/`
-   are fine if deleted within 30 days; **never commit a real response** (git history is
-   forever) and never put one in the DB. CI uses `fixtures/synthetic/`.
+2. **Google content expires.** Google lets us cache Building Insights / Data Layers temporarily,
+   for **at most 30 days**. Our disk cache (`fixtures/solar/`, `SOLAR_CACHE_DIR`) stamps every entry
+   with its fetch time, ignores entries older than `SOLAR_CACHE_MAX_AGE_DAYS` (25), and deletes them on
+   startup and hourly. **Never commit a real response** (git history is forever), never bake one into
+   an image, never put one in the DB. CI uses `fixtures/synthetic/`.
 3. **Attribution** is required wherever Solar data is shown:
    `Source: Includes solar data from Google`. Keep the Google Maps logo visible on the map.
 4. **Every BC constant lives in `src/config/bc.ts`** with a source URL and an as-of date.

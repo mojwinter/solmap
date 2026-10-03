@@ -103,7 +103,7 @@ Landing ──► type address (PlaceAutocompleteElement → place.location)
 | Outside BC | `administrativeArea` present and not "BC" → banner: "This tool uses BC Hydro rates; this address looks like it's outside BC" |
 | Roof too small | `configs` empty → verdict Not recommended, `roof_small` chip, no slider |
 | Multi-unit / huge roof | If `maxArrayPanelsCount > 150`, note "This looks like a large or multi-unit building; results assume one BC Hydro account" |
-| API error / quota | Friendly retry; in fixtures mode, fall back silently |
+| API error / quota | Friendly retry. Ops fallback: switch prod to `SOLAR_SOURCE=fixtures` (serves every cached roof, calls nothing) |
 
 ## 4. Visual direction
 
@@ -155,8 +155,9 @@ Next.js server (Docker on VPS, behind Caddy)
   ├─ /api/solar/layers     → solar.googleapis.com/v1/dataLayers:get          (P1)
   ├─ /api/solar/geotiff    → solar.googleapis.com/v1/geoTiff:get + key      (P1)
   ├─ zod validation → trim to BuildingResponse
-  ├─ in-memory LRU (process lifetime only) + per-IP rate limit
-  └─ USE_FIXTURES=1 → serve fixtures/solar/*.json (recorded, local only) + fixtures/synthetic/*.json
+  ├─ lib/solar/cache.ts: memory LRU → disk cache (fixtures/solar/, ≤ 25 days) → Google (if SOLAR_SOURCE allows)
+  ├─ per-IP rate limit
+  └─ SOLAR_SOURCE=fixtures → disk cache + fixtures/synthetic/*.json only, never Google
 Postgres (P2, optional): share links = inputs only
 ```
 
@@ -177,8 +178,17 @@ coverage. Only if that 404s **and** `SOLAR_EXPANDED_COVERAGE=1`, retry once with
 `experiments=EXPANDED_COVERAGE&requiredQuality=BASE` (pre-GA satellite data; B confirms before the
 event whether it returns anything in BC). See docs/SOLAR_API.md → Quality and coverage.
 
-In fixtures mode, the route returns the fixture whose `center` is nearest to the request, if it's
-within 250 m; otherwise 404 `NO_COVERAGE`. That gives the error state for free.
+Data source by `SOLAR_SOURCE` (details in docs/INFRA.md → Data sources):
+
+| Mode | Lookup order | On a miss |
+|---|---|---|
+| `fixtures` | disk cache → nearest synthetic roof within 250 m | 404 `NO_COVERAGE` (the error state for free) |
+| `cache` | memory → disk cache | call Google once, save the result (including 404s) to disk |
+| `live` | memory | call Google |
+
+A cached entry matches when the requested point is inside the cached building's `boundingBox`
+(the same building `findClosest` would return) or within 5 m of the point that was originally requested
+(covers cached 404s).
 
 `GET /api/solar/layers?lat&lng&radius=30` (P1): returns `{ annualFluxUrl, maskUrl, rgbUrl, imageryQuality }`
 rewritten to point at `/api/solar/geotiff?id=...` so the key never leaves the server.

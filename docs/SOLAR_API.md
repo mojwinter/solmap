@@ -111,8 +111,9 @@ corners = [(+w,+h), (+w,−h), (−w,−h), (−w,+h)] → for each (x,y):
   Data Layers results for **up to 30 consecutive days**, after which they must be deleted. Place IDs
   may be stored indefinitely. What that means for us:
   - In-memory LRU (minutes): fine.
-  - Recorded fixtures (`fixtures/solar/`, gitignored, filename starts with the record date): fine for
-    ≤ 30 days. Record them **within 30 days of demo day**, and delete them after.
+  - Disk cache (`fixtures/solar/`, gitignored, every entry stamped with `fetchedAt`): fine because the
+    app ignores and deletes entries older than 25 days. Warm the demo addresses **within 25 days of
+    demo day**; if the event is further out, re-warm the week before.
   - **Never commit a real response to git.** History is forever, so that's > 30 days. CI and hour-0 dev
     use the **synthetic** fixtures in `fixtures/synthetic/`, which are hand-made, not Google content.
   - No DB storage of responses, ever.

@@ -2,7 +2,8 @@
 
 Each dev opens Claude Code in the repo and pastes their role's prompt. Every prompt makes Claude
 read the shared context first, work against fixtures, and stay inside the dev's own folders.
-`USE_FIXTURES=1` serves the committed synthetic roofs, so nobody needs a Google key to start.
+`SOLAR_SOURCE=fixtures` (the default in `.env.example`) serves the committed synthetic roofs, so
+nobody needs a Google key to start. PLAN.md → Data roadmap says when real data comes online.
 
 ---
 
@@ -12,7 +13,7 @@ read the shared context first, work against fixtures, and stay inside the dev's 
 Read CLAUDE.md, DESIGN.md §2, §3 and §6, and docs/SOLAR_API.md ("Drawing a panel" and Gotchas 5 and 8).
 I own components/map/* and lib/geo/*. Coordinates in src/types/app.ts are {lat, lng}.
 
-Build, against USE_FIXTURES=1 data from /api/solar/building (synthetic roof at 49.25, -123.15):
+Build, against SOLAR_SOURCE=fixtures data from /api/solar/building (synthetic roof at 49.25, -123.15):
 1. <AddressSearch onPlace={(lat, lng, label) => …}> wrapping google.maps.places.PlaceAutocompleteElement
    (Places API (New)). Do NOT use the legacy places.Autocomplete widget; it isn't available to new projects.
    Restrict to Canada, get the location with place.fetchFields({ fields: ['location','formattedAddress'] }).
@@ -37,14 +38,18 @@ I own app/api/*, lib/solar/*, scripts/*, docker/*, .github/*, fixtures/synthetic
    roofSegmentStats, solarPanels and solarPanelConfigs default to []. Unknown fields are ignored.
 2. lib/solar/client.ts (`import 'server-only'` first line): findClosest(lat, lng) making ONE call with
    requiredQuality=LOW; on 404 and SOLAR_EXPANDED_COVERAGE=1, one retry with
-   experiments=EXPANDED_COVERAGE&requiredQuality=BASE. In-memory LRU with TTL that caches the in-flight
-   promise. One log line per call: lat,lng,quality,status,ms,cache=hit|miss.
+   experiments=EXPANDED_COVERAGE&requiredQuality=BASE.
+   lib/solar/cache.ts (server-only), exactly per docs/INFRA.md → Data sources: SOLAR_SOURCE modes,
+   memory LRU caching the in-flight promise, disk cache entries {fetchedAt, request, status, body} written
+   atomically, bbox / 5 m matching, 404s cached, expiry at SOLAR_CACHE_MAX_AGE_DAYS (clamp to ≤ 29) on read,
+   on startup and hourly. Unit-test matching and expiry with an injected clock (no real waiting).
+   One log line per lookup: lat,lng,source,layer=memory|disk|google,quality,status,ms.
 3. lib/solar/trim.ts: BuildingInsightsResponse → BuildingResponse (src/types/app.ts), converting
    {latitude, longitude} → {lat, lng}. Unit test it with both files in fixtures/synthetic/.
 4. app/api/solar/building/route.ts implementing the contract exactly (200/400/404/429/502),
    BC_BOUNDS validation, Cache-Control: private, no-store, per-IP rate limit (first X-Forwarded-For),
-   and USE_FIXTURES mode: nearest fixture by `center` across fixtures/solar + fixtures/synthetic, within 250 m, else 404.
-5. app/api/health/route.ts and scripts/record-fixture.ts (writes fixtures/solar/<YYYY-MM-DD>_<label>.json).
+   and BuildingResponse.source set to live / cache / fixture.
+5. app/api/health/route.ts and scripts/warm-cache.ts (pnpm solar:warm; same code path as cache mode).
 Then get CI green and the first staging deploy out. Plan first.
 ```
 

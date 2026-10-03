@@ -23,9 +23,11 @@ services:
     restart: unless-stopped
     env_file: .env.prod
     volumes:
-      # Recorded Google responses for the USE_FIXTURES fallback. Lives on the VPS only, never in git
-      # or the image; delete within 30 days of recording (Google terms). Synthetic fixtures are in the image.
-      - ./fixtures-recorded:/app/fixtures/solar:ro
+      # Disk cache of real Google responses (SOLAR_SOURCE=cache writes here; =fixtures only reads).
+      # Shared by prod and staging so each roof costs one Google call. VPS only, never in git or the
+      # image; the app deletes entries older than SOLAR_CACHE_MAX_AGE_DAYS (Google terms: ≤ 30 days).
+      # Synthetic fixtures are baked into the image. Host dir must be owned by uid 1001 (see INFRA.md).
+      - ./solar-cache:/app/fixtures/solar
 
   staging:
     image: solmap:staging
@@ -33,7 +35,7 @@ services:
     restart: unless-stopped
     env_file: .env.staging
     volumes:
-      - ./fixtures-recorded:/app/fixtures/solar:ro
+      - ./solar-cache:/app/fixtures/solar
 
   # P2 only (share links). Uncomment if/when needed.
   # db:

@@ -1,5 +1,5 @@
 {
-  "note": "Fill in `live` before the event. Verify each returns 200 from the live API (coverage is patchy) and that findClosest picks the right building. Keep one NO_COVERAGE address for the error-state demo. Use addresses whose owners are OK with being shown. `fixtures` works today with USE_FIXTURES=1 (synthetic roofs, no key needed).",
+  "note": "Fill in `live` before the event. Verify each returns 200 from the live API (coverage is patchy) and that findClosest picks the right building. Keep one NO_COVERAGE address for the error-state demo. Use addresses whose owners are OK with being shown. `fixtures` works today with SOLAR_SOURCE=fixtures (synthetic roofs, no key needed). Warm the `live` list into the disk cache with `pnpm solar:warm -- --file fixtures/demo-addresses.json` within 25 days of the demo.",
   "fixtures": [
     { "label": "Synthetic south gable (hero)",   "lat": 49.25,   "lng": -123.15,   "ratePlan": "tiered", "annualKwh": 10000, "expectedVerdict": "strong" },
     { "label": "Synthetic south, electric heat", "lat": 49.25,   "lng": -123.15,   "ratePlan": "flat",   "annualKwh": 16000, "expectedVerdict": "strong" },

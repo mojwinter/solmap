@@ -48,6 +48,34 @@ What makes it stand out:
 - Compare two addresses side by side.
 - Monthly production chart from dataLayers `monthlyFluxUrl`.
 
+## Data roadmap
+
+We build on free data first and let real data in step by step. Every real roof costs one Google call,
+ever (within 25 days), thanks to the disk cache. Mechanics: docs/INFRA.md → Data sources.
+
+| Phase | When | `SOLAR_SOURCE` | Data we have | Google calls |
+|---|---|---|---|---|
+| **0. Synthetic** | Hours 0–5 | `fixtures` everywhere | 2 hand-made roofs (Strong, Weak) + the 404 state | 0 |
+| **1. Demo roofs** | Pre-event (≤ 25 days out) or hour 1 | B runs `pnpm solar:warm` on the demo list | + 5 real roofs, incl. the no-coverage one | ~5–10, once |
+| **2. Real roofs on staging** | Checkpoint 1 (hour 5) | staging `cache`; laptops stay `fixtures` | + any roof the team tries on staging | 1 per new roof |
+| **3. Production** | Checkpoint 2 (hour 10) | prod `cache` (demo roofs already warm) | + roofs judges try | 1 per new roof |
+| **4. Sun heatmap** | P1 | same, cache extended to dataLayers + GeoTIFF bytes | + annual flux + roof mask rasters | 1 Data Layers call per roof (the $75/1,000 SKU) |
+
+Laptops only switch to `cache` when someone needs a specific real roof locally (B's IP is on the key);
+everyone else pulls nothing from Google. Only A runs a live map in dev; D uses a placeholder until checkpoint 1.
+
+**Further data goals** (after P1, roughly in value order; each one is a new cached source or input, not a rewrite):
+1. **More synthetic roofs** for edge cases: flat roof, east–west roof, tiny roof (no configs), multi-unit (> 150 panels),
+   BASE-quality imagery. Cheap, no Google calls, and they harden B's parser and D's states. Keep the generator
+   recipe in the fixture `_note`.
+2. **Monthly flux** (`monthlyFluxUrl`) → monthly production chart (P2), and later a **seasonal self-use model**
+   (BC's summer-heavy solar vs winter-heavy load) to replace part of the `daytimeLoadShare` assumption.
+3. **The user's own BC Hydro usage**: account holders can download their consumption history from MyHydro (check the export format first).
+   An upload (parsed in the browser, never stored) gives real annual kWh and, with hourly data,
+   real self-use instead of our assumption. Biggest accuracy win per hour of work.
+4. **Existing panels**: `additionalInsights=DETECTED_ARRAYS` (GA May 2026) → "this roof already has solar" state.
+5. **Hourly shade** (`hourlyShadeUrls`): shade animation by month. Impressive, expensive to build; last.
+
 ### Out of scope (say no fast)
 User accounts, installer marketplace, non-BC utilities (FortisBC etc.), commercial buildings,
 native mobile.
@@ -57,7 +85,7 @@ native mobile.
 | Role | Owns | P0 deliverables | P1 |
 |---|---|---|---|
 | **A: Map & Geo** | `components/map/*`, `lib/geo/*` | Map with Map ID, Places autocomplete, building bounds fit, panel polygons from `solarPanels`, slider → visible panel count | Flux heatmap overlay (with B) |
-| **B: API & Infra** | `app/api/*`, `lib/solar/*`, `scripts/*`, `docker/`, `.github/`, `fixtures/synthetic/` | Solar proxy routes, zod parsing into `BuildingResponse`, single-call quality handling + 404, fixtures mode, VPS deploy, env/secrets | dataLayers + geoTiff proxy, in-memory LRU, rate limiting |
+| **B: API & Infra** | `app/api/*`, `lib/solar/*`, `scripts/*`, `docker/`, `.github/`, `fixtures/synthetic/` | Solar proxy routes, zod parsing into `BuildingResponse`, single-call quality handling + 404, `SOLAR_SOURCE` modes + disk cache with expiry, `solar:warm`, VPS deploy, env/secrets | dataLayers + geoTiff proxy (through the same cache), rate limiting |
 | **C: Finance** | `lib/finance/*`, `src/config/bc.ts`, `fixtures/finance-golden.json` | Bill model (tiered/flat, bill → kWh), projection with the self-use curve, rebate, payback, NPV, recommendation, verdict + reasons. Golden tests green | Battery scenario, manual estimate, size-sweep data for the chart, sensitivity |
 | **D: Report UI & Pitch** | `app/report/*`, `components/report/*`, `components/inputs/*`, deck | Landing page, report layout, VerdictCard, MoneyCard, SpecSheet, inputs, attribution, empty/error states | Charts, assumptions drawer, print CSS, deck + demo script |
 
@@ -75,8 +103,8 @@ integrates, 10-minute sync.
 | Hours | What happens |
 |---|---|
 | **0:00–0:45** | Kickoff. Re-read CLAUDE.md/DESIGN.md. Lead scaffolds repo (`create-next-app`, shadcn init, drop in this kit), pushes, confirms CI is green. B confirms keys work with one live call from the VPS. **Freeze contracts.** |
-| **0:45–5:00** | Parallel build **against the synthetic fixtures** (`fixtures/synthetic/`, no keys needed). A: map + panels. B: API routes + deploy pipeline. C: finance engine + golden tests. D: report layout with a mock `Recommendation`. |
-| **5:00** | **Checkpoint 1**: real building on map, real numbers on screen for one fixture address. Deployed to staging. |
+| **0:45–5:00** | Parallel build **against the synthetic fixtures** (`SOLAR_SOURCE=fixtures`, no keys needed; Data roadmap phase 0). A: map + panels. B: API routes + deploy pipeline. C: finance engine + golden tests. D: report layout with a mock `Recommendation`. |
+| **5:00** | **Checkpoint 1**: real building on map, real numbers on screen for one fixture address. Deployed to staging, which switches to `SOLAR_SOURCE=cache` (phase 2). |
 | **5:00–10:00** | Wire live API. Slider end-to-end. Verdict + recommendation. Spec sheet. Error states. |
 | **10:00** | **Checkpoint 2 = P0 done.** Full demo path works on the deployed URL with 3 demo addresses. Tag `v0-demo`. If P0 isn't done, **nobody starts P1**. |
 | 10:00–12:00 | Sleep rotation starts (2 on / 2 off, 3-hour blocks). Whoever's up picks from the P1 list. |
@@ -146,8 +174,9 @@ integrates, 10-minute sync.
       the rebate makes even small systems on mediocre roofs pay back.
 - [ ] Use addresses whose owners are OK with it (your own, a teammate's, or a public building). The
       demo shows their roof and an estimate of their bill on a big screen.
-- [ ] Record their responses (`fixtures/solar/<date>_<label>.json`, **never committed**) no more than
-      30 days before demo day, and delete them after (Google's caching limit is 30 days).
+- [ ] Warm them into the disk cache (`pnpm solar:warm -- --file fixtures/demo-addresses.json`, **never
+      committed**) no more than 25 days before demo day. The app deletes entries after 25 days (Google's
+      limit is 30); if the event is further out, warm them the week before. Wipe the cache after the event.
 
 **Bill model calibration (C)**
 - [ ] Take one real BC Hydro bill (yours or a teammate's): put its kWh and period through
@@ -185,7 +214,8 @@ integrates, 10-minute sync.
 6. **Contrast (20s):** a shaded or north-facing house → "Weak. Here's why." Honesty = trust.
 7. **Close (20s):** stack, what's next (battery + Peak Saver, installer quotes).
 
-Backup: recorded video + fixtures mode (`USE_FIXTURES=1`) in case the venue Wi-Fi or the API fails.
+Backup: recorded video + `SOLAR_SOURCE=fixtures` on prod (every cached roof still works, nothing calls Google)
+in case the venue Wi-Fi or the API fails.
 
 ## Risks and mitigations
 
@@ -194,8 +224,9 @@ Backup: recorded video + fixtures mode (`USE_FIXTURES=1`) in case the venue Wi-F
 | Demo address returns 404 on stage | Pre-verified addresses; fixtures fallback; friendly error state is itself demo-able |
 | `findClosest` picks the neighbour's roof | Demo addresses pre-checked visually; "click your roof" re-query |
 | A judge asks "where do these numbers come from?" | Assumptions drawer + `bc.ts` sources; the self-use curve explained in one sentence ("small systems are mostly used at home; big ones mostly sell at 10¢") |
-| We break Google's terms by accident | No real responses in git (synthetic fixtures for CI), recorded fixtures deleted ≤ 30 days, attribution on every Solar view |
-| API quota/billing surprise | Daily quota cap; in-memory dedupe; dataLayers only on demand |
+| We break Google's terms by accident | No real responses in git or images (synthetic fixtures for CI), disk cache auto-deletes at 25 days, attribution on every Solar view |
+| API quota/billing surprise | Daily quota caps; disk cache (one call per roof); laptops on `fixtures`; dataLayers only on demand |
+| Disk cache bug serves stale or wrong roofs | `source` field + log line on every lookup; `/demo-check` flags non-`cache` demo addresses; wipe the folder to reset |
 | Finance numbers look wrong to judges | Golden tests; BC sanity range check; assumptions visible; sources in `bc.ts` |
 | Merge hell at hour 20 | Folder ownership, frozen contracts, checkpoints, feature flags |
 | GeoTIFF overlay eats the night | It's P1 and time-boxed to 4 hours. If it isn't working by hour 16, cut it |

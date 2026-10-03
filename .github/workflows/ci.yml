@@ -7,8 +7,8 @@ jobs:
   check:
     runs-on: ubuntu-latest
     env:
-      # Synthetic fixtures only (fixtures/synthetic/). CI never has a Solar key.
-      USE_FIXTURES: "1"
+      # Synthetic fixtures only (fixtures/synthetic/). CI never has a Solar key and never calls Google.
+      SOLAR_SOURCE: fixtures
       NEXT_TELEMETRY_DISABLED: "1"
     steps:
       - uses: actions/checkout@v4

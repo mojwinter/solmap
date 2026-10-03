@@ -2,7 +2,7 @@
 .env*
 !.env.example
 !.env.vps.example
-# Real Google Solar responses: local/VPS only, delete within 30 days of recording (Google terms). Never commit.
+# Disk cache of real Google Solar responses (SOLAR_CACHE_DIR). Auto-deleted at 25 days (Google terms: 30). Never commit.
 # Committed fixtures live in fixtures/synthetic/ (hand-made, not Google content).
 fixtures/solar/
 # Personal Claude Code settings (the shared ones are .claude/settings.json)

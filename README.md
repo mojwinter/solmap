@@ -6,11 +6,11 @@ not the app itself. Drop it into a fresh Next.js repo at hour 0 (see `docs/INFRA
 | File | For | What's in it |
 |---|---|---|
 | `CLAUDE.md` | everyone + Claude Code | Project context, stack, layout, rules, domain cheat-sheet |
-| `PLAN.md` | everyone | Pitch, P0/P1/P2 scope, 4-person roles, hour-by-hour timeline, pre-event checklist, demo script, risks |
+| `PLAN.md` | everyone | Pitch, P0/P1/P2 scope, data roadmap, 4-person roles, hour-by-hour timeline, pre-event checklist (incl. Google quotas + pricing), demo script, risks |
 | `DESIGN.md` | D, A, lead | User, flow, screens and states, verdict and reason-chip rules, architecture, our API contract |
 | `docs/FINANCIAL_MODEL.md` | C | BC tariffs, RS 2289 export rate, rebate, self-use curve, formulas, recommendation, verdict, golden cases, sources |
 | `docs/SOLAR_API.md` | B, A | Endpoints, quality and coverage, gotchas, panel-drawing math, Places, Google caching terms |
-| `docs/INFRA.md` | B | VPS + Caddy + Compose + GitHub Actions setup, rollback, fixtures mode, caching |
+| `docs/INFRA.md` | B | VPS + Caddy + Compose + GitHub Actions setup, rollback, data sources (`SOLAR_SOURCE`) + disk cache |
 | `docs/KICKOFF_PROMPTS.md` | each dev | First Claude Code prompt per role + the integration prompt |
 | `src/types/solar.ts` | B | Google Solar API response types |
 | `src/types/app.ts` | all | **Our frozen contracts**: `BuildingResponse`, `FinanceInputs`, `ScenarioResult`, `Recommendation`, `FinanceEngine` |
@@ -38,12 +38,14 @@ If you read the first version, these are the parts that changed:
    experimental in Canada (needs `experiments=EXPANDED_COVERAGE`), so the old fallback would likely just 404 again.
    Pre-event test added.
 4. **Google caching terms:** temporary caching is allowed for up to 30 days, so committing a real `demo.json`
-   (in git forever) isn't. CI now uses `fixtures/synthetic/`; recorded fixtures stay local/VPS and get deleted.
+   (in git forever) isn't. CI now uses `fixtures/synthetic/`; real responses live in a disk cache that deletes them at 25 days.
 5. **Places:** the legacy Autocomplete widget isn't available to new Google projects. Use `PlaceAutocompleteElement`.
 6. **Bills:** BC Hydro bills monthly or every two months, and printed bills include GST. Added a bill-period
    input and `annualKwhFromBill`.
 7. **Contracts:** `{lat, lng}` everywhere in `app.ts`; `recommendedIndex` can be `null`; typed `ScenarioWarning`;
    `rebateEligible`; `FinanceEngine` signatures; `source: 'manual'` for the P1 manual estimate.
-8. **Infra fixes:** first deploy no longer fails on Caddy's `depends_on`; `git fetch` keeps using the deploy
+8. **Data sources:** `SOLAR_SOURCE=fixtures|cache|live` replaces `USE_FIXTURES`. A disk cache means each real roof costs
+   one Google call; PLAN.md → Data roadmap brings real data online in phases and lists further data goals.
+9. **Infra fixes:** first deploy no longer fails on Caddy's `depends_on`; `git fetch` keeps using the deploy
    key; deploys are serialised (`flock`), gated on CI, health-checked, and roll back in seconds; `.dockerignore`
    keeps `.env*` out of images; the bcrypt hash quoting gotcha is documented.

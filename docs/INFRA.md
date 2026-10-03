@@ -17,7 +17,7 @@ VPS  /srv/solmap/
    ├─ .env            domains + staging basic-auth (see .env.vps.example)
    ├─ .env.prod       app env for prod    (from .env.example)
    ├─ .env.staging    app env for staging (from .env.example)
-   └─ fixtures-recorded/  real Google responses for the demo fallback (≤ 30 days old, mounted read-only)
+   └─ solar-cache/    disk cache of real Google responses (≤ 25 days old, owned by uid 1001, shared by both envs)
 
    Caddy :443 ─┬─ solmap.<domain>          → prod:3000
                └─ staging.solmap.<domain>  → staging:3000 (basic auth)
@@ -35,7 +35,7 @@ as root. Keys, the checkout and Docker access all have to belong to that one use
 curl -fsSL https://get.docker.com | sudo sh
 sudo usermod -aG docker "$USER" && newgrp docker          # deploy user can run docker without sudo
 sudo mkdir -p /srv/solmap && sudo chown "$USER" /srv/solmap && cd /srv/solmap
-mkdir -p fixtures-recorded
+mkdir -p solar-cache && sudo chown 1001:1001 solar-cache   # the app container runs as uid 1001
 
 # Read-only GitHub *deploy key* for the clone. Persist it with core.sshCommand, otherwise every
 # later `git fetch` in deploy.sh fails (GIT_SSH_COMMAND only applies to the one command).
@@ -92,7 +92,7 @@ Then:
 - `next.config.ts`: `output: 'standalone'`.
 - `package.json`: add `"packageManager": "pnpm@<version>"` (needed by `pnpm/action-setup`; use the
   output of `pnpm --version`), and scripts `typecheck: "tsc --noEmit"`, `test: "vitest run"`,
-  `fixtures:record: "tsx scripts/record-fixture.ts"`.
+  `solar:warm: "tsx scripts/warm-cache.ts"`.
 - `vitest.config.ts`: `plugins: [tsconfigPaths()]` (so `@/src/...` imports resolve in tests), `environment: 'node'`.
 - Add `app/api/health/route.ts` returning `{ ok: true }` (deploy.sh and the Docker healthcheck call it).
 - `lib/solar/client.ts` starts with `import 'server-only'`, so importing it from a client component
@@ -104,10 +104,8 @@ Then:
 
 ## Caching and rate limiting (in-app, no extra services)
 
-- `lib/solar/client.ts` keeps an LRU (`Map` with size cap ~500) keyed by
-  `lat.toFixed(5),lng.toFixed(5)` with `SOLAR_CACHE_TTL_SECONDS` TTL. It dedupes repeat calls
-  during the demo. It's process memory only; nothing is written to disk. (Google allows temporary
-  caching of Building Insights for up to 30 days, so minutes is well inside the terms.)
+- Two cache layers in `lib/solar/cache.ts`: an in-memory LRU (`Map`, cap ~500,
+  `SOLAR_CACHE_TTL_SECONDS`) in front of the **disk cache** described in Data sources below.
 - Cache the *in-flight promise*, not just the result, so two simultaneous requests for the same
   roof make one Google call.
 - API responses send `Cache-Control: private, no-store`.
@@ -116,31 +114,62 @@ Then:
   replaces untrusted incoming `X-Forwarded-For` headers by default; without Caddy in front it wouldn't be.
 - dataLayers is only called when the user opens the heatmap.
 
-## Fixtures mode
+## Data sources (`SOLAR_SOURCE`)
 
-`USE_FIXTURES=1` makes `/api/solar/building` load every JSON in `fixtures/solar/` (recorded) and
-`fixtures/synthetic/` (committed), and return the one whose `center` is nearest to the request
-if it's within 250 m (else 404 `NO_COVERAGE`), trimmed as usual with `source: "fixture"`. Read them
-from `path.join(process.cwd(), 'fixtures', …)`; in the standalone image `cwd` is `/app`.
+The goal: build everything against free data first, then let real data in gradually, paying for
+each roof **once**. PLAN.md → Data roadmap has the phases.
+
+| `SOLAR_SOURCE` | Lookup order | On a miss | Where |
+|---|---|---|---|
+| `fixtures` | memory → disk cache → nearest synthetic roof ≤ 250 m | 404 `NO_COVERAGE`. Never calls Google | Every laptop, CI, emergency demo fallback |
+| `cache` | memory → disk cache | Call Google once, write the result (200 **and** 404) to disk | Staging, prod, `pnpm solar:warm` |
+| `live` | memory | Call Google | Debugging only |
+
+**Folders.** Read with `path.join(process.cwd(), …)`; in the standalone image `cwd` is `/app`.
 
 | Folder | What | Committed? |
 |---|---|---|
-| `fixtures/synthetic/` | Hand-made roofs in the exact buildingInsights shape: `south-gable` (Strong with default inputs) and `shaded-gable` (Weak). Not Google content | Yes. CI and hour-0 dev use these |
-| `fixtures/solar/` | Real responses recorded with `pnpm fixtures:record`, named `<YYYY-MM-DD>_<label>.json` so the 30-day deletion date is obvious | **Never** (gitignored and dockerignored) |
+| `fixtures/synthetic/` | Hand-made roofs in the exact buildingInsights shape: `south-gable` (Strong with default inputs) and `shaded-gable` (Weak). Not Google content, never expire | Yes |
+| `fixtures/solar/` (`SOLAR_CACHE_DIR`) | The disk cache: real Google responses | **Never** (gitignored and dockerignored). On the VPS it's `/srv/solmap/solar-cache`, mounted into both containers |
 
-CI always runs with `USE_FIXTURES=1`, so it only sees synthetic fixtures. On demo day, copy the
-recorded demo addresses to `/srv/solmap/fixtures-recorded/` (mounted into both containers). If the
-API or venue Wi-Fi misbehaves, set `USE_FIXTURES=1` in `.env.prod` and run
-`docker compose up -d --no-deps prod`. Env changes don't need a rebuild, so that takes seconds.
-Delete the recorded files after the event.
+**Cache entry format.** One file per Google call, written atomically (temp file + rename, since
+prod and staging share the folder):
 
-`scripts/record-fixture.ts` (B writes it in hour 1): calls Google with the server key and writes
-`fixtures/solar/<date>_<label>.json`. Dev machine or VPS only.
+```
+fixtures/solar/building/<YYYY-MM-DD>_<lat.5f>_<lng.5f>.json
+{ "fetchedAt": "2026-10-03T18:22:05Z",
+  "request":   { "lat": 49.26, "lng": -123.11, "requiredQuality": "LOW", "experiments": [] },
+  "status":    200,                      // or 404 (no coverage is cached too)
+  "body":      { …raw buildingInsights response… } }
+```
+
+P1 adds `fixtures/solar/layers/…json` (dataLayers responses) and `fixtures/solar/geotiff/<sha256 of id>.tif`
+(the raster bytes, not the URLs). Same expiry rules.
+
+**Matching.** A cached building answers a request if the point is inside its `boundingBox` (that's
+the building `findClosest` would return anyway) or within 5 m of the originally requested point
+(how cached 404s match). Ties → the newest entry.
+
+**Expiry (Google: ≤ 30 days).** Entries older than `SOLAR_CACHE_MAX_AGE_DAYS` (25, never above 29)
+are ignored on read, and deleted on server start and every hour. The age comes from `fetchedAt`
+inside the file, not the file's mtime. Synthetic fixtures never expire.
+
+**Warming.** `scripts/warm-cache.ts` (B writes it in hour 1; `pnpm solar:warm -- --lat … --lng … --label …`
+or `--file fixtures/demo-addresses.json`) runs the same `cache`-mode code path with the server key, so a
+warmed roof is byte-for-byte what the app would have saved. Run it on the VPS (its IP is on the key) or
+from B's whitelisted machine and copy the files to `/srv/solmap/solar-cache/`.
+
+**Demo-day fallback.** If the API or venue Wi-Fi misbehaves, set `SOLAR_SOURCE=fixtures` in
+`.env.prod` and run `docker compose up -d --no-deps prod` (env changes don't need a rebuild).
+Every roof that was ever looked up in the last 25 days keeps working; nothing calls Google.
+
+**After the event:** `rm -rf /srv/solmap/solar-cache/*` and the same on B's laptop.
 
 ## Observability (cheap)
 
 - `docker compose logs -f prod` during the demo.
-- Log one line per Solar call: `lat,lng,quality,status,ms,cache=hit|miss`. It tells us about quota burn.
+- Log one line per Solar lookup: `lat,lng,source=live|cache|fixture,layer=memory|disk|google,quality,status,ms`.
+  Count `layer=google` lines to see quota burn: `docker compose logs prod | grep -c layer=google`.
 - Google Cloud console → APIs → Solar API → Metrics, open in a tab.
 
 ## Alternatives if the team prefers

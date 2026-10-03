@@ -1,11 +1,11 @@
 ---
 description: Run all checks before pushing and fix what fails
 ---
-Run, in order: `pnpm typecheck`, `pnpm lint`, `pnpm test`, `USE_FIXTURES=1 pnpm build`
-(in PowerShell: `$env:USE_FIXTURES='1'; pnpm build`).
+Run, in order: `pnpm typecheck`, `pnpm lint`, `pnpm test`, `SOLAR_SOURCE=fixtures pnpm build`
+(in PowerShell: `$env:SOLAR_SOURCE='fixtures'; pnpm build`).
 
 Then two guards:
-- `git ls-files fixtures/solar` must print nothing. Real Google responses are never committed (CLAUDE.md rule 2).
+- `git ls-files fixtures/solar` must print nothing. Real Google responses (the disk cache) are never committed (CLAUDE.md rule 2).
   If anything is listed, stop and tell me; don't just delete it, since it may need removing from history.
 - If `fixtures/finance-golden.json` changed on this branch, its `note` must still describe how it was generated,
   and the PR must say why. Expected values are never hand-edited one by one.

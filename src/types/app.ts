@@ -74,8 +74,14 @@ export interface BuildingResponse {
   panels: PanelLite[];
   /** Ascending by panelsCount. Empty = roof too small. */
   configs: ConfigLite[];
-  /** 'manual' = synthesized from the no-coverage form (P1, see docs/FINANCIAL_MODEL.md → Manual estimate). */
-  source: 'live' | 'fixture' | 'manual';
+  /**
+   * live    = fetched from Google for this request
+   * cache   = a real Google response from the memory or disk cache (≤ SOLAR_CACHE_MAX_AGE_DAYS old)
+   * fixture = a synthetic roof from fixtures/synthetic/ (not Google data)
+   * manual  = synthesized from the no-coverage form (P1, see docs/FINANCIAL_MODEL.md → Manual estimate)
+   * live and cache are Google data: show the attribution. Logs use this to track quota burn.
+   */
+  source: 'live' | 'cache' | 'fixture' | 'manual';
 }
 
 export type ApiErrorCode = 'NO_COVERAGE' | 'BAD_REQUEST' | 'RATE_LIMITED' | 'UPSTREAM';

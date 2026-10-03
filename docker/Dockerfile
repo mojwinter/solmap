@@ -1,5 +1,5 @@
 # Next.js standalone image. Requires `output: 'standalone'` in next.config.ts and the kit's
-# .dockerignore at the repo root (keeps .env*, node_modules and recorded fixtures out of the build context).
+# .dockerignore at the repo root (keeps .env*, node_modules and cached Google responses out of the build context).
 # NEXT_PUBLIC_* values are baked in at build time, so pass them as build args.
 FROM node:22-alpine AS deps
 WORKDIR /app
@@ -22,12 +22,13 @@ RUN pnpm build
 FROM node:22-alpine AS run
 WORKDIR /app
 ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0 NEXT_TELEMETRY_DISABLED=1
-RUN addgroup -S app && adduser -S app -G app
+# Fixed uid/gid 1001 so the mounted solar-cache dir on the VPS can be chowned to match.
+RUN addgroup -S -g 1001 app && adduser -S -u 1001 -G app app
 COPY --from=build /app/public ./public
 COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
-# Synthetic fixtures ship in the image (fixtures/solar is excluded by .dockerignore). Recorded
-# Google responses for the demo fallback are mounted at /app/fixtures/solar by compose.yml.
+# Synthetic fixtures ship in the image (fixtures/solar is excluded by .dockerignore). The disk cache
+# of real Google responses is mounted at /app/fixtures/solar by compose.yml.
 COPY --from=build /app/fixtures ./fixtures
 USER app
 EXPOSE 3000
