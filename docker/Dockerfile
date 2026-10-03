@@ -29,16 +29,23 @@ WORKDIR /app
 ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0 NEXT_TELEMETRY_DISABLED=1
 # Fixed uid/gid 1001 so the mounted solar-cache dir on the VPS can be chowned to match.
 RUN addgroup -S -g 1001 app && adduser -S -u 1001 -G app app
+# Code is root-owned and read-only to the app user (uid 1001), so a compromised process can't
+# rewrite server.js, node_modules or the compiled routes. COPY without --chown gives root:root.
 COPY --from=build /app/public ./public
-# The app owns .next: Next writes its disk cache there at runtime (next/image → .next/cache/images,
-# ISR → .next/server). Root-owned, those writes fail with EACCES and get logged on every request.
-COPY --from=build --chown=app:app /app/.next/standalone ./
-COPY --from=build --chown=app:app /app/.next/static ./.next/static
-# Synthetic fixtures ship in the image (fixtures/solar is excluded by .dockerignore). The disk cache
-# of real Google responses is mounted at /app/fixtures/solar by compose.yml; the empty dir created
-# here (owned by the app) keeps SOLAR_SOURCE=cache writable when nothing is mounted.
+COPY --from=build /app/.next/standalone ./
+COPY --from=build /app/.next/static ./.next/static
+# Synthetic fixtures ship in the image (fixtures/solar is excluded by .dockerignore).
 COPY --from=build /app/fixtures ./fixtures
-RUN mkdir -p fixtures/solar && chown app:app fixtures/solar
+# The only paths the app writes at runtime, each owned by uid 1001:
+# - .next/cache: next/image (.next/cache/images) and the fetch cache (.next/cache/fetch-cache).
+# - .next/server/route-cache: Next 16's response cache (ISR, revalidation). Next copies each
+#   prerendered page there on its first request, so `/` writes here even with no ISR routes
+#   (next/dist/server/lib/incremental-cache/file-system-cache.js → getFilePath, promoteSeed).
+#   The compiled routes next to it in .next/server/app stay root-owned.
+# - fixtures/solar: the disk cache of real Google responses. compose.yml mounts the VPS's
+#   solar-cache over it; the empty dir here keeps SOLAR_SOURCE=cache writable when nothing is mounted.
+RUN mkdir -p .next/cache .next/server/route-cache fixtures/solar \
+ && chown -R app:app .next/cache .next/server/route-cache fixtures/solar
 USER app
 EXPOSE 3000
 # busybox wget (alpine has no curl). ops/docker-compose.yml's healthcheck runs the same command.

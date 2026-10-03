@@ -1,6 +1,6 @@
 name: Deploy
 # Every push to main: CI → build the image → push to GHCR → SSH to the shared VPS → pull
-# and restart the one `solmap` service. Same flow as yardstick's deploy.yml.
+# and restart the one `solmap` service on that commit's image. Same flow as yardstick's deploy.yml.
 # The SSH step is skipped until the repo variable DEPLOY_ENABLED is `true` (docs/INFRA.md).
 on:
   push:
@@ -9,6 +9,10 @@ on:
       - "**/*.md"
       - "docs/**"
   workflow_dispatch:
+
+# Read-only by default; build-and-push adds packages: write for itself.
+permissions:
+  contents: read
 
 # Deploys mutate one container on a box shared with other apps: queue, never cancel
 # mid `up -d`.
@@ -31,6 +35,9 @@ jobs:
     permissions:
       contents: read
       packages: write
+    outputs:
+      # sha-<7>: the exact image the deploy job runs.
+      image-tag: ${{ steps.sha-tag.outputs.tag }}
     steps:
       - uses: actions/checkout@v7
 
@@ -46,10 +53,28 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          # `latest` is what the VPS tracks; a sha tag is what a rollback pins to.
+          # No implicit `latest`: the one below is the only way it gets set.
+          flavor: latest=false
+          # sha-<7> (metadata-action's default short-sha length) is what the deploy job runs and
+          # what a rollback pins to. `latest` moves only on the default branch, so a
+          # workflow_dispatch on a feature branch still pushes its sha tag but can't touch `latest`.
           tags: |
-            type=raw,value=latest
-            type=sha,prefix=sha-
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=sha-,format=short
+
+      # Hand the deploy job the tag metadata-action actually produced, and fail here if it ever
+      # stops being sha-<first 7 of the commit> (e.g. DOCKER_METADATA_SHORT_SHA_LENGTH changes).
+      - name: Sha tag for the deploy job
+        id: sha-tag
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          tag="sha-${GITHUB_SHA::7}"
+          if ! printf '%s\n' "$TAGS" | grep -qxF "$REGISTRY/$IMAGE_NAME:$tag"; then
+            echo "::error::metadata-action did not produce $REGISTRY/$IMAGE_NAME:$tag. Tags: $TAGS"
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-buildx-action@v4
 
@@ -76,28 +101,66 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # Without a fingerprint the action accepts any host key, i.e. it would hand a root-equivalent
+      # session to whoever answers on VPS_HOST. Fail closed instead.
+      - name: Require the VPS host-key fingerprint
+        env:
+          FINGERPRINT: ${{ vars.VPS_HOST_FINGERPRINT }}
+        run: |
+          case "$FINGERPRINT" in
+            SHA256:?*) ;;
+            *) echo "::error::Repo variable VPS_HOST_FINGERPRINT must be set to the VPS host key's SHA256:… fingerprint (docs/INFRA.md → One-time VPS setup, step 4)."
+               exit 1 ;;
+          esac
+
       - name: Pull and restart on the VPS
-        uses: appleboy/ssh-action@v1.2.0
+        uses: appleboy/ssh-action@7eaf76671a0d7eec5d98ee897acda4f968735a17 # v1.2.0
+        env:
+          # Both are format-checked again on the box, and reach the script only through `envs`
+          # (drone-ssh exports each one single-quoted), never by interpolating into the script.
+          DEPLOY_TAG: ${{ needs.build-and-push.outputs.image-tag }}
+          DEPLOY_SHA: ${{ github.sha }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
+          fingerprint: ${{ vars.VPS_HOST_FINGERPRINT }}
+          envs: DEPLOY_TAG,DEPLOY_SHA
           # set -e for fail-fast (no script_stop: drone-ssh's per-line check exits 1 on
           # any else-branch).
           script: |
             set -e
-            # The compose file lives in this checkout, so the pull is how an ops change
-            # reaches the box.
-            git -C ~/solmap pull --ff-only
+            case "$DEPLOY_TAG" in
+              sha-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]) ;;
+              *) echo "Refusing to deploy: bad image tag '$DEPLOY_TAG'" >&2; exit 1 ;;
+            esac
+            case "$DEPLOY_SHA" in
+              *[!0-9a-f]*|"") echo "Refusing to deploy: bad commit '$DEPLOY_SHA'" >&2; exit 1 ;;
+            esac
             cd ~/solmap-ops
-            docker compose pull solmap
-            docker compose up -d solmap
+            # Rollback / demo freeze: a SOLMAP_TAG pinned in .env wins. Leave the box exactly as it
+            # is (no git, no pull) and say so. `latest` or an empty value is not a pin.
+            pinned=$(grep -E '^[[:space:]]*(export[[:space:]]+)?SOLMAP_TAG[[:space:]]*=' .env | tail -n 1 | cut -d= -f2- | sed 's/[[:space:]]#.*//' | tr -d "\"' \r") || true
+            if [ -n "$pinned" ] && [ "$pinned" != latest ]; then
+              echo "DEPLOY SKIPPED: ~/solmap-ops/.env pins SOLMAP_TAG=$pinned (rollback / demo freeze)."
+              echo "$DEPLOY_TAG was built and pushed to GHCR but is NOT running. To resume deploys, delete"
+              echo "the SOLMAP_TAG line from ~/solmap-ops/.env and re-run this workflow (or merge again)."
+              exit 0
+            fi
+            # The compose file lives in this checkout, so this is how an ops change reaches the
+            # box. Fast-forward to the commit being deployed, so compose file and image match.
+            git -C ~/solmap fetch --quiet origin main
+            git -C ~/solmap merge --ff-only --quiet "$DEPLOY_SHA"
+            # Run this commit's image, not whatever `latest` points at by now. The shell variable
+            # beats .env for compose interpolation; .env has no pin (checked above).
+            SOLMAP_TAG="$DEPLOY_TAG" docker compose pull solmap
+            SOLMAP_TAG="$DEPLOY_TAG" docker compose up -d solmap
             # Wait up to 90 s for the container's own healthcheck before calling it deployed.
             for _ in $(seq 1 45); do
               status=$(docker inspect -f '{{.State.Health.Status}}' "$(docker compose ps -q solmap)")
-              if [ "$status" = healthy ]; then docker image prune -f >/dev/null; echo "solmap healthy"; exit 0; fi
+              if [ "$status" = healthy ]; then docker image prune -f >/dev/null; echo "solmap healthy on $DEPLOY_TAG"; exit 0; fi
               sleep 2
             done
             docker compose logs --tail=60 solmap
-            echo "solmap did not become healthy. Roll back: set SOLMAP_TAG=sha-<previous> in ~/solmap-ops/.env, then docker compose up -d solmap" >&2
+            echo "solmap did not become healthy on $DEPLOY_TAG. Roll back: set SOLMAP_TAG=sha-<previous> in ~/solmap-ops/.env, then docker compose up -d solmap" >&2
             exit 1

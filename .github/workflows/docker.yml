@@ -1,7 +1,8 @@
 name: Docker
 # Builds docker/Dockerfile and smoke-tests the image, so a broken Dockerfile shows up on the PR
-# instead of on the VPS's first deploy. Runs the container the way compose.yml does (uid 1001,
-# solar-cache mounted at /app/fixtures/solar) but with SOLAR_SOURCE=fixtures: no keys, no Google.
+# instead of on the VPS's first deploy. Runs the container the way ops/docker-compose.yml does (uid
+# 1001, no capabilities, no-new-privileges, 768 MB / 1 CPU, solar-cache mounted at
+# /app/fixtures/solar) but with SOLAR_SOURCE=fixtures: no keys, no Google.
 on:
   pull_request:
     paths:
@@ -11,6 +12,7 @@ on:
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
       - next.config.ts
+      - ops/docker-compose.yml
       - .github/workflows/docker.yml
   workflow_dispatch:
 
@@ -48,6 +50,12 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # Schema check of the VPS compose file (mem_limit, cap_drop, ...). Its env_file has to exist.
+      - name: ops/docker-compose.yml is valid
+        run: |
+          touch ops/.env
+          docker compose -f ops/docker-compose.yml config -q
+
       - name: No Google responses baked into the image
         run: |
           docker run --rm --entrypoint sh "$IMAGE" -c \
@@ -60,10 +68,15 @@ jobs:
           cache_dir="$RUNNER_TEMP/solar-cache"
           mkdir -p "$cache_dir"
           sudo chown 1001:1001 "$cache_dir"
-          # --health-interval only shortens the Dockerfile's HEALTHCHECK interval so CI doesn't wait 30 s.
+          # The same hardening as ops/docker-compose.yml, so a change that needs a capability or more
+          # memory fails here first. --health-interval only shortens the Dockerfile's HEALTHCHECK
+          # interval so CI doesn't wait 30 s.
           docker run -d --name "$NAME" -p 3000:3000 \
             -e SOLAR_SOURCE=fixtures \
             -v "$cache_dir:/app/fixtures/solar" \
+            --cap-drop ALL \
+            --security-opt no-new-privileges:true \
+            --memory 768m --cpus 1 \
             --health-interval 2s \
             "$IMAGE"
 
@@ -97,9 +110,25 @@ jobs:
           docker exec "$NAME" sh -c 'awk "/^Uid:/{print \$2}" /proc/1/status' | grep -qx 1001
           docker exec "$NAME" sh -c 'awk "/^Gid:/{print \$2}" /proc/1/status' | grep -qx 1001
 
-      - name: Next's runtime disk cache (.next) is writable
+      - name: Next's runtime cache dirs are writable, the code is not
         run: |
-          docker exec "$NAME" sh -euc 'mkdir -p /app/.next/cache/ci && rmdir /app/.next/cache/ci && test -w /app/.next/server'
+          docker exec "$NAME" sh -euc '
+            # What Next writes at runtime: .next/cache (next/image, fetch cache) and
+            # .next/server/route-cache (response cache; the first request to / writes there).
+            mkdir -p /app/.next/cache/ci && rmdir /app/.next/cache/ci
+            mkdir -p /app/.next/server/route-cache/ci && rmdir /app/.next/server/route-cache/ci
+            for p in /app/server.js /app/package.json /app/node_modules /app/.next \
+                     /app/.next/server /app/.next/server/app /app/.next/static /app/public /app/fixtures; do
+              if test -w "$p"; then echo "::error::$p is writable by the app user"; exit 1; fi
+            done
+            # Nothing else under /app may be owned by the app user or be world-writable. Symlinks
+            # (pnpm uses them in node_modules) always show 777, so they are skipped.
+            # (No apostrophes in this block: it is one single-quoted sh -c string.)
+            bad=$(find /app \( -path /app/.next/cache -o -path /app/.next/server/route-cache \
+                               -o -path /app/fixtures/solar \) -prune \
+                         -o ! -type l \( -user 1001 -o -perm -002 \) -print | head -n 20)
+            if [ -n "$bad" ]; then echo "::error::writable by the app outside the cache dirs:"; echo "$bad"; exit 1; fi
+          '
 
       - name: Synthetic fixtures ship in the image
         run: docker exec "$NAME" test -s /app/fixtures/synthetic/south-gable.json
@@ -124,6 +153,14 @@ jobs:
           public_file=$(cd public 2>/dev/null && find . -type f | head -n1 | sed 's|^\./||')
           if [ -n "$public_file" ]; then
             curl -fsS -o /dev/null "http://127.0.0.1:3000/$public_file" && echo "OK /$public_file"
+          fi
+
+      # A root-owned path Next tries to write shows up as EACCES in the log, not as a failed request.
+      - name: No permission errors in the container log
+        run: |
+          if docker logs "$NAME" 2>&1 | grep -E 'EACCES|EROFS|EPERM'; then
+            echo "::error::the app hit a permission error writing to disk (see above)"
+            exit 1
           fi
 
       - name: Container logs
