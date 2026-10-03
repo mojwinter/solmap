@@ -1,0 +1,152 @@
+{
+ "_note": "SYNTHETIC. Hand-made in the buildingInsights:findClosest response shape. NOT Google content, so it is safe to commit (Google's 30-day caching limit does not apply). The roof geometry does not line up with the real satellite imagery at these coordinates. Generated for the Solmap kit on 2026-10-03 by scripts/make-synthetic.ts (spec \"tiny-roof\": 3 x 2.8 m shed, two 1.4 m deep 30 deg faces, no panel fits, so no solarPanelConfigs).",
+ "name": "buildings/SYNTHETIC-tiny-roof",
+ "center": {
+  "latitude": 49.888,
+  "longitude": -119.496
+ },
+ "imageryDate": {
+  "year": 2024,
+  "month": 8,
+  "day": 15
+ },
+ "imageryProcessedDate": {
+  "year": 2025,
+  "month": 3,
+  "day": 1
+ },
+ "postalCode": "V0V 0V0",
+ "administrativeArea": "BC",
+ "statisticalArea": "SYNTHETIC",
+ "regionCode": "CA",
+ "imageryQuality": "HIGH",
+ "boundingBox": {
+  "sw": {
+   "latitude": 49.8879838,
+   "longitude": -119.4960279
+  },
+  "ne": {
+   "latitude": 49.8880162,
+   "longitude": -119.4959721
+  }
+ },
+ "solarPotential": {
+  "maxArrayPanelsCount": 0,
+  "maxArrayAreaMeters2": 0.0,
+  "maxSunshineHoursPerYear": 1400,
+  "carbonOffsetFactorKgPerMwh": 26.0,
+  "panelCapacityWatts": 400,
+  "panelHeightMeters": 1.879,
+  "panelWidthMeters": 1.045,
+  "panelLifetimeYears": 20,
+  "wholeRoofStats": {
+   "areaMeters2": 9.7,
+   "sunshineQuantiles": [
+    380,
+    580,
+    632,
+    666,
+    695,
+    712,
+    1250,
+    1310,
+    1338,
+    1362,
+    1400
+   ],
+   "groundAreaMeters2": 8.4
+  },
+  "buildingStats": {
+   "areaMeters2": 10.19,
+   "sunshineQuantiles": [
+    380,
+    580,
+    632,
+    666,
+    695,
+    712,
+    1250,
+    1310,
+    1338,
+    1362,
+    1400
+   ],
+   "groundAreaMeters2": 8.82
+  },
+  "roofSegmentStats": [
+   {
+    "pitchDegrees": 30.0,
+    "azimuthDegrees": 180.0,
+    "stats": {
+     "areaMeters2": 4.85,
+     "sunshineQuantiles": [
+      700,
+      1150,
+      1250,
+      1290,
+      1310,
+      1325,
+      1338,
+      1350,
+      1362,
+      1375,
+      1400
+     ],
+     "groundAreaMeters2": 4.2
+    },
+    "center": {
+     "latitude": 49.8879937,
+     "longitude": -119.496
+    },
+    "boundingBox": {
+     "sw": {
+      "latitude": 49.8879874,
+      "longitude": -119.4960209
+     },
+     "ne": {
+      "latitude": 49.888,
+      "longitude": -119.4959791
+     }
+    },
+    "planeHeightAtCenterMeters": 2.6
+   },
+   {
+    "pitchDegrees": 30.0,
+    "azimuthDegrees": 0.0,
+    "stats": {
+     "areaMeters2": 4.85,
+     "sunshineQuantiles": [
+      380,
+      520,
+      580,
+      610,
+      632,
+      650,
+      666,
+      680,
+      695,
+      712,
+      760
+     ],
+     "groundAreaMeters2": 4.2
+    },
+    "center": {
+     "latitude": 49.8880063,
+     "longitude": -119.496
+    },
+    "boundingBox": {
+     "sw": {
+      "latitude": 49.888,
+      "longitude": -119.4960209
+     },
+     "ne": {
+      "latitude": 49.8880126,
+      "longitude": -119.4959791
+     }
+    },
+    "planeHeightAtCenterMeters": 2.6
+   }
+  ],
+  "solarPanels": []
+ }
+}

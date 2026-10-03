@@ -4,6 +4,11 @@
     { "label": "Synthetic south gable (hero)",   "lat": 49.25,   "lng": -123.15,   "ratePlan": "tiered", "annualKwh": 10000, "expectedVerdict": "strong" },
     { "label": "Synthetic south, electric heat", "lat": 49.25,   "lng": -123.15,   "ratePlan": "flat",   "annualKwh": 16000, "expectedVerdict": "strong" },
     { "label": "Synthetic shaded gable",         "lat": 49.2615, "lng": -123.1702, "ratePlan": "tiered", "annualKwh": 10000, "expectedVerdict": "weak" },
+    { "label": "Synthetic flat roof",            "lat": 49.2488, "lng": -122.98,   "ratePlan": "tiered", "annualKwh": 10000, "expectedVerdict": "unknown" },
+    { "label": "Synthetic east-west gable",      "lat": 48.4265, "lng": -123.3165, "ratePlan": "tiered", "annualKwh": 10000, "expectedVerdict": "unknown" },
+    { "label": "Synthetic tiny roof (no configs)", "lat": 49.888, "lng": -119.496,  "ratePlan": "tiered", "annualKwh": 10000, "expectedVerdict": "unknown" },
+    { "label": "Synthetic multi-unit (180 panels)", "lat": 49.1666, "lng": -123.1336, "ratePlan": "tiered", "annualKwh": 10000, "expectedVerdict": "unknown" },
+    { "label": "Synthetic BASE-quality hip roof", "lat": 50.6745, "lng": -120.3273, "ratePlan": "tiered", "annualKwh": 10000, "expectedVerdict": "unknown" },
     { "label": "No fixture nearby (error state)", "lat": 53.9171, "lng": -122.7497, "ratePlan": "tiered", "annualKwh": 10000, "expectedVerdict": "NO_COVERAGE" }
   ],
   "live": [
