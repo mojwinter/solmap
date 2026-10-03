@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-import { GET } from "./route";
+import { GET } from "@/app/api/solar/building/route";
 
 const cacheDir = mkdtempSync(path.join(tmpdir(), "solar-route-"));
 const env = { ...process.env };

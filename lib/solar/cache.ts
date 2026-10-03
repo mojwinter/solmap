@@ -151,7 +151,10 @@ export function createSolarStore(opts: StoreOptions): SolarStore {
   const log = opts.log ?? ((line: string) => console.log(line));
   const fetchGoogle = opts.findClosest ?? ((req: FindClosestRequest) => callFindClosest(req));
   const maxAgeMs = clampMaxAgeDays(opts.maxAgeDays) * DAY_MS;
-  const buildingDir = path.join(opts.cacheDir, "building");
+  // turbopackIgnore: otherwise the tracer globs `*building*` and copies cached Google responses (and
+  // anything else named like that) into .next/standalone. Every cache path goes through inCache().
+  const buildingDir = path.join(/*turbopackIgnore: true*/ opts.cacheDir, "building");
+  const inCache = (file: string) => path.join(/*turbopackIgnore: true*/ buildingDir, file);
 
   const isExpired = (fetchedAtMs: number) => now() - fetchedAtMs > maxAgeMs;
 
@@ -208,7 +211,7 @@ export function createSolarStore(opts: StoreOptions): SolarStore {
 
   async function readEntry(file: string): Promise<{ meta: DiskMeta; building?: SolarBuilding } | null> {
     try {
-      const parsed = entrySchema.safeParse(JSON.parse(await fs.readFile(path.join(buildingDir, file), "utf8")));
+      const parsed = entrySchema.safeParse(JSON.parse(await fs.readFile(inCache(file), "utf8")));
       if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "invalid entry");
       const { fetchedAt, request, status, body } = parsed.data;
       const meta: DiskMeta = { file, fetchedAtMs: Date.parse(fetchedAt), request, status };
@@ -272,11 +275,11 @@ export function createSolarStore(opts: StoreOptions): SolarStore {
   async function writeEntry(req: FindClosestRequest, res: GoogleCallResult, building: SolarBuilding | undefined, fetchedAtMs: number) {
     const file = entryFileName(fetchedAtMs, req);
     const entry: CacheEntry = { fetchedAt: new Date(fetchedAtMs).toISOString(), request: req, status: res.status, body: res.body };
-    const tmp = path.join(buildingDir, `.${file}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`);
+    const tmp = inCache(`.${file}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`);
     try {
       await fs.mkdir(buildingDir, { recursive: true });
       await fs.writeFile(tmp, JSON.stringify(entry));
-      await fs.rename(tmp, path.join(buildingDir, file)); // atomic: prod and staging share the folder
+      await fs.rename(tmp, inCache(file)); // atomic: prod and staging share the folder
       index.set(file, { file, fetchedAtMs, request: req, status: res.status, bbox: building && bboxOf(building) });
     } catch (e) {
       // The user still gets their answer; we just pay for this roof again next time.
@@ -387,7 +390,7 @@ export function createSolarStore(opts: StoreOptions): SolarStore {
     for (const [k, e] of memory) if (e.expiresAt <= t) memory.delete(k);
 
     for (const file of await listEntryFiles()) {
-      const full = path.join(buildingDir, file);
+      const full = inCache(file);
       try {
         if (file.endsWith(".tmp")) {
           if (t - (await fs.stat(full)).mtimeMs > STALE_TMP_MS) {
