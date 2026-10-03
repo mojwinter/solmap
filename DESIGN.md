@@ -152,8 +152,8 @@ Browser (Next.js client)
                                       ▼
 Next.js server (Docker on VPS, behind Caddy)
   ├─ /api/solar/building   → solar.googleapis.com/v1/buildingInsights:findClosest
-  ├─ /api/solar/layers     → solar.googleapis.com/v1/dataLayers:get          (P1)
-  ├─ /api/solar/geotiff    → solar.googleapis.com/v1/geoTiff:get + key      (P1)
+  ├─ /api/solar/layers     → dataLayers:get + geoTiff:get (rasters cached as bytes)  (P1)
+  ├─ /api/solar/heatmap    → PNG rendered from the cached rasters, no Google call  (P1)
   ├─ zod validation → trim to BuildingResponse
   ├─ lib/solar/cache.ts: memory LRU → disk cache (fixtures/solar/, ≤ 25 days) → Google (if SOLAR_SOURCE allows)
   ├─ per-IP rate limit
@@ -190,8 +190,21 @@ A cached entry matches when the requested point is inside the cached building's 
 (the same building `findClosest` would return) or within 5 m of the point that was originally requested
 (covers cached 404s).
 
-`GET /api/solar/layers?lat&lng&radius=30` (P1): returns `{ annualFluxUrl, maskUrl, rgbUrl, imageryQuality }`
-rewritten to point at `/api/solar/geotiff?id=...` so the key never leaves the server.
+`GET /api/solar/layers?lat&lng` (P1 sun heatmap; only called when the user opens it):
+
+- 200 → `SolarLayersResponse` (see `src/types/app.ts`): `bounds`, `heatmapUrl`, `fluxScale` (legend), imagery, `source`.
+  The map draws it with `new google.maps.GroundOverlay(heatmapUrl, bounds)`. No GeoTIFF code in the browser.
+- 404 `NO_COVERAGE` (no building, or no Data Layers for it), 400 / 429 / 502 as above; `Cache-Control: private, no-store`.
+- Server side: resolve the building first (never spend a Data Layers call on a roof we can't see), then one
+  `dataLayers:get` per building (`view=IMAGERY_AND_ANNUAL_FLUX_LAYERS`, radius = half the bbox diagonal + 5 m,
+  clamped 15–50 m, `pixelSizeMeters=0.25`, same quality rule as findClosest). Its raster URLs only work for an
+  hour, so the annual-flux and mask GeoTIFFs are downloaded immediately and cached as bytes next to the JSON
+  (same 25-day expiry). The server decodes them, reprojects the bounds and colours the flux on a fixed scale
+  (the approach of Google's js-solar-potential sample, moved server-side).
+- `SOLAR_SOURCE=fixtures`: synthetic roofs get a synthetic heatmap built from their roof segments.
+
+`GET /api/solar/heatmap?id=…` → `image/png`, transparent outside the roof. The id comes from `/layers` and only
+resolves in our own cache (404 once expired), so nothing from the browser is ever forwarded to Google.
 
 ### Data flow for the slider
 
