@@ -3,6 +3,7 @@ import golden from "@/fixtures/finance-golden.json";
 import { DEFAULT_INPUTS, INPUT_RANGES, REBATES, TUNING } from "@/src/config/bc";
 import type { FinanceInputs } from "@/src/types/app";
 import { finance } from "@/lib/finance";
+import { reasonChips } from "@/lib/finance/verdict";
 import { linearConfigs, segment, stubBuilding } from "./helpers";
 
 const inputs = (o: Partial<FinanceInputs> = {}): FinanceInputs => ({ ...DEFAULT_INPUTS, ...o });
@@ -161,6 +162,42 @@ describe("reason chips", () => {
     const building = stubBuilding(linearConfigs(20, 20, 450));
     const rec = finance.recommend(building, inputs({ annualConsumptionKwh: 3000 }));
     expect(kinds(rec)).toEqual(expect.arrayContaining(["export_share", "oversized"]));
+  });
+
+  it("export_share names the input export rate and doesn't suggest going smaller from the smallest size", () => {
+    const building = stubBuilding(linearConfigs(20, 20, 450));
+    const rec = finance.recommend(building, inputs({ annualConsumptionKwh: 3000, exportRate: 0.075 }));
+    expect(rec.recommendedIndex).toBe(0);
+    const chip = rec.reasons.find((c) => c.kind === "export_share")!;
+    expect(chip.text).toContain("7.5¢");
+    expect(chip.text).not.toMatch(/smaller pays back/);
+  });
+
+  it("export_share suggests going smaller when a smaller size exists", () => {
+    const building = stubBuilding(linearConfigs(4, 20, 450));
+    const all = inputs({ annualConsumptionKwh: 3000 });
+    const scenarios = building.configs.map((c, i) => finance.evaluate(c, i, 400, all));
+    const chips = reasonChips(building, 16, scenarios, "weak", all);
+    expect(chips.find((c) => c.kind === "export_share")?.text).toMatch(/10¢; smaller pays back faster/);
+  });
+
+  it("rebate_cap uses the 50%-of-cost limit when cost per watt is under $2/W", () => {
+    const building = stubBuilding(linearConfigs(10, 30, 460));
+    const chipFor = (costPerWatt: number) => {
+      const all = inputs({ costPerWatt });
+      const scenarios = building.configs.map((c, i) => finance.evaluate(c, i, 400, all));
+      return reasonChips(building, 0, scenarios, "moderate", all).find((c) => c.kind === "rebate_cap");
+    };
+    expect(chipFor(1.6)?.text).toBe("BC Hydro's rebate stops growing at 6.3 kW"); // $800/kW → 6.25 kW
+    expect(chipFor(3)?.text).toBe("BC Hydro's rebate stops growing at 5 kW");
+    expect(finance.evaluate({ panelsCount: 15, yearlyEnergyDcKwh: 6900 }, 0, 400, inputs({ costPerWatt: 1.6 })).rebate).toBeLessThan(
+      REBATES.solar.maxResidential,
+    ); // 6 kW at $1.60/W is still below the cap
+  });
+
+  it("headline ends with the lifetime in years", () => {
+    const rec = finance.recommend(stubBuilding(linearConfigs(10, 20, 460)), inputs());
+    expect(rec.headline).toMatch(/over \d+ years\.$/);
   });
 
   it("imagery chip for BASE quality or imagery older than the max age", () => {

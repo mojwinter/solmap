@@ -1,5 +1,6 @@
 import { TUNING } from '@/src/config/bc';
 import type { BuildingResponse, FinanceInputs, Recommendation, ScenarioResult } from '@/src/types/app';
+import { clampInputs } from './clamp';
 import { evaluate } from './project';
 import { headline, reasonChips, verdictFor } from './verdict';
 
@@ -29,7 +30,7 @@ export function recommend(building: BuildingResponse, inputs: FinanceInputs): Re
     recommendedIndex,
     verdict,
     headline: headline(recommendedIndex, scenarios),
-    reasons: reasonChips(building, recommendedIndex, scenarios, verdict),
+    reasons: reasonChips(building, recommendedIndex, scenarios, verdict, clampInputs(inputs).inputs),
     scenarios,
   };
 }

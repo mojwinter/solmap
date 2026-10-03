@@ -20,6 +20,12 @@ export function solarRebate(systemKwDc: number, installCost: number, eligible: b
   return Math.max(0, Math.min(r.perKwDc * systemKwDc, r.maxFractionOfCost * installCost, r.maxResidential));
 }
 
+/** System size (kW DC) where the rebate hits its cap: below $2/W the 50%-of-cost limit sets the per-kW rate. */
+export function rebateCapKw(costPerWatt: number): number {
+  const r = REBATES.solar;
+  return r.maxResidential / Math.min(r.perKwDc, r.maxFractionOfCost * costPerWatt * 1000);
+}
+
 /** One configuration → full lifetime projection (FINANCIAL_MODEL.md → Formulas). */
 export function evaluate(
   config: Pick<ConfigLite, 'panelsCount' | 'yearlyEnergyDcKwh'>,

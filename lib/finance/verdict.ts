@@ -1,11 +1,14 @@
-import { REBATES, TUNING } from '@/src/config/bc';
-import type { BuildingResponse, ReasonChip, ScenarioResult, Verdict } from '@/src/types/app';
+import { TUNING } from '@/src/config/bc';
+import type { BuildingResponse, FinanceInputs, ReasonChip, ScenarioResult, Verdict } from '@/src/types/app';
+import { rebateCapKw } from './project';
 
 const fmt = new Intl.NumberFormat('en-CA', { maximumFractionDigits: 0 });
 const dollars = (n: number) => `$${fmt.format(Math.round(n))}`;
 /** "~$X" copy rounds to the nearest $100; exact amounts stay in the MoneyCard. */
 const approxDollars = (n: number) => `$${fmt.format(Math.round(n / 100) * 100)}`;
 const kw = (n: number) => `${n.toFixed(1)} kW`;
+const oneDecimal = new Intl.NumberFormat('en-CA', { maximumFractionDigits: 1 });
+const cents = (perKwh: number) => `${oneDecimal.format(perKwh * 100)}¢`;
 
 /** First match wins (DESIGN.md §5). */
 export function verdictFor(s: ScenarioResult): Verdict {
@@ -45,13 +48,14 @@ function dominantSegment(building: BuildingResponse, index: number) {
 
 /**
  * Top-3 reason chips: the chip that explains the verdict first, then warnings, then neutral, then positives.
- * `now` only drives the imagery-age check; tests pin it with fake timers.
+ * `inputs` must already be clamped. `now` only drives the imagery-age check; tests pin it with fake timers.
  */
 export function reasonChips(
   building: BuildingResponse,
   index: number | null,
   scenarios: ScenarioResult[],
   verdict: Verdict,
+  inputs: FinanceInputs,
   now: Date = new Date(),
 ): ReasonChip[] {
   if (index === null) return [{ kind: 'roof_small', tone: 'warn', text: 'Not enough usable roof for panels' }];
@@ -85,7 +89,10 @@ export function reasonChips(
     chips.push({
       kind: 'export_share',
       tone: 'warn',
-      text: `${Math.round(exportShare * 100)}% of this size would sell at 10¢; smaller pays back faster`,
+      text:
+        index > 0
+          ? `${Math.round(exportShare * 100)}% of this size would sell at ${cents(inputs.exportRate)}; smaller pays back faster`
+          : `${Math.round(exportShare * 100)}% of even the smallest size would sell at ${cents(inputs.exportRate)}`,
     });
   }
 
@@ -108,10 +115,10 @@ export function reasonChips(
     });
   }
 
-  const capKw = REBATES.solar.maxResidential / REBATES.solar.perKwDc;
+  const capKw = rebateCapKw(inputs.costPerWatt);
   const maxKw = Math.max(...scenarios.map((x) => x.systemKwDc));
   if (s.rebate > 0 && (s.systemKwDc >= capKw || maxKw > capKw)) {
-    chips.push({ kind: 'rebate_cap', tone: 'neutral', text: `BC Hydro's rebate stops growing at ${capKw} kW` });
+    chips.push({ kind: 'rebate_cap', tone: 'neutral', text: `BC Hydro's rebate stops growing at ${oneDecimal.format(capKw)} kW` });
   }
 
   const age = imageryAgeYears(building.imagery.date, now);
@@ -141,5 +148,5 @@ export function headline(index: number | null, scenarios: ScenarioResult[]): str
   if (s.paybackYears === null) {
     return `Solar doesn’t pay for itself here within ${life} years: a ${kw(s.systemKwDc)} system would leave you ${dollars(-s.lifetimeNetSavings)} behind.`;
   }
-  return `A ${kw(s.systemKwDc)} system pays for itself in about ${Math.round(s.paybackYears)} years and saves ~${approxDollars(s.lifetimeNetSavings)} over ${life}.`;
+  return `A ${kw(s.systemKwDc)} system pays for itself in about ${Math.round(s.paybackYears)} years and saves ~${approxDollars(s.lifetimeNetSavings)} over ${life} years.`;
 }
