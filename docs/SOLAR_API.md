@@ -101,7 +101,33 @@ corners = [(+w,+h), (+w,−h), (−w,−h), (−w,+h)] → for each (x,y):
   point   = computeOffset(center, dist, heading)
 ```
 
-(The sample repo's `panels` rendering does the same; copy the approach, not the Svelte code.)
+(The sample repo's `panels` rendering does the same; copy the approach, not the Svelte code.
+See [Prior art](#prior-art-googles-sample-app).)
+
+## Prior art: Google's sample app
+
+Before designing a fix for a Solar or Maps problem, check whether Google's sample already solved it:
+[googlemaps-samples/js-solar-potential](https://github.com/googlemaps-samples/js-solar-potential/tree/9e844ed90e5526b400200513fcefca537d287d3c/src/routes)
+(Svelte 4 + Material Web, Apache-2.0; links pinned to the 2025-10-31 commit). Read it for the
+**decision**, then write our own React/TS. If you port a chunk nearly verbatim, keep Google's
+license header on it, and check the hackathon's pre-written-code rule first.
+
+| Problem | Where it's solved (`src/routes/`) | Fits our rules? |
+|---|---|---|
+| Panel centre + azimuth + orientation → polygon corners | `sections/BuildingInsightsSection.svelte` (`showSolarPotential`) | Yes, same maths as "Drawing a panel" above |
+| Slider that stays fast with 100+ panels | Same file: build polygons once, toggle `setMap` by index | Yes |
+| Colour panels by energy | `visualize.ts` (`createPalette`, `normalize`), `colors.ts` (`panelsPalette`) | Yes |
+| Decode a GeoTIFF and get its lat/lng bounds (UTM → WGS84) | `solar.ts` (`downloadGeoTIFF`: `geotiff` + `proj4` + `geotiff-geokeys-to-proj4`) | Yes for decoding, but **fetch through `/api/solar/geotiff`**: the sample adds the key in the browser |
+| Flux heatmap: palette, roof mask, value range | `layer.ts` (`annualFlux`: iron palette, 0–1800), `visualize.ts` (`renderPalette`, `renderRGB`) | Yes |
+| Put a raster on the map | `sections/DataLayersSection.svelte`: canvas → `GroundOverlay` | Yes |
+| Monthly / hourly flux animation | `layer.ts` (`monthlyFlux`, `hourlyShade`) | Yes (P2) |
+| Calling the Solar API | `solar.ts` (`findClosestBuilding`, `getDataLayerUrls`) | **No.** Browser-side with the Maps key; we proxy (Rule 1) |
+| Address search | `components/SearchBar.svelte` | **No.** Legacy `places.Autocomplete`; we use `PlaceAutocompleteElement` |
+| Costs, savings, payback | `sections/SolarPotentialSection.svelte` | **No.** US net-metering model; ours is BC RS 2289 (FINANCIAL_MODEL.md) |
+
+Not in the sample (we solve these ourselves): fitting the map to the building, re-querying on map
+click, Map ID, caching, 404 handling, pitch foreshortening (it draws panels at full slope length,
+about 13% too long downslope on a 30° roof).
 
 ## Policies to respect
 
@@ -133,3 +159,4 @@ corners = [(+w,+h), (+w,−h), (−w,−h), (−w,+h)] → for each (x,y):
 - Release notes (BASE quality, coverage changes): https://developers.google.com/maps/documentation/solar/release-notes
 - Place Autocomplete (New) migration: https://developers.google.com/maps/documentation/javascript/places-migration-autocomplete
 - Sample app (TypeScript types, GeoTIFF rendering): https://github.com/googlemaps-samples/js-solar-potential
+  (what to take from it and what not: [Prior art](#prior-art-googles-sample-app))

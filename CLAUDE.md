@@ -152,4 +152,6 @@ Imports: `@/src/types/app`, `@/src/types/solar`, `@/src/config/bc` (alias `@/*` 
 
 - Start by reading this file, `PLAN.md` (your role's section), and the doc for your area.
 - Ask Claude for a plan before multi-file changes. Keep changes inside your owned folders.
+- Stuck on a Solar or Maps problem (panel drawing, GeoTIFF decoding, overlays)? Check Google's sample app
+  first: `docs/SOLAR_API.md` → Prior art lists what it already solved and which parts break our rules.
 - Use `/verify` before pushing and `/contract-check` if you touched `src/types`.
