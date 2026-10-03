@@ -11,7 +11,10 @@ const MAP_ID = process.env.NEXT_PUBLIC_MAP_ID || undefined;
 
 interface Props {
   building: BuildingResponse;
-  /** How many of the best panels to draw. */
+  /**
+   * How many of the best panels to draw. For the size slider's config `i` that's
+   * `building.configs[i].panelsCount` (configs are cumulative: config i = the best N panels).
+   */
   visibleCount: number;
   /** Sizes the map itself (give it a height); the attribution line sits below it. */
   className?: string;

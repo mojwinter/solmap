@@ -22,14 +22,17 @@ interface Props {
 }
 
 /**
- * Every panel of the building as a map polygon. Polygons are built once per building and the
- * count only toggles setMap, so dragging a size slider stays fast with 100+ panels.
+ * Every panel of the building as a map polygon. Polygons are built once per building and a new
+ * count only toggles the panels between the old and new count, so a size slider stays well under
+ * 16 ms per step even with 100+ panels (docs/SOLAR_API.md, Gotcha 5).
  */
 export function PanelOverlay({ building, visibleCount }: Props) {
   const map = useMap();
   const maps = useMapsLibrary("maps");
   const geometry = useMapsLibrary("geometry");
   const polygons = useRef<google.maps.Polygon[]>([]);
+  /** How many polygons are on the map right now. Panels are best-first, so it's always the first N. */
+  const shown = useRef(0);
 
   useEffect(() => {
     if (!maps || !geometry) return;
@@ -42,6 +45,7 @@ export function PanelOverlay({ building, visibleCount }: Props) {
     const min = Math.min(...energies);
     const range = Math.max(...energies) - min || 1;
 
+    // Colours are normalised over all of the roof's panels, so resizing never recolours a panel.
     polygons.current = building.panels.map(
       (panel) =>
         new maps.Polygon({
@@ -53,14 +57,21 @@ export function PanelOverlay({ building, visibleCount }: Props) {
           clickable: false,
         }),
     );
+    shown.current = 0;
     return () => {
       polygons.current.forEach((p) => p.setMap(null));
       polygons.current = [];
+      shown.current = 0;
     };
   }, [maps, geometry, building]);
 
   useEffect(() => {
-    polygons.current.forEach((p, i) => p.setMap(i < visibleCount ? map : null));
+    if (!map) return;
+    const all = polygons.current;
+    const next = Math.max(0, Math.min(visibleCount, all.length));
+    for (let i = shown.current; i < next; i++) all[i].setMap(map);
+    for (let i = next; i < shown.current; i++) all[i].setMap(null);
+    shown.current = next;
   }, [map, maps, geometry, building, visibleCount]);
 
   return null;
