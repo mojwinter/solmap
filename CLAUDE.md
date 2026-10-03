@@ -62,8 +62,8 @@ app/
   page.tsx                      # landing + address search
   report/[lat]/[lng]/page.tsx   # the report (URL is shareable, no DB needed)
   api/solar/building/route.ts   # GET → proxies buildingInsights:findClosest, returns BuildingResponse
-  api/solar/layers/route.ts     # GET → proxies dataLayers:get (P1)
-  api/solar/geotiff/route.ts    # GET → proxies geoTiff:get, adds key server-side (P1)
+  api/solar/layers/route.ts     # GET → dataLayers:get, returns SolarLayersResponse (P1)
+  api/solar/heatmap/route.ts    # GET → heatmap PNG rendered from cached rasters (P1)
   api/health/route.ts           # { ok: true } for the Docker healthcheck
 components/
   map/                          # Map, BuildingOutline, PanelOverlay, FluxOverlay
@@ -103,7 +103,7 @@ Imports: `@/src/types/app`, `@/src/types/solar`, `@/src/config/bc` (alias `@/*` 
 
 1. **Keys**: `SOLAR_API_KEY` is server-only. `lib/solar/client.ts` starts with `import 'server-only'`,
    so a client import fails the build. Only `NEXT_PUBLIC_MAPS_API_KEY` (HTTP-referrer-restricted) goes to the browser.
-   GeoTIFF URLs from dataLayers need a key appended, so we always proxy them.
+   GeoTIFF URLs from dataLayers need the key and expire after an hour, so the server fetches them and the browser only ever gets PNGs.
 2. **Google content expires.** Google lets us cache Building Insights / Data Layers temporarily,
    for **at most 30 days**. Our disk cache (`fixtures/solar/`, `SOLAR_CACHE_DIR`) stamps every entry
    with its fetch time, ignores entries older than `SOLAR_CACHE_MAX_AGE_DAYS` (25), and deletes them on
