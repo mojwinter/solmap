@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { APIProvider, Map, useMap } from "@vis.gl/react-google-maps";
+import { ATTRIBUTION } from "@/src/config/bc";
 import type { BuildingResponse } from "@/src/types/app";
 import { PanelOverlay } from "./PanelOverlay";
 
@@ -38,7 +39,7 @@ export function SolarMap({ building, visibleCount, className }: Props) {
         </Map>
       </APIProvider>
       <p className="mt-1 text-xs text-zinc-500">
-        {ATTRIBUTION[building.source]}
+        {SOURCE_NOTE[building.source]}
         {!API_KEY &&
           process.env.NODE_ENV !== "production" &&
           " · No NEXT_PUBLIC_MAPS_API_KEY set: Google shows the map in development mode."}
@@ -47,10 +48,11 @@ export function SolarMap({ building, visibleCount, className }: Props) {
   );
 }
 
-// CLAUDE.md rule 3: Google's attribution wherever their Solar data is shown (live and cache only).
-const ATTRIBUTION: Record<BuildingResponse["source"], string> = {
-  live: "Source: Includes solar data from Google",
-  cache: "Source: Includes solar data from Google",
+// CLAUDE.md rule 3: Google's attribution (from bc.ts, rule 4) wherever their Solar data is shown,
+// i.e. live and cache only.
+const SOURCE_NOTE: Record<BuildingResponse["source"], string> = {
+  live: ATTRIBUTION,
+  cache: ATTRIBUTION,
   fixture: "Synthetic roof for development (not Google data).",
   manual: "Estimate from your inputs (no solar data for this roof).",
 };
