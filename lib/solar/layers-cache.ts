@@ -26,6 +26,9 @@ import type { ImageryQuality } from "@/src/types/solar";
 import {
   clampMaxAgeDays,
   getSolarStore,
+  INDEX_RESCAN_MS,
+  logCoord,
+  NEGATIVE_TTL_MS,
   PRUNE_INTERVAL_MS,
   storeOptionsFromEnv,
   type Layer,
@@ -41,7 +44,8 @@ import {
   type DataLayersRequest,
   type GoogleCallResult,
 } from "./client";
-import { errText, inDir, listDir, STALE_TMP_MS, writeFileAtomic } from "./disk";
+import { DailyBudgetError, getDailyBudget, type DailyBudget } from "./budget";
+import { dirMtime, errText, getDiskQuota, inDir, INDEX_CONCURRENCY, listDir, mapLimit, STALE_TMP_MS, writeFileAtomic, type DiskQuota } from "./disk";
 import { decodeGeoTiff, hasRoof, renderHeatmap } from "./raster";
 import { dataLayersSchema, imageryQualitySchema, type SolarBuilding } from "./schema";
 import { syntheticLayers } from "./synthetic-layers";
@@ -65,6 +69,8 @@ export interface LayersStore {
   lookup(lat: number, lng: number): Promise<LayersResult>;
   /** The heatmap PNG for an id from lookup(), or null if unknown or expired. */
   heatmap(id: string): Promise<Uint8Array | null>;
+  /** True if heatmap(id) can answer from memory (no disk read, no render). */
+  heatmapInMemory(id: string): boolean;
   /** Deletes expired entries, unreferenced rasters and stale temp files. Returns files deleted. */
   prune(): Promise<number>;
 }
@@ -80,6 +86,12 @@ export interface LayersStoreOptions {
   fetchDataLayers?: (req: DataLayersRequest) => Promise<GoogleCallResult>;
   downloadGeoTiff?: (url: string) => Promise<Uint8Array>;
   log?: (line: string) => void;
+  /** Daily cap on Data Layers calls (getDailyBudget() in the app). Absent = no cap. */
+  budget?: DailyBudget;
+  /** Disk cap (getDiskQuota() in the app). Absent = no cap. */
+  quota?: DiskQuota;
+  /** How long a failed lookup is remembered, so retries don't re-bill. Default 5 min. */
+  negativeTtlMs?: number;
 }
 
 const DAY_MS = 86_400_000;
@@ -134,6 +146,7 @@ interface Rendered {
 interface MemoryEntry {
   promise: Promise<Rendered>;
   settled?: Rendered;
+  failed?: boolean;
   expiresAt: number;
 }
 
@@ -181,8 +194,14 @@ export function createLayersStore(opts: LayersStoreOptions): LayersStore {
         entry.expiresAt = r.fetchedAtMs === undefined ? ttlEnd : Math.min(ttlEnd, r.fetchedAtMs + maxAgeMs);
         if (r.id) memoryIds.set(r.id, buildingId);
       },
-      () => {
-        if (memory.get(buildingId) === entry) memory.delete(buildingId); // errors are never cached
+      (e) => {
+        // Remember failures (H1) so a retry doesn't buy the same Data Layers call again; not the daily cap.
+        if (e instanceof DailyBudgetError) {
+          if (memory.get(buildingId) === entry) memory.delete(buildingId);
+          return;
+        }
+        entry.failed = true;
+        entry.expiresAt = now() + (opts.negativeTtlMs ?? NEGATIVE_TTL_MS);
       },
     );
   }
@@ -231,29 +250,52 @@ export function createLayersStore(opts: LayersStoreOptions): LayersStore {
     }
   }
 
+  let indexedMtime = -2;
+  let indexedAt = -Infinity;
+
+  /** Rescans only when the directory changed (mtime) or every INDEX_RESCAN_MS, 16 files at a time (M1). */
   async function refreshIndex(): Promise<DiskMeta[]> {
-    const files = new Set((await listDir(layersDir, log)).filter((f) => f.endsWith(".json")));
-    for (const f of index.keys()) if (!files.has(f)) index.delete(f);
-    await Promise.all([...files].filter((f) => !index.has(f)).map(async (f) => index.set(f, await readMeta(f))));
+    const mtime = await dirMtime(layersDir);
+    if (mtime !== indexedMtime || now() - indexedAt > INDEX_RESCAN_MS) {
+      const files = new Set((await listDir(layersDir, log)).filter((f) => f.endsWith(".json")));
+      for (const f of index.keys()) if (!files.has(f)) index.delete(f);
+      const fresh = [...files].filter((f) => !index.has(f));
+      await mapLimit(fresh, INDEX_CONCURRENCY, async (f) => index.set(f, await readMeta(f)));
+      [indexedMtime, indexedAt] = [mtime, now()];
+    }
     return [...index.values()].filter((m): m is DiskMeta => m !== null);
   }
 
-  /** Renders a cached 200 entry; null (and the entry is forgotten) if its rasters are gone or bad. */
+  /** Decode + render, as an UpstreamError on failure so it's remembered (H1) instead of re-bought. */
+  async function renderOrThrow(flux: Uint8Array, mask: Uint8Array): Promise<{ png: Buffer; bounds: LatLngBounds } | null> {
+    try {
+      return await renderFromTiffs(flux, mask);
+    } catch (e) {
+      throw new UpstreamError(`heatmap render failed: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
+  /**
+   * Renders a cached entry. null (entry forgotten, so it's fetched again) only if its rasters are missing
+   * or unreadable; a render failure throws instead, because fetching again would just pay for the same bytes.
+   */
   async function renderMeta(m: DiskMeta): Promise<Rendered | null> {
     if (m.status === 404) return { status: 404, origin: "disk", fetchedAtMs: m.fetchedAtMs };
+    let flux: Buffer;
+    let mask: Buffer;
     try {
-      const [flux, mask] = await Promise.all([
+      [flux, mask] = await Promise.all([
         fs.readFile(inDir(tiffDir, `${m.tiffs!.annualFlux}.tif`)),
         fs.readFile(inDir(tiffDir, `${m.tiffs!.mask}.tif`)),
       ]);
-      const r = await renderFromTiffs(flux, mask);
-      if (!r) return { status: 404, origin: "disk", fetchedAtMs: m.fetchedAtMs };
-      return { status: 200, origin: "disk", fetchedAtMs: m.fetchedAtMs, id: m.id, buildingId: m.buildingId, imagery: m.imagery, ...r };
     } catch (e) {
       log(`solar layers cache unreadable rasters file=${m.file} err=${errText(e)}`);
       index.set(m.file, null);
       return null;
     }
+    const r = await renderOrThrow(flux, mask);
+    if (!r) return { status: 404, origin: "disk", fetchedAtMs: m.fetchedAtMs };
+    return { status: 200, origin: "disk", fetchedAtMs: m.fetchedAtMs, id: m.id, buildingId: m.buildingId, imagery: m.imagery, ...r };
   }
 
   async function diskLookup(buildingId: string): Promise<Rendered | null> {
@@ -269,13 +311,16 @@ export function createLayersStore(opts: LayersStoreOptions): LayersStore {
 
   async function writeEntry(entry: LayersEntry, req: DataLayersRequest, fetchedAtMs: number, rasters?: { annualFlux: Uint8Array; mask: Uint8Array }) {
     const file = layersFileName(fetchedAtMs, req);
+    const json = JSON.stringify(entry);
+    const bytes = Buffer.byteLength(json) + (rasters ? rasters.annualFlux.byteLength + rasters.mask.byteLength : 0);
+    if (opts.quota && !(await opts.quota.allow(bytes, rasters ? 3 : 1))) return; // cache full: serve, don't save
     try {
       // Rasters first: an entry on disk always has its bytes.
       if (rasters && entry.tiffs) {
         await writeFileAtomic(tiffDir, `${entry.tiffs.annualFlux}.tif`, rasters.annualFlux);
         await writeFileAtomic(tiffDir, `${entry.tiffs.mask}.tif`, rasters.mask);
       }
-      await writeFileAtomic(layersDir, file, JSON.stringify(entry));
+      await writeFileAtomic(layersDir, file, json);
       index.delete(file); // re-read on next refresh
     } catch (e) {
       log(`solar layers cache WRITE FAILED file=${file} err=${errText(e)}`);
@@ -284,6 +329,7 @@ export function createLayersStore(opts: LayersStoreOptions): LayersStore {
 
   async function fetchFromGoogle(b: SolarBuilding): Promise<Rendered> {
     const req = dataLayersRequestFor(b);
+    opts.budget?.take("layers"); // throws DailyBudgetError past today's cap (C1)
     const res = await fetchLayers(req);
     const fetchedAtMs = now();
     const fetchedAt = new Date(fetchedAtMs).toISOString();
@@ -300,9 +346,10 @@ export function createLayersStore(opts: LayersStoreOptions): LayersStore {
     if (!fluxId || !maskId) throw new UpstreamError("dataLayers returned raster URLs that aren't geoTiff:get", 200);
 
     const [annualFlux, mask] = await Promise.all([download(parsed.data.annualFluxUrl), download(parsed.data.maskUrl)]);
-    const rendered = await renderFromTiffs(annualFlux, mask);
+    // Save what we paid for before rendering (H1): a render bug must not mean buying the same call again.
     const tiffs = { annualFlux: sha256(fluxId), mask: sha256(maskId) };
     if (opts.source === "cache") await writeEntry({ ...base, status: 200, body: res.body, tiffs }, req, fetchedAtMs, { annualFlux, mask });
+    const rendered = await renderOrThrow(annualFlux, mask);
     if (!rendered) return { status: 404, origin: "google", fetchedAtMs };
 
     const d = parsed.data.imageryDate;
@@ -331,7 +378,7 @@ export function createLayersStore(opts: LayersStoreOptions): LayersStore {
     const started = performance.now();
     const line = (source: string, layer: string, quality: string, status: number, extra = "") =>
       log(
-        `solar kind=layers lat=${lat.toFixed(5)} lng=${lng.toFixed(5)} source=${source} layer=${layer} quality=${quality} status=${status} ms=${Math.round(performance.now() - started)}${extra}`,
+        `solar kind=layers lat=${logCoord(lat)} lng=${logCoord(lng)} source=${source} layer=${layer} quality=${quality} status=${status} ms=${Math.round(performance.now() - started)}${extra}`,
       );
 
     const building = await opts.buildings.lookup(lat, lng); // UpstreamError → 502, already logged
@@ -353,7 +400,8 @@ export function createLayersStore(opts: LayersStoreOptions): LayersStore {
     try {
       r = await pending;
     } catch (e) {
-      line(opts.source === "fixtures" ? "fixture" : "live", fromMemory ? "memory" : "google", "-", 502, ` err=${errText(e)}`);
+      const status = e instanceof DailyBudgetError ? 503 : 502;
+      line(opts.source === "fixtures" ? "fixture" : "live", fromMemory ? "memory" : "google", "-", status, ` err=${errText(e)}`);
       throw e instanceof UpstreamError ? e : new UpstreamError(e instanceof Error ? e.message : String(e));
     }
 
@@ -365,12 +413,18 @@ export function createLayersStore(opts: LayersStoreOptions): LayersStore {
     return { status: 200, id: r.id, buildingId: r.buildingId!, imagery: r.imagery!, bounds: r.bounds!, source, layer };
   }
 
-  async function heatmap(id: string): Promise<Uint8Array | null> {
-    if (!HEATMAP_ID_RE.test(id)) return null;
-
+  function memoryPng(id: string): Buffer | undefined {
     const key = memoryIds.get(id);
     const hit = key !== undefined ? memory.get(key) : undefined;
-    if (hit?.settled?.png && hit.settled.id === id && hit.expiresAt > now()) return hit.settled.png;
+    return hit?.settled?.png && hit.settled.id === id && hit.expiresAt > now() ? hit.settled.png : undefined;
+  }
+
+  const heatmapInMemory = (id: string) => HEATMAP_ID_RE.test(id) && memoryPng(id) !== undefined;
+
+  async function heatmap(id: string): Promise<Uint8Array | null> {
+    if (!HEATMAP_ID_RE.test(id)) return null;
+    const fromMemory = memoryPng(id);
+    if (fromMemory) return fromMemory;
 
     const synthetic = syntheticById.get(id);
     if (synthetic) return renderSynthetic(synthetic).png ?? null;
@@ -423,7 +477,7 @@ export function createLayersStore(opts: LayersStoreOptions): LayersStore {
     }
 
     // 2. rasters: kept only while a live entry references them. A brand-new .tif may belong to an
-    //    entry still being written (here or in the other env), so unreferenced ones get an hour.
+    //    entry still being written (by the server or by `pnpm solar:warm`), so unreferenced ones get an hour.
     for (const file of await listDir(tiffDir, log)) {
       if (file.endsWith(".tmp") || file.endsWith(".tif")) {
         const hash = file.endsWith(".tif") ? file.slice(0, -4) : "";
@@ -435,7 +489,7 @@ export function createLayersStore(opts: LayersStoreOptions): LayersStore {
     return deleted;
   }
 
-  return { lookup, heatmap, prune };
+  return { lookup, heatmap, heatmapInMemory, prune };
 }
 
 const globalForLayers = globalThis as typeof globalThis & { __solarLayersStore?: LayersStore };
@@ -450,6 +504,8 @@ export function getLayersStore(): LayersStore {
       maxAgeDays: o.maxAgeDays,
       memoryTtlMs: o.memoryTtlMs,
       buildings: getSolarStore(),
+      budget: getDailyBudget(),
+      quota: getDiskQuota(o.cacheDir),
     });
     globalForLayers.__solarLayersStore = store;
     void store.prune();

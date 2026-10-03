@@ -2,7 +2,8 @@
 import { z } from "zod";
 import { BC_BOUNDS } from "@/src/config/bc";
 import type { ApiError } from "@/src/types/app";
-import { clientIp, getSolarRateLimiter } from "./ratelimit";
+import { DailyBudgetError } from "./budget";
+import { clientIp, getSolarRateLimiter, type RateLimiter } from "./ratelimit";
 
 // Google's terms cap caching at 30 days, so no browser or CDN gets to decide.
 export const NO_STORE = { "Cache-Control": "private, no-store" };
@@ -11,8 +12,8 @@ export const reply = <T>(body: T | ApiError, status: number, headers: Record<str
   Response.json(body, { status, headers: { ...NO_STORE, ...headers } });
 
 /** null if the caller still has tokens, otherwise the 429 to return. */
-export function rateLimited(request: Request): Response | null {
-  const limit = getSolarRateLimiter().take(clientIp(request.headers));
+export function rateLimited(request: Request, limiter: RateLimiter = getSolarRateLimiter()): Response | null {
+  const limit = limiter.take(clientIp(request.headers));
   return limit.ok ? null : reply({ error: "RATE_LIMITED" }, 429, { "Retry-After": String(limit.retryAfterSeconds) });
 }
 
@@ -37,5 +38,8 @@ export function parseLatLng(request: Request): { lat: number; lng: number } | Re
   return reply({ error: "BAD_REQUEST", message: query.error.issues.map((i) => i.message).join("; ") }, 400);
 }
 
-export const upstreamReply = () =>
-  reply({ error: "UPSTREAM", message: "The solar data service didn't answer. Please try again in a minute." }, 502);
+/** 503 once the daily Google budget is spent (C1), 502 for everything else upstream. */
+export const upstreamReply = (e?: unknown) =>
+  e instanceof DailyBudgetError
+    ? reply({ error: "UPSTREAM", message: "daily limit reached" }, 503)
+    : reply({ error: "UPSTREAM", message: "The solar data service didn't answer. Please try again in a minute." }, 502);

@@ -62,6 +62,8 @@ async function googleGet(url: URL, opts: CallOptions): Promise<Response> {
       headers: { "X-Goog-Api-Key": apiKey },
       signal: AbortSignal.timeout(opts.timeoutMs ?? TIMEOUT_MS),
       cache: "no-store",
+      // Never follow a redirect: fetch would carry X-Goog-Api-Key to wherever it points (L1).
+      redirect: "error",
     });
   } catch (e) {
     throw new UpstreamError(`network error: ${e instanceof Error ? e.message : String(e)}`);
@@ -191,9 +193,38 @@ export async function downloadGeoTiff(url: string, opts: CallOptions = {}): Prom
     }
     throw upstreamError(res.status, body, text);
   }
-  const bytes = new Uint8Array(await res.arrayBuffer());
+  const bytes = await readCapped(res, MAX_GEOTIFF_BYTES);
   const tiffMagic = (bytes[0] === 0x49 && bytes[1] === 0x49) || (bytes[0] === 0x4d && bytes[1] === 0x4d);
   if (!tiffMagic) throw new UpstreamError("geoTiff:get returned something that isn't a TIFF", 200);
-  if (bytes.byteLength > MAX_GEOTIFF_BYTES) throw new UpstreamError(`geoTiff:get returned ${bytes.byteLength} bytes`, 200);
   return bytes;
+}
+
+/** The body, refusing anything over `max` bytes before buffering it (L2): Content-Length first, then while streaming. */
+async function readCapped(res: Response, max: number): Promise<Uint8Array> {
+  const declared = Number(res.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > max) {
+    await res.body?.cancel().catch(() => {});
+    throw new UpstreamError(`geoTiff:get is ${declared} bytes (max ${max})`, 200);
+  }
+  if (!res.body) return new Uint8Array(await res.arrayBuffer());
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  const reader = res.body.getReader();
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > max) {
+      await reader.cancel().catch(() => {});
+      throw new UpstreamError(`geoTiff:get is over ${max} bytes`, 200);
+    }
+    chunks.push(value);
+  }
+  const out = new Uint8Array(total);
+  let off = 0;
+  for (const c of chunks) {
+    out.set(c, off);
+    off += c.byteLength;
+  }
+  return out;
 }

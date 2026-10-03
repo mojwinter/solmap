@@ -34,6 +34,16 @@ export const FLUX_SCALE = { min: 400, max: 1400, unit: "kWh/kW/yr" } as const;
 /** Google's sample "iron" ramp: dark = shady, white-yellow = sunny. */
 export const IRON_PALETTE = ["00000A", "91009C", "E64616", "FEB400", "FFFFF6"];
 
+/**
+ * Largest raster we decode or render (L2). Ours are ≤ 400×400 (50 m radius at 0.25 m); this keeps a bad
+ * or hostile file from allocating gigabytes before we notice.
+ */
+export const MAX_RASTER_PX = 2000;
+
+const checkSize = (w: number, h: number) => {
+  if (!(w > 0 && h > 0 && w <= MAX_RASTER_PX && h <= MAX_RASTER_PX)) throw new Error(`raster is ${w}x${h} (max ${MAX_RASTER_PX}x${MAX_RASTER_PX})`);
+};
+
 /** Data Layers marks pixels outside the analysis with a large negative value (e.g. -9999). */
 const isValid = (v: number) => Number.isFinite(v) && v > -1000;
 
@@ -41,6 +51,7 @@ const isValid = (v: number) => Number.isFinite(v) && v > -1000;
 export async function decodeGeoTiff(bytes: Uint8Array): Promise<Raster> {
   const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
   const image = await (await fromArrayBuffer(buffer)).getImage();
+  checkSize(image.getWidth(), image.getHeight()); // before readRasters allocates
   const [band] = await image.readRasters({ samples: [0] });
   if (typeof band === "number") throw new Error("GeoTIFF band is not an array");
 
@@ -86,6 +97,8 @@ const IRON = buildPalette(IRON_PALETTE);
  */
 export function renderHeatmap(flux: Grid, mask: Grid, scale: { min: number; max: number } = FLUX_SCALE): Buffer {
   const { width, height } = mask;
+  checkSize(width, height);
+  checkSize(flux.width, flux.height);
   const png = new PNG({ width, height });
   const dx = flux.width / width;
   const dy = flux.height / height;

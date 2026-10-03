@@ -16,10 +16,11 @@ const req = (route: string, query: string) =>
   new Request(`http://localhost/api/solar/${route}?${query}`, { headers: { "x-forwarded-for": `198.51.100.${++ipSeq}` } });
 
 const resetSingletons = () => {
-  const g = globalThis as { __solarStore?: unknown; __solarLayersStore?: unknown; __solarRateLimiter?: unknown };
+  const g = globalThis as { __solarStore?: unknown; __solarLayersStore?: unknown; __solarRateLimiter?: unknown; __solarLayersRateLimiter?: unknown };
   delete g.__solarStore;
   delete g.__solarLayersStore;
   delete g.__solarRateLimiter;
+  delete g.__solarLayersRateLimiter;
 };
 
 beforeAll(() => {
@@ -67,6 +68,15 @@ describe("GET /api/solar/layers + /api/solar/heatmap (SOLAR_SOURCE=fixtures)", (
 
   it("400 for coordinates outside BC", async () => {
     expect((await layersGET(req("layers", "lat=47&lng=-122"))).status).toBe(400);
+  });
+
+  it("/layers has its own stricter bucket: 3 a minute per IP by default (C1)", async () => {
+    const one = (ip: string) =>
+      layersGET(new Request("http://localhost/api/solar/layers?lat=49.25&lng=-123.15", { headers: { "x-forwarded-for": ip } }));
+    const statuses = [];
+    for (let i = 0; i < 4; i++) statuses.push((await one("203.0.113.50")).status);
+    expect(statuses).toEqual([200, 200, 200, 429]);
+    expect((await one("203.0.113.51")).status).toBe(200);
   });
 
   it("heatmap: 400 for a malformed id, 404 for an unknown one", async () => {

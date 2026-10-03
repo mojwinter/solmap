@@ -14,12 +14,16 @@ export async function GET(request: Request) {
   try {
     const result = await getSolarStore().lookup(point.lat, point.lng);
     if (result.status === 404) {
-      return reply({ error: "NO_COVERAGE", message: "We can't see this roof yet: there's no solar data for this spot." }, 404);
+      const message =
+        result.reason === "outside-bc"
+          ? "That building is outside BC, and Solmap only covers BC."
+          : "We can't see this roof yet: there's no solar data for this spot.";
+      return reply({ error: "NO_COVERAGE", message }, 404);
     }
     return reply<BuildingResponse>(trimBuilding(result.building, result.source), 200);
   } catch (e) {
     // UpstreamErrors were already logged by the store with their detail; anything else is our bug.
     if (!(e instanceof UpstreamError)) console.error("solar building: unexpected error", e);
-    return upstreamReply();
+    return upstreamReply(e);
   }
 }
