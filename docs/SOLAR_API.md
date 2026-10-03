@@ -74,10 +74,11 @@ solarPotential
    visibility (`setMap(map)` / `setMap(null)`) for indices ≥ count when the slider moves. Re-creating
    polygons on every slider tick won't hit the 16 ms target. `roofSegmentStats` and `solarPanels`
    can be missing on tiny roofs, so zod should default them to `[]`.
-6. dataLayers GeoTIFF URLs **need the API key appended**, which is why they go through our proxy.
-   They are raster files; decode with `geotiff` npm, colour-map the flux values, and draw to
-   a canvas used as a `GroundOverlay` bounded by the raster's bbox. Apply the `maskUrl` raster
-   so only the roof is coloured. Google's sample app does exactly this (link below).
+6. dataLayers GeoTIFF URLs **need the API key** and **only work for an hour**, so the server downloads
+   the annual-flux and mask rasters right away and caches the bytes. It decodes them (`geotiff`),
+   reprojects the bounds, colours the flux with the roof mask as alpha, and serves a PNG
+   (`lib/solar/raster.ts`, the approach of Google's sample app, moved server-side). The browser only
+   draws `GroundOverlay(heatmapUrl, bounds)` from `/api/solar/layers` (DESIGN.md §6).
 7. EEA-billing-address restrictions don't apply to us (Canadian billing).
 8. **Places:** use `google.maps.places.PlaceAutocompleteElement` (Places API (New)). The legacy
    `google.maps.places.Autocomplete` widget isn't available to projects created after
@@ -117,9 +118,9 @@ license header on it, and check the hackathon's pre-written-code rule first.
 | Panel centre + azimuth + orientation → polygon corners | `sections/BuildingInsightsSection.svelte` (`showSolarPotential`) | Yes, same maths as "Drawing a panel" above |
 | Slider that stays fast with 100+ panels | Same file: build polygons once, toggle `setMap` by index | Yes |
 | Colour panels by energy | `visualize.ts` (`createPalette`, `normalize`), `colors.ts` (`panelsPalette`) | Yes |
-| Decode a GeoTIFF and get its lat/lng bounds (UTM → WGS84) | `solar.ts` (`downloadGeoTIFF`: `geotiff` + `proj4` + `geotiff-geokeys-to-proj4`) | Yes for decoding, but **fetch through `/api/solar/geotiff`**: the sample adds the key in the browser |
+| Decode a GeoTIFF and get its lat/lng bounds (UTM → WGS84) | `solar.ts` (`downloadGeoTIFF`: `geotiff` + `proj4` + `geotiff-geokeys-to-proj4`) | Yes, but **on the server** (`lib/solar/raster.ts`): the sample adds the key in the browser |
 | Flux heatmap: palette, roof mask, value range | `layer.ts` (`annualFlux`: iron palette, 0–1800), `visualize.ts` (`renderPalette`, `renderRGB`) | Yes |
-| Put a raster on the map | `sections/DataLayersSection.svelte`: canvas → `GroundOverlay` | Yes |
+| Put a raster on the map | `sections/DataLayersSection.svelte`: canvas → `GroundOverlay` | Yes, minus the canvas: `/api/solar/layers` gives a PNG URL + bounds |
 | Monthly / hourly flux animation | `layer.ts` (`monthlyFlux`, `hourlyShade`) | Yes (P2) |
 | Calling the Solar API | `solar.ts` (`findClosestBuilding`, `getDataLayerUrls`) | **No.** Browser-side with the Maps key; we proxy (Rule 1) |
 | Address search | `components/SearchBar.svelte` | **No.** Legacy `places.Autocomplete`; we use `PlaceAutocompleteElement` |

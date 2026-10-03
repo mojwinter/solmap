@@ -91,3 +91,15 @@ export const googleApiErrorSchema = z.object({
     status: z.string().default(""),
   }),
 });
+
+/**
+ * dataLayers:get (view=IMAGERY_AND_ANNUAL_FLUX_LAYERS). We only use the annual flux and mask
+ * rasters; their URLs are only valid for an hour, so the cache keeps the bytes, not the URLs.
+ */
+export const dataLayersSchema = z.object({
+  imageryDate: dateSchema,
+  imageryQuality: imageryQualitySchema,
+  annualFluxUrl: z.string(),
+  maskUrl: z.string(),
+});
+export type SolarDataLayers = z.infer<typeof dataLayersSchema>;

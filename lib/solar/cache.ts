@@ -10,11 +10,12 @@ import "server-only";
  * SOLAR_CACHE_MAX_AGE_DAYS (default 25, clamped to ≤ 29) are ignored on read and deleted by prune(),
  * which runs at server start (instrumentation.ts) and hourly. Age comes from `fetchedAt` in the file.
  */
-import { randomBytes } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { z } from "zod";
 import type { LatLngBounds, LatLngLiteral } from "@/src/types/app";
+import { errText, inDir, listDir, STALE_TMP_MS, writeFileAtomic } from "./disk";
+import { distanceMeters } from "./geo";
 import { imageryQualitySchema, buildingInsightsSchema, type SolarBuilding } from "./schema";
 import {
   callFindClosest,
@@ -60,8 +61,8 @@ export const MAX_AGE_CEILING_DAYS = 29;
 export const MATCH_RADIUS_M = 5;
 export const SYNTHETIC_RADIUS_M = 250;
 const MEMORY_CAP = 500;
-const PRUNE_INTERVAL_MS = 3_600_000;
-const STALE_TMP_MS = 3_600_000;
+export const PRUNE_INTERVAL_MS = 3_600_000;
+export { distanceMeters };
 
 /* ───────────── pure helpers ───────────── */
 
@@ -70,15 +71,6 @@ export function clampMaxAgeDays(value: string | number | undefined): number {
   const n = Number(value);
   if (value === undefined || value === "" || !Number.isFinite(n) || n <= 0) return DEFAULT_MAX_AGE_DAYS;
   return Math.min(n, MAX_AGE_CEILING_DAYS);
-}
-
-export function distanceMeters(a: LatLngLiteral, b: LatLngLiteral): number {
-  const R = 6_371_008.8;
-  const rad = Math.PI / 180;
-  const dLat = (b.lat - a.lat) * rad;
-  const dLng = (b.lng - a.lng) * rad;
-  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLng / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(h));
 }
 
 const inBox = (p: LatLngLiteral, b: LatLngBounds) =>
@@ -151,10 +143,9 @@ export function createSolarStore(opts: StoreOptions): SolarStore {
   const log = opts.log ?? ((line: string) => console.log(line));
   const fetchGoogle = opts.findClosest ?? ((req: FindClosestRequest) => callFindClosest(req));
   const maxAgeMs = clampMaxAgeDays(opts.maxAgeDays) * DAY_MS;
-  // turbopackIgnore: otherwise the tracer globs `*building*` and copies cached Google responses (and
-  // anything else named like that) into .next/standalone. Every cache path goes through inCache().
-  const buildingDir = path.join(/*turbopackIgnore: true*/ opts.cacheDir, "building");
-  const inCache = (file: string) => path.join(/*turbopackIgnore: true*/ buildingDir, file);
+  // Every cache path goes through inDir() (turbopackIgnore'd; see disk.ts).
+  const buildingDir = inDir(opts.cacheDir, "building");
+  const inCache = (file: string) => inDir(buildingDir, file);
 
   const isExpired = (fetchedAtMs: number) => now() - fetchedAtMs > maxAgeMs;
 
@@ -221,19 +212,12 @@ export function createSolarStore(opts: StoreOptions): SolarStore {
       return { meta, building };
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code === "ENOENT") return null;
-      log(`solar cache unreadable file=${file} err=${JSON.stringify(e instanceof Error ? e.message : String(e))}`);
+      log(`solar cache unreadable file=${file} err=${errText(e)}`);
       return null;
     }
   }
 
-  async function listEntryFiles(): Promise<string[]> {
-    try {
-      return await fs.readdir(buildingDir);
-    } catch (e) {
-      if ((e as NodeJS.ErrnoException).code !== "ENOENT") log(`solar cache readdir failed dir=${buildingDir}`);
-      return [];
-    }
-  }
+  const listEntryFiles = () => listDir(buildingDir, log);
 
   async function refreshIndex(): Promise<DiskMeta[]> {
     const files = new Set((await listEntryFiles()).filter((f) => f.endsWith(".json")));
@@ -275,16 +259,12 @@ export function createSolarStore(opts: StoreOptions): SolarStore {
   async function writeEntry(req: FindClosestRequest, res: GoogleCallResult, building: SolarBuilding | undefined, fetchedAtMs: number) {
     const file = entryFileName(fetchedAtMs, req);
     const entry: CacheEntry = { fetchedAt: new Date(fetchedAtMs).toISOString(), request: req, status: res.status, body: res.body };
-    const tmp = inCache(`.${file}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`);
     try {
-      await fs.mkdir(buildingDir, { recursive: true });
-      await fs.writeFile(tmp, JSON.stringify(entry));
-      await fs.rename(tmp, inCache(file)); // atomic: prod and staging share the folder
+      await writeFileAtomic(buildingDir, file, JSON.stringify(entry)); // prod and staging share the folder
       index.set(file, { file, fetchedAtMs, request: req, status: res.status, bbox: building && bboxOf(building) });
     } catch (e) {
       // The user still gets their answer; we just pay for this roof again next time.
-      log(`solar cache WRITE FAILED file=${file} err=${JSON.stringify(e instanceof Error ? e.message : String(e))}`);
-      await fs.rm(tmp, { force: true }).catch(() => {});
+      log(`solar cache WRITE FAILED file=${file} err=${errText(e)}`);
     }
   }
 
@@ -408,7 +388,7 @@ export function createSolarStore(opts: StoreOptions): SolarStore {
           deleted++;
         }
       } catch (e) {
-        log(`solar cache prune failed file=${file} err=${JSON.stringify(e instanceof Error ? e.message : String(e))}`);
+        log(`solar cache prune failed file=${file} err=${errText(e)}`);
       }
     }
     log(`solar cache prune dir=${buildingDir} deleted=${deleted}`);
