@@ -11,8 +11,8 @@ GitHub ──CI on PRs (typecheck, lint, test, build w/ synthetic fixtures; Dock
    │ push main → deploy.yml: CI → build image → ghcr.io/mojwinter/solmap:{latest, sha-<7>}
    │                              → SSH deploy@VPS → git pull ~/solmap → compose pull + up -d solmap
    ▼
-Shared VPS (Hostinger, Ubuntu 24.04, 4 GB RAM): also runs puckbank and yardstick
-   ~/solmap/                    git checkout of this repo (read-only deploy key)
+Shared VPS 2.24.120.101 (Hostinger, Ubuntu 24.04, ~8 GB RAM): also runs puckbank and yardstick
+   ~/solmap/                    git checkout of this repo (box-wide GitHub key, like yardstick)
    ~/solmap-ops → ~/solmap/ops  symlink; the deploy job cds here
       docker-compose.yml        (tracked)   the one `solmap` service, joined to puckbank's network
       .env                      (untracked) runtime env from .env.example (+ optional SOLMAP_TAG)
@@ -28,24 +28,23 @@ Cloudflare (proxied, Full Strict, Access) → puckbank's Caddy :443 ─┬─ pu
   box. Solmap publishes no ports; its hostname is a block in puckbank's Caddyfile.
 - **One service, no staging.** Until demo day the site sits behind **Cloudflare Access** (team emails), which
   also keeps strangers from spending our Solar quota. Open it for the demo.
-- **CI builds, the box only pulls.** The box has 4 GB shared with two other apps, and a Next build peaks at 2–3 GB.
+- **CI builds, the box only pulls.** The box's ~8 GB is shared with two other apps (≈2 GB in use), and a Next build peaks at 2–3 GB.
 - No Redis or DB in P0/P1: the app is stateless apart from the disk cache.
 
 ## One-time VPS setup (≈20 min)
 
-Already on the box from puckbank/yardstick: Docker, the `deploy` user, the puckbank stack (Caddy and the
-`puckbank_puckbank` network) and the `gha_deploy` key Actions uses. Work as `deploy`.
+Already on the box from puckbank/yardstick: Docker, the `deploy` user (in the `docker` group; `sudo` needs a
+password), the puckbank stack (Caddy and the `puckbank_puckbank` network), and `~/.ssh/config` routing
+`github.com` through `~/.ssh/gha_deploy`, which can already read mojwinter/solmap. Work as `deploy`
+(from a laptop: `ssh deploy@2.24.120.101` with your key in `~deploy/.ssh/authorized_keys`).
 
 **1. Checkout, symlink, cache dir, env**
 
 ```bash
-# Read-only deploy key for this repo; add the .pub at github.com/mojwinter/solmap → Settings → Deploy keys.
-ssh-keygen -t ed25519 -f ~/.ssh/solmap_deploy -N '' -C solmap-deploy && cat ~/.ssh/solmap_deploy.pub
-# core.sshCommand persists the key for the deploy job's later `git pull`.
-git clone -c core.sshCommand='ssh -i ~/.ssh/solmap_deploy -o IdentitiesOnly=yes' \
-  git@github.com:mojwinter/solmap.git ~/solmap
+git clone git@github.com:mojwinter/solmap.git ~/solmap      # same GitHub key as puckbank/yardstick
 ln -s ~/solmap/ops ~/solmap-ops && cd ~/solmap-ops
-mkdir -p solar-cache && sudo chown 1001:1001 solar-cache   # the container runs as uid 1001
+# The container runs as uid 1001. Chown through docker (deploy is in the docker group), so no sudo password:
+mkdir -p solar-cache && docker run --rm -v "$PWD/solar-cache:/c" alpine chown 1001:1001 /c
 cp ../.env.example .env && chmod 600 .env && nano .env      # start with SOLAR_SOURCE=fixtures, no key needed
 docker network inspect puckbank_puckbank >/dev/null && echo "network ok"
 ```
@@ -85,7 +84,7 @@ tailscale sidecar. The recreate drops connections for every site on the box for 
 **4. GitHub (this repo).** Give Actions its own login key, so it can be revoked without touching
 puckbank/yardstick. On the box: `ssh-keygen -t ed25519 -f ~/.ssh/solmap_gha -N '' -C solmap-gha &&
 cat ~/.ssh/solmap_gha.pub >> ~/.ssh/authorized_keys`. Copy the private key to your laptop for the next command,
-then delete that copy.
+then delete that copy. (Or reuse the existing `gha_deploy` private key if you still have it.)
 
 ```bash
 gh secret set VPS_HOST --body "<vps ip>"
@@ -222,14 +221,14 @@ inside the file, not the file's mtime. Synthetic fixtures never expire.
 or `--file fixtures/demo-addresses.json`) runs the same `cache`-mode code path with the server key, so a
 warmed roof is byte-for-byte what the app would have saved. Run it from B's whitelisted machine and copy
 the files up: `scp -r fixtures/solar/* deploy@<vps>:~/solmap-ops/solar-cache/`, then
-`sudo chown -R 1001:1001 ~/solmap-ops/solar-cache`. Simpler still: while the VPS runs `SOLAR_SOURCE=cache`,
+`docker run --rm -v ~/solmap-ops/solar-cache:/c alpine chown -R 1001:1001 /c`. Simpler still: while the VPS runs `SOLAR_SOURCE=cache`,
 open each demo address on the deployed site once. That warms the box's own cache.
 
 **Demo-day fallback.** If the API or venue Wi-Fi misbehaves, set `SOLAR_SOURCE=fixtures` in
 `~/solmap-ops/.env` and run `docker compose up -d solmap` (env changes don't need a rebuild).
 Every roof that was ever looked up in the last 25 days keeps working; nothing calls Google.
 
-**After the event:** `sudo rm -rf ~/solmap-ops/solar-cache/*` and `rm -rf fixtures/solar/*` on B's laptop.
+**After the event:** `docker run --rm -v ~/solmap-ops/solar-cache:/c alpine sh -c 'rm -rf /c/*'` and `rm -rf fixtures/solar/*` on B's laptop.
 
 ## Observability (cheap)
 

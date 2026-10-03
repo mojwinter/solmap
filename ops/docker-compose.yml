@@ -3,7 +3,7 @@
 # stable path to cd into. Same shape as yardstick's ops/docker-compose.yml.
 #
 # One service. CI builds the image and pushes it to GHCR; the box only pulls (it has
-# 4 GB of RAM shared with the other apps, so it doesn't build). See docs/INFRA.md.
+# ~8 GB of RAM shared with the other apps, so it doesn't build). See docs/INFRA.md.
 name: solmap
 
 services:
