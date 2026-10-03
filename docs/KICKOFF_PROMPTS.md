@@ -50,7 +50,7 @@ I own app/api/*, lib/solar/*, scripts/*, docker/*, .github/*, fixtures/synthetic
    BC_BOUNDS validation, Cache-Control: private, no-store, per-IP rate limit (first X-Forwarded-For),
    and BuildingResponse.source set to live / cache / fixture.
 5. app/api/health/route.ts and scripts/warm-cache.ts (pnpm solar:warm; same code path as cache mode).
-Then get CI green and the first staging deploy out. Plan first.
+Then get CI green and the first deploy out. Plan first.
 ```
 
 ## C: Finance
@@ -100,5 +100,5 @@ Keep components presentational: they take props, no fetching inside. Plan first.
 Pull main. Read CLAUDE.md. Wire the report page: fetch /api/solar/building → recommend() →
 pass BuildingResponse + Recommendation + selected index to the map and cards. Slider and input
 state live in the page and sync to ?panels=&kwh=&plan= in the URL (annual kWh, never the bill amount).
-Run /verify, then /demo-check against staging. List anything that's mocked or broken, with the owner for each.
+Run /verify, then /demo-check against the deployed site. List anything that's mocked or broken, with the owner for each.
 ```

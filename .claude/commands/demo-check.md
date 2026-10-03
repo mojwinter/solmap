@@ -1,9 +1,10 @@
 ---
 description: Smoke-test the demo addresses against a deployed environment
 ---
-Argument: base URL (default: the staging URL from `/srv/solmap/.env` / `.env.vps.example`).
-Staging is behind basic auth: read `STAGING_USER` / `STAGING_PASS` from my shell environment and
-pass `-u "$STAGING_USER:$STAGING_PASS"` to curl. If they're not set, ask me; never write the password to a file.
+Argument: base URL (default: https://solmap.yardstick.football).
+While the site is behind Cloudflare Access, read `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET` (an Access
+service token) from my shell environment and send them as `CF-Access-Client-Id` / `CF-Access-Client-Secret`
+headers. If they're not set, ask me; never write them to a file.
 
 For each address in `fixtures/demo-addresses.json` (the `live` list for a real deployment, the `fixtures` list when the target runs `SOLAR_SOURCE=fixtures`):
 1. `curl` `<base>/api/solar/building?lat=..&lng=..` and record status, `source` (live / cache / fixture), `imagery.quality`, `configs.length`, and response time.

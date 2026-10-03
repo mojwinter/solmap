@@ -43,9 +43,9 @@ next-env.d.ts
 # Append to the Next.js .gitignore
 .env*
 !.env.example
-!.env.vps.example
 # Disk cache of real Google Solar responses (SOLAR_CACHE_DIR). Auto-deleted at 25 days (Google terms: 30). Never commit.
 # Committed fixtures live in fixtures/synthetic/ (hand-made, not Google content).
 fixtures/solar/
+ops/solar-cache/
 # Personal Claude Code settings (the shared ones are .claude/settings.json)
 .claude/settings.local.json

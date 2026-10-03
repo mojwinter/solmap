@@ -20,12 +20,13 @@ not the app itself. Drop it into a fresh Next.js repo at hour 0 (see `docs/INFRA
 | `fixtures/demo-addresses.json` | C, D | Fixture addresses (work today) + template for the pre-verified live demo addresses |
 | `.claude/commands/` | everyone | `/verify`, `/contract-check`, `/demo-check` |
 | `.claude/settings.json` | everyone | Shared Claude Code permissions: check commands allowed, real `.env` files unreadable |
-| `docker/`, `scripts/deploy.sh`, `.github/workflows/`, `.dockerignore` | B | Dockerfile, compose, Caddyfile, deploy script with health check + rollback, CI + deploy workflows |
-| `.env.example`, `.env.vps.example` | B | Env templates |
+| `docker/`, `ops/`, `.github/workflows/`, `.dockerignore` | B | Dockerfile, the VPS compose stack, CI + Docker smoke test + build-and-deploy workflows |
+| `.env.example` | B | Env template (laptops, and `~/solmap-ops/.env` on the VPS) |
 | `AGENTS.md` | Claude Code | Next.js 16's own agent rules (managed by `next dev`, imported from CLAUDE.md) |
 | `app/`, `package.json`, configs | everyone | The scaffolded Next.js 16 app (hour 0). Only `app/api/health` and one config test so far |
 
-"Solmap" is the working name. Identifiers (Docker images, `/srv/solmap`, hostnames, the repo) use lowercase `solmap`.
+"Solmap" is the working name. Identifiers (the GHCR image, `~/solmap`, the hostname, the repo) use lowercase `solmap`. It's served at
+`solmap.yardstick.football` for now.
 
 ## Changes in the 2026-10-03 revision
 

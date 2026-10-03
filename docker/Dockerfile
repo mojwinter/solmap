@@ -41,6 +41,6 @@ COPY --from=build /app/fixtures ./fixtures
 RUN mkdir -p fixtures/solar && chown app:app fixtures/solar
 USER app
 EXPOSE 3000
-# busybox wget (alpine has no curl). deploy.sh runs the same command through `docker compose exec`.
+# busybox wget (alpine has no curl). ops/docker-compose.yml's healthcheck runs the same command.
 HEALTHCHECK --interval=30s --timeout=3s CMD wget -qO- http://127.0.0.1:3000/api/health || exit 1
 CMD ["node", "server.js"]

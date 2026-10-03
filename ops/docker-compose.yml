@@ -1,0 +1,58 @@
+# The VPS stack. Checked out at ~/solmap on the shared box (it also runs puckbank and
+# yardstick), with ~/solmap-ops symlinked to this directory so the deploy job has a
+# stable path to cd into. Same shape as yardstick's ops/docker-compose.yml.
+#
+# One service. CI builds the image and pushes it to GHCR; the box only pulls (it has
+# ~8 GB of RAM shared with the other apps, so it doesn't build). See docs/INFRA.md.
+name: solmap
+
+services:
+  solmap:
+    image: ghcr.io/mojwinter/solmap:${SOLMAP_TAG:-latest}
+    pull_policy: always
+    restart: unless-stopped
+
+    # `expose`, not `ports`: nothing binds a host port. puckbank's Caddy owns 80/443 for
+    # the whole box and reaches this container as `solmap:3000` over the shared network
+    # below. A published port would be a second, un-TLS'd way in past Cloudflare.
+    expose:
+      - "3000"
+
+    # Runtime config: SOLAR_SOURCE, SOLAR_API_KEY, cache settings (template: .env.example
+    # at the repo root). NEXT_PUBLIC_* are baked in at build time by the deploy workflow,
+    # so setting them here does nothing.
+    env_file: .env
+
+    volumes:
+      # Disk cache of real Google responses (SOLAR_SOURCE=cache). Gitignored, never in the
+      # image; the app deletes entries older than SOLAR_CACHE_MAX_AGE_DAYS (Google: ≤ 30
+      # days). Must be owned by uid 1001, the container user: docs/INFRA.md → VPS setup.
+      - ./solar-cache:/app/fixtures/solar
+
+    networks:
+      - puckbank
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+    healthcheck:
+      # 127.0.0.1, not localhost: inside the container `localhost` can resolve to ::1
+      # while the Next standalone server binds IPv4.
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+networks:
+  # Caddy lives in the puckbank stack and terminates TLS for the whole box, so this joins
+  # that stack's network instead of standing up its own proxy. Compose aliases each service
+  # by name on every network it joins, across projects, which is what makes
+  # `reverse_proxy solmap:3000` resolve from the Caddy container. External, so
+  # `docker compose down` here can never remove the network puckbank runs on.
+  puckbank:
+    external: true
+    name: puckbank_puckbank
