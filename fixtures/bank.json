@@ -1,0 +1,135 @@
+[
+  {
+    "label": "Kitsilano Community Centre",
+    "lat": 49.26153,
+    "lng": -123.16209,
+    "region": "Metro Vancouver",
+    "why": "Known-good Vancouver point for solar:check (dense aerial coverage expected)"
+  },
+  {
+    "label": "Hillcrest Community Centre",
+    "lat": 49.24374,
+    "lng": -123.10786,
+    "region": "Metro Vancouver",
+    "why": "Large public building; many-panels case"
+  },
+  {
+    "label": "Lord Byng Secondary School",
+    "lat": 49.25869,
+    "lng": -123.19256,
+    "region": "Metro Vancouver",
+    "why": "West-side school among houses and mature trees; likely shading"
+  },
+  {
+    "label": "Richmond City Hall",
+    "lat": 49.16336,
+    "lng": -123.13738,
+    "region": "Metro Vancouver",
+    "why": "Flat, low-lying Richmond"
+  },
+  {
+    "label": "North Vancouver City Library",
+    "lat": 49.32121,
+    "lng": -123.07365,
+    "region": "Metro Vancouver",
+    "why": "North Shore, slope facing south toward the inlet"
+  },
+  {
+    "label": "Victoria City Hall",
+    "lat": 48.42832,
+    "lng": -123.36528,
+    "region": "Victoria",
+    "why": "Downtown Victoria heritage building; Vancouver Island coverage"
+  },
+  {
+    "label": "Oak Bay Recreation Centre",
+    "lat": 48.43081,
+    "lng": -123.32008,
+    "region": "Victoria",
+    "why": "Suburban Victoria recreation centre"
+  },
+  {
+    "label": "Saanich Commonwealth Place",
+    "lat": 48.50144,
+    "lng": -123.38932,
+    "region": "Victoria",
+    "why": "Large pool / recreation building in Saanich; Victoria-area coverage"
+  },
+  {
+    "label": "Parkinson Recreation Centre",
+    "lat": 49.88342,
+    "lng": -119.45816,
+    "region": "Okanagan",
+    "why": "Kelowna: the sunniest region in BC, high yield expected"
+  },
+  {
+    "label": "Penticton Community Centre",
+    "lat": 49.49549,
+    "lng": -119.60526,
+    "region": "Okanagan",
+    "why": "South Okanagan; smaller city, imagery quality may drop to MEDIUM"
+  },
+  {
+    "label": "Kamloops City Hall",
+    "lat": 50.67584,
+    "lng": -120.33943,
+    "region": "Kamloops",
+    "why": "Dry interior, downtown Kamloops"
+  },
+  {
+    "label": "Tournament Capital Centre",
+    "lat": 50.66884,
+    "lng": -120.36616,
+    "region": "Kamloops",
+    "why": "Large sports building; may hit the 50 m heatmap radius cap"
+  },
+  {
+    "label": "College of New Caledonia",
+    "lat": 53.90541,
+    "lng": -122.78444,
+    "region": "Prince George",
+    "why": "Northern city, low winter sun; coverage uncertain"
+  },
+  {
+    "label": "UNBC",
+    "lat": 53.89257,
+    "lng": -122.81472,
+    "region": "Prince George",
+    "why": "Hilltop campus outside downtown PG; coverage uncertain"
+  },
+  {
+    "label": "Nelson City Hall",
+    "lat": 49.49321,
+    "lng": -117.29603,
+    "region": "Kootenays",
+    "why": "Mountain valley town; small-city coverage"
+  },
+  {
+    "label": "Cranbrook Public Library",
+    "lat": 49.51421,
+    "lng": -115.76385,
+    "region": "Kootenays",
+    "why": "East Kootenay, among the sunniest spots in BC"
+  },
+  {
+    "label": "Dease Lake School",
+    "lat": 58.43886,
+    "lng": -130.01165,
+    "region": "Rural",
+    "why": "Remote north; expected 404 at LOW, test for the EXPANDED_COVERAGE retry"
+  },
+  {
+    "label": "Atlin town centre",
+    "lat": 59.57483,
+    "lng": -133.70412,
+    "region": "Rural",
+    "why": "Remote far north; expected 404, test for the EXPANDED_COVERAGE retry"
+  },
+  {
+    "label": "Bella Coola town centre",
+    "lat": 52.3723,
+    "lng": -126.75568,
+    "region": "Rural",
+    "why": "Remote central coast; expected 404, test for the EXPANDED_COVERAGE retry"
+  }
+]

@@ -160,6 +160,7 @@ integrates, 10-minute sync.
   thousand map loads (dev hot reloads count). Assume 404s are billed. Call dataLayers only when the heatmap is opened.
 - [ ] **Quality-param test** (10 min, from a whitelisted IP). Results go in the team channel and decide
       `SOLAR_EXPANDED_COVERAGE`:
+      Run `pnpm solar:check`: it does all three steps below in ≤ 10 calls and prints the values to use.
       1. A known-good Vancouver address with `requiredQuality=LOW` → expect 200 and `imageryQuality` HIGH.
          (If LOW is rejected with a 400, use `MEDIUM` and tell B's prompt.)
       2. A BC address that 404s with `requiredQuality=LOW`.
