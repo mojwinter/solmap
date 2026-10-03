@@ -121,8 +121,9 @@ jobs:
                      /app/.next/server /app/.next/server/app /app/.next/static /app/public /app/fixtures; do
               if test -w "$p"; then echo "::error::$p is writable by the app user"; exit 1; fi
             done
-            # Nothing else under /app may be owned by the app user or be world-writable (symlinks,
-            # e.g. pnpm's in node_modules, always show 777 and are skipped).
+            # Nothing else under /app may be owned by the app user or be world-writable. Symlinks
+            # (pnpm uses them in node_modules) always show 777, so they are skipped.
+            # (No apostrophes in this block: it is one single-quoted sh -c string.)
             bad=$(find /app \( -path /app/.next/cache -o -path /app/.next/server/route-cache \
                                -o -path /app/fixtures/solar \) -prune \
                          -o ! -type l \( -user 1001 -o -perm -002 \) -print | head -n 20)
