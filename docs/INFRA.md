@@ -135,7 +135,7 @@ each roof **once**. PLAN.md → Data roadmap has the phases.
 
 | Folder | What | Committed? |
 |---|---|---|
-| `fixtures/synthetic/` | Hand-made roofs in the exact buildingInsights shape: `south-gable` (Strong with default inputs) and `shaded-gable` (Weak). Not Google content, never expire | Yes |
+| `fixtures/synthetic/` | Hand-made roofs in the exact buildingInsights shape, made by `pnpm tsx scripts/make-synthetic.ts`: `south-gable` (Strong with default inputs), `shaded-gable` (Weak), `flat-roof` (3° commercial flat roof), `east-west` (no south face), `tiny-roof` (no panels, no `solarPanelConfigs`), `multi-unit` (180 panels, large-building note) and `base-quality` (`imageryQuality: BASE`). Not Google content, never expire | Yes |
 | `fixtures/solar/` (`SOLAR_CACHE_DIR`) | The disk cache: real Google responses | **Never** (gitignored and dockerignored). On the VPS it's `/srv/solmap/solar-cache`, mounted into both containers |
 
 **Cache entry format.** One file per Google call, written atomically (temp file + rename, since
