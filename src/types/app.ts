@@ -84,6 +84,23 @@ export interface BuildingResponse {
   source: 'live' | 'cache' | 'fixture' | 'manual';
 }
 
+/**
+ * GET /api/solar/layers?lat&lng (P1 sun heatmap). Owners: B produces, A consumes.
+ * Draw it as `new google.maps.GroundOverlay(heatmapUrl, bounds)` over a Google map. Show the
+ * Google attribution unless source is 'fixture'. 404 NO_COVERAGE = no heatmap for this roof.
+ */
+export interface SolarLayersResponse {
+  buildingId: string;
+  imagery: { quality: ImageryQuality; date: string /* YYYY-MM-DD */ };
+  /** Where the PNG goes on the map (the raster's own extent, a little larger than the building). */
+  bounds: LatLngBounds;
+  /** Same-origin PNG (`/api/solar/heatmap?id=…`), transparent outside the roof. Never a Google URL. */
+  heatmapUrl: string;
+  /** Legend endpoints: the darkest colour is `min`, the brightest `max`. Fixed for every roof. */
+  fluxScale: { min: number; max: number; unit: 'kWh/kW/yr' };
+  source: 'live' | 'cache' | 'fixture';
+}
+
 export type ApiErrorCode = 'NO_COVERAGE' | 'BAD_REQUEST' | 'RATE_LIMITED' | 'UPSTREAM';
 export interface ApiError {
   error: ApiErrorCode;
