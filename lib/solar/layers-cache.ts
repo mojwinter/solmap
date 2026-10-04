@@ -46,6 +46,7 @@ import {
 } from "./client";
 import { DailyBudgetError, getDailyBudget, type DailyBudget } from "./budget";
 import { dirMtime, errText, getDiskQuota, inDir, INDEX_CONCURRENCY, listDir, mapLimit, STALE_TMP_MS, writeFileAtomic, type DiskQuota } from "./disk";
+import { RateLimitedError, type Gate } from "./ratelimit";
 import { decodeGeoTiff, hasRoof, renderHeatmap } from "./raster";
 import { dataLayersSchema, imageryQualitySchema, type SolarBuilding } from "./schema";
 import { syntheticLayers } from "./synthetic-layers";
@@ -65,8 +66,16 @@ export type LayersResult =
     }
   | { status: 404; source: Source; layer: Layer };
 
+/** Rate limits for one layers lookup (#58); each runs only when its work is about to happen. */
+export interface LayersGates {
+  /** Passed to the building lookup: runs just before a Building Insights call. */
+  building?: Gate;
+  /** Runs on a memory miss, before a render (synthetic, or disk read + render) or a Data Layers call. */
+  layers?: Gate;
+}
+
 export interface LayersStore {
-  lookup(lat: number, lng: number): Promise<LayersResult>;
+  lookup(lat: number, lng: number, gates?: LayersGates): Promise<LayersResult>;
   /** The heatmap PNG for an id from lookup(), or null if unknown or expired. */
   heatmap(id: string): Promise<Uint8Array | null>;
   /** True if heatmap(id) can answer from memory (no disk read, no render). */
@@ -195,8 +204,9 @@ export function createLayersStore(opts: LayersStoreOptions): LayersStore {
         if (r.id) memoryIds.set(r.id, buildingId);
       },
       (e) => {
-        // Remember failures (H1) so a retry doesn't buy the same Data Layers call again; not the daily cap.
-        if (e instanceof DailyBudgetError) {
+        // Remember failures (H1) so a retry doesn't buy the same Data Layers call again; not the daily cap
+        // or a caller's rate limit.
+        if (e instanceof DailyBudgetError || e instanceof RateLimitedError) {
           if (memory.get(buildingId) === entry) memory.delete(buildingId);
           return;
         }
@@ -364,7 +374,8 @@ export function createLayersStore(opts: LayersStoreOptions): LayersStore {
     };
   }
 
-  async function resolve(b: SolarBuilding, buildingSource: Source): Promise<Rendered> {
+  async function resolve(b: SolarBuilding, buildingSource: Source, layersGate?: Gate): Promise<Rendered> {
+    layersGate?.(); // a memory miss: whatever comes next renders, and may buy a Data Layers call (C1, #58)
     if (buildingSource === "fixture") return renderSynthetic(b);
     if (opts.source !== "live") {
       const disk = await diskLookup(b.name);
@@ -374,14 +385,14 @@ export function createLayersStore(opts: LayersStoreOptions): LayersStore {
     return fetchFromGoogle(b);
   }
 
-  async function lookup(lat: number, lng: number): Promise<LayersResult> {
+  async function lookup(lat: number, lng: number, gates: LayersGates = {}): Promise<LayersResult> {
     const started = performance.now();
     const line = (source: string, layer: string, quality: string, status: number, extra = "") =>
       log(
         `solar kind=layers lat=${logCoord(lat)} lng=${logCoord(lng)} source=${source} layer=${layer} quality=${quality} status=${status} ms=${Math.round(performance.now() - started)}${extra}`,
       );
 
-    const building = await opts.buildings.lookup(lat, lng); // UpstreamError → 502, already logged
+    const building = await opts.buildings.lookup(lat, lng, gates.building); // UpstreamError → 502, already logged
     if (building.status === 404) {
       line(building.source, "none", "-", 404, " reason=no-building");
       return { status: 404, source: building.source, layer: "none" };
@@ -389,20 +400,27 @@ export function createLayersStore(opts: LayersStoreOptions): LayersStore {
 
     const key = building.building.name;
     let fromMemory = true;
-    let pending = memoryGet(key);
-    if (!pending) {
-      fromMemory = false;
-      pending = resolve(building.building, building.source);
-      memorySet(key, pending);
-    }
-
     let r: Rendered;
-    try {
-      r = await pending;
-    } catch (e) {
-      const status = e instanceof DailyBudgetError ? 503 : 502;
-      line(opts.source === "fixtures" ? "fixture" : "live", fromMemory ? "memory" : "google", "-", status, ` err=${errText(e)}`);
-      throw e instanceof UpstreamError ? e : new UpstreamError(e instanceof Error ? e.message : String(e));
+    for (let attempt = 0; ; attempt++) {
+      let pending = memoryGet(key);
+      fromMemory = pending !== undefined;
+      if (!pending) {
+        pending = resolve(building.building, building.source, gates.layers);
+        memorySet(key, pending);
+      }
+      try {
+        r = await pending;
+        break;
+      } catch (e) {
+        // As in the building store: a joined lookup refused by another caller's limit is retried once as ours.
+        if (e instanceof RateLimitedError) {
+          if (fromMemory && attempt === 0) continue;
+          throw e;
+        }
+        const status = e instanceof DailyBudgetError ? 503 : 502;
+        line(opts.source === "fixtures" ? "fixture" : "live", fromMemory ? "memory" : "google", "-", status, ` err=${errText(e)}`);
+        throw e instanceof UpstreamError ? e : new UpstreamError(e instanceof Error ? e.message : String(e));
+      }
     }
 
     const synthetic = r.origin === "synthetic" || r.origin === "none";

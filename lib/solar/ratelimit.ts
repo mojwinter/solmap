@@ -1,11 +1,33 @@
 /**
- * Per-IP token bucket for /api/solar/* (RATE_LIMIT_PER_MINUTE). In-process only: we run one
+ * Per-IP token buckets for /api/solar/* (RATE_LIMIT_PER_MINUTE). In-process only: we run one
  * container per env, so no shared store is needed (docs/INFRA.md → Caching and rate limiting).
+ *
+ * Only work worth limiting takes a token (#58): the stores run a Gate just before a Google call (or,
+ * for the layers bucket, a render), so cached roofs are free and a room behind one venue IP isn't blocked.
  */
 
 export interface RateLimiter {
   /** Takes one token for `key`. When empty, says how long until the next token. */
   take(key: string): { ok: true } | { ok: false; retryAfterSeconds: number };
+}
+
+/** Thrown by a Gate when the caller's bucket is empty; the routes answer 429 RATE_LIMITED. */
+export class RateLimitedError extends Error {
+  constructor(readonly retryAfterSeconds: number) {
+    super(`rate limited (retry after ${retryAfterSeconds}s)`);
+    this.name = "RateLimitedError";
+  }
+}
+
+/** Run by a store just before the work it guards; throws RateLimitedError to refuse it. */
+export type Gate = () => void;
+
+/** A Gate that takes one token from `key`'s bucket. */
+export function gate(limiter: RateLimiter, key: string): Gate {
+  return () => {
+    const r = limiter.take(key);
+    if (!r.ok) throw new RateLimitedError(r.retryAfterSeconds);
+  };
 }
 
 const DEFAULT_PER_MINUTE = 30;
@@ -63,7 +85,7 @@ export function clientIp(headers: Headers): string {
 
 const globalForLimiter = globalThis as typeof globalThis & { __solarRateLimiter?: RateLimiter };
 
-/** One limiter shared by every /api/solar/* route. */
+/** One limiter shared by every /api/solar/* route: building lookups that reach Google. */
 export function getSolarRateLimiter(): RateLimiter {
   globalForLimiter.__solarRateLimiter ??= createRateLimiter(Number(process.env.RATE_LIMIT_PER_MINUTE));
   return globalForLimiter.__solarRateLimiter;
@@ -72,9 +94,9 @@ export function getSolarRateLimiter(): RateLimiter {
 const globalForLayersLimiter = globalThis as typeof globalThis & { __solarLayersRateLimiter?: RateLimiter };
 
 /**
- * A second, stricter bucket for /api/solar/layers and heatmap renders that miss memory (security review
- * C1): one /layers request can cost a Building Insights call, a Data Layers call ($0.075), two raster
- * downloads and a render. RATE_LIMIT_LAYERS_PER_MINUTE, default 3.
+ * A second, stricter bucket for /api/solar/layers lookups and heatmap renders that miss memory (security
+ * review C1): one miss can cost a Data Layers call ($0.075), two raster downloads and a render, or a disk
+ * read + render. Memory hits are free. RATE_LIMIT_LAYERS_PER_MINUTE, default 3.
  */
 export function getLayersRateLimiter(): RateLimiter {
   const n = Number(process.env.RATE_LIMIT_LAYERS_PER_MINUTE);

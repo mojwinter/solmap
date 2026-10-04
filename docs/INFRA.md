@@ -186,7 +186,7 @@ Quick status at any point:
 
 ```bash
 docker inspect -f '{{.Config.Image}} {{.State.Health.Status}}' "$(docker compose ps -q solmap)"
-grep -E '^(SOLMAP_TAG|SOLAR_SOURCE|CF_ACCESS_[A-Z_]+)=' .env
+grep -E '^(SOLMAP_TAG|SOLAR_SOURCE|CF_ACCESS_[A-Z_]+|RATE_LIMIT_[A-Z_]+|SOLAR_CACHE_TTL_SECONDS|SOLAR_DAILY_MAX_[A-Z]+)=' .env
 docker compose logs --since 10m solmap | grep -c layer=google      # Google calls in the last 10 min
 ```
 
@@ -362,6 +362,78 @@ curl -s -H "CF-Access-Client-Id: %CF_ACCESS_CLIENT_ID%" -H "CF-Access-Client-Sec
 
 (In a `.bat` file, double the `%` in `%{http_code}`: `%%{http_code}`.)
 
+#### Rate limits for a room on one IP (#58)
+
+Venue and campus Wi-Fi put everyone behind **one public IP**, and the limiter keys on `CF-Connecting-IP`, so
+the whole room shares one bucket. That's fine for anything already cached: a roof answered from memory or
+disk, a cached 404 and a sun map still in memory never take a token, so the demo roofs (step 3) and any roof
+someone in the room already opened can't get a 429. Tokens go only on real work
+(→ Caching and rate limiting):
+
+- a building lookup that is about to call Google (a roof nobody has looked up): `RATE_LIMIT_PER_MINUTE`;
+- a sun map that isn't in memory (a disk read + render, or a Data Layers call): `RATE_LIMIT_LAYERS_PER_MINUTE`.
+
+This needs an image with the #58 change; on an older one, every request counts and these values don't help.
+
+**Values for the event.** Our Cloud project has only per-minute Solar quotas (no per-day ones): 10/min
+Building Insights, 3/min Data Layers and 10/min GeoTIFF (2 per sun map, so 5 sun maps a minute), shared by
+every visitor. The daily caps below are ours alone.
+Past them Google answers 429, which the app shows as "the solar data service didn't answer" and remembers
+for that roof (±30 m) for 5 minutes. Our own 429 says "wait a moment" and clears in seconds. So the buckets
+match Google's quotas instead of being raised past them:
+
+| Variable | Default | Event | Why |
+|---|---|---|---|
+| `RATE_LIMIT_PER_MINUTE` | 30 | **10** | Only new roofs count now. 10 = the Building Insights quota, so the room hits our retryable 429 before Google's 5-minute one. |
+| `RATE_LIMIT_LAYERS_PER_MINUTE` | 3 | 3 (leave unset) | = the Data Layers quota. Sun maps already in memory are free. |
+| `SOLAR_CACHE_TTL_SECONDS` | 900 | **14400** | Keeps every roof and sun map someone opened in memory for 4 h instead of 15 min, so re-opens stay free and skip the layers bucket. Memory is still capped (500 roofs, 100 sun maps) and never outlives the 25-day limit. |
+| `SOLAR_DAILY_MAX_BUILDING` | 300 | **600** | Judges type their own addresses, and each new roof is one call. Our Cloud project has only per-minute Solar quotas, so this in-app cap is the only daily limit on spend. 600 is an hour at the 10/min quota and well inside the free monthly allowance (PLAN.md → Google Cloud). |
+| `SOLAR_DAILY_MAX_LAYERS` | 50 | 50 (leave unset) | The only daily limit on Data Layers (there's no Cloud per-day quota), and it's the pricier SKU. Sun maps of judges' own roofs are a nice-to-have, and at the 3/min quota 50 still covers a busy day. |
+
+The daily counters live in memory, so the recreate below also resets today's count to 0.
+
+**Apply** (on the box, prod pinned). Note what's there now, then replace those lines:
+
+```bash
+grep -E '^(RATE_LIMIT_[A-Z_]+|SOLAR_CACHE_TTL_SECONDS|SOLAR_DAILY_MAX_[A-Z]+)=' .env
+sed -i -E '/^(RATE_LIMIT_PER_MINUTE|RATE_LIMIT_LAYERS_PER_MINUTE|SOLAR_CACHE_TTL_SECONDS|SOLAR_DAILY_MAX_BUILDING|SOLAR_DAILY_MAX_LAYERS)=/d' .env
+printf '%s\n' RATE_LIMIT_PER_MINUTE=10 RATE_LIMIT_LAYERS_PER_MINUTE=3 SOLAR_CACHE_TTL_SECONDS=14400 SOLAR_DAILY_MAX_BUILDING=600 SOLAR_DAILY_MAX_LAYERS=50 >> .env
+docker compose up -d --pull never solmap
+docker compose exec solmap sh -c 'echo "rl=$RATE_LIMIT_PER_MINUTE layers=$RATE_LIMIT_LAYERS_PER_MINUTE ttl=$SOLAR_CACHE_TTL_SECONDS daily=$SOLAR_DAILY_MAX_BUILDING/$SOLAR_DAILY_MAX_LAYERS"'
+```
+
+The last line must print `rl=10 layers=3 ttl=14400 daily=600/50`, and compose must have said `Recreated`.
+
+**Verify** from a laptop **on the venue Wi-Fi** (the shared IP), with a `live` demo roof that step 3 showed as
+cached (replace `<lat>` and `<lng>`). 40 quick requests must all be `200`; if the roof wasn't cached, the first
+one costs one Google call and the other 39 are still free:
+
+```bash
+for i in $(seq 40); do curl -s -o /dev/null -w "%{http_code}\n" "https://solmap.yardstick.football/api/solar/building?lat=<lat>&lng=<lng>"; done | sort | uniq -c
+```
+
+Good: `40 200`. Windows `cmd.exe` (one line; it prints `40`):
+
+```bat
+(for /L %i in (1,1,40) do @curl -s -o NUL -w "%{http_code}\n" "https://solmap.yardstick.football/api/solar/building?lat=<lat>&lng=<lng>") | find /c "200"
+```
+
+In a `.bat` file, double both: `%%i` and `%%{http_code}`. While Access is still on (the #35 rehearsal), add the
+two `-H "CF-Access-Client-…"` headers from the step 4 examples after `curl -s`. A `429` here means the image
+predates #58 or the roof isn't cached.
+
+**After the event**, put the defaults back (the same lines, default values; then recreate and check):
+
+```bash
+sed -i -E '/^(RATE_LIMIT_PER_MINUTE|RATE_LIMIT_LAYERS_PER_MINUTE|SOLAR_CACHE_TTL_SECONDS|SOLAR_DAILY_MAX_BUILDING|SOLAR_DAILY_MAX_LAYERS)=/d' .env
+printf '%s\n' RATE_LIMIT_PER_MINUTE=30 SOLAR_CACHE_TTL_SECONDS=900 >> .env
+docker compose up -d --pull never solmap
+docker compose exec solmap sh -c 'echo "rl=$RATE_LIMIT_PER_MINUTE layers=$RATE_LIMIT_LAYERS_PER_MINUTE ttl=$SOLAR_CACHE_TTL_SECONDS daily=$SOLAR_DAILY_MAX_BUILDING/$SOLAR_DAILY_MAX_LAYERS"'
+```
+
+Expect `rl=30 layers= ttl=900 daily=/` (empty = the built-in defaults: 3, 300 and 50). If the first `grep` above
+showed other values before the event, put those back instead.
+
 ### 5. If something breaks on stage
 
 | Symptom | First move (steps above) | Who |
@@ -371,6 +443,7 @@ curl -s -H "CF-Access-Client-Id: %CF_ACCESS_CLIENT_ID%" -H "CF-Access-Client-Sec
 | Roof lookups fail / slow / `daily limit reached` | `SOLAR_SOURCE=fixtures` (2) | B: _TBD_ |
 | A demo roof shows "we can't see this roof yet" | Check the cache (3); present a different demo roof meanwhile | B: _TBD_, D: _TBD_ |
 | Judges get a login page or 403 | Step 4 checks (Access app vs. origin env vars) | B: _TBD_ |
+| "Too many lookups in a minute" (429) | Step 4 → Rate limits: check the values; a cached roof never 429s on a #58 image | B: _TBD_ |
 | Map doesn't load (Maps key / referrer) | Google Cloud → browser key restrictions | A: _TBD_ |
 | Numbers look wrong | Note the inputs; don't hot-fix on stage | C: _TBD_ |
 | Venue Wi-Fi dies | Present from a phone hotspot | D: _TBD_ |
@@ -380,6 +453,7 @@ Fill in names (and who holds the SSH key, the Cloudflare login and the Google Cl
 ### 6. After the event
 
 Google's terms: no Solar content kept past 30 days, and the server key shouldn't stay usable from the box.
+If the site stays up, also put the rate limits back (step 4 → Rate limits → After the event).
 
 **a. Stop serving and storing Google content.** Either take the site down:
 
@@ -471,7 +545,18 @@ Then:
 - Cache the *in-flight promise*, not just the result, so two simultaneous requests for the same
   roof make one Google call.
 - API responses send `Cache-Control: private, no-store`.
-- Per-IP token bucket on `/api/solar/*` (`RATE_LIMIT_PER_MINUTE`). Return 429 with `{error:"RATE_LIMITED"}`.
+- Per-IP token buckets on `/api/solar/*`, charged **only for real work** (#58), so a whole room behind one
+  venue IP can load cached roofs. Validation runs first (a `BAD_REQUEST` costs nothing), then the store takes a
+  token at the point the work starts (a `Gate` passed into `lookup()`), never for a memory hit, a disk hit, a
+  cached 404 or a synthetic roof:
+  - `RATE_LIMIT_PER_MINUTE` (30): a building lookup (from `/building`, or the one inside `/layers`) that is
+    about to call Google. It's taken before the daily budget, so a limited caller doesn't spend it.
+  - `RATE_LIMIT_LAYERS_PER_MINUTE` (3, stricter): a `/layers` lookup or `/heatmap` render that misses memory,
+    which means a disk read + render or a Data Layers call (security review C1). Memory hits are free.
+  - Empty bucket → 429 `{error:"RATE_LIMITED"}` with `Retry-After`. A refusal isn't remembered as a failure
+    for the roof; a request that joined someone else's refused in-flight lookup retries once on its own bucket.
+  - Demo-day values: Demo-day runbook → step 4 → Rate limits.
+
   The client IP is `CF-Connecting-IP` first: Cloudflare is proxied, so the peer Caddy sees (and puts in
   `X-Forwarded-For`) is a Cloudflare edge shared by a whole room. Without that header, the **first**
   `X-Forwarded-For` entry (Caddy replaces untrusted incoming XFF). The origin is still reachable directly,
@@ -482,8 +567,7 @@ Then:
   - A daily budget of real Google calls per SKU, reset at UTC midnight: `SOLAR_DAILY_MAX_BUILDING` (300) and
     `SOLAR_DAILY_MAX_LAYERS` (50). Past it, `/api/solar/*` answers 503 `{error:"UPSTREAM", message:"daily limit reached"}`
     and logs `solar budget EXHAUSTED`. Cached roofs keep working.
-  - A stricter per-IP bucket for `/api/solar/layers` and for heatmap renders that miss memory:
-    `RATE_LIMIT_LAYERS_PER_MINUTE` (3).
+  - The stricter per-IP bucket above for sun maps that miss memory: `RATE_LIMIT_LAYERS_PER_MINUTE` (3).
   - Failed lookups are remembered for 5 minutes (within ~30 m), so retries don't buy the same call again, and a
     lookup waits for any in-flight lookup within 30 m before calling Google.
   - Disk cap for the whole cache dir: `SOLAR_CACHE_MAX_FILES` (5,000) and `SOLAR_CACHE_MAX_MB` (2,048). Past it,

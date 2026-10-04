@@ -1,21 +1,23 @@
 // GET /api/solar/layers?lat&lng → SolarLayersResponse (P1 sun heatmap). Contract: DESIGN.md §6.
 // Only called when someone opens the heatmap: Data Layers is the expensive SKU.
 import { UpstreamError } from "@/lib/solar/client";
-import { parseLatLng, rateLimited, reply, upstreamReply } from "@/lib/solar/http";
+import { gateFor, parseLatLng, reply, upstreamReply } from "@/lib/solar/http";
 import { getLayersStore } from "@/lib/solar/layers-cache";
-import { getLayersRateLimiter } from "@/lib/solar/ratelimit";
+import { getLayersRateLimiter, RateLimitedError } from "@/lib/solar/ratelimit";
 import { FLUX_SCALE } from "@/lib/solar/raster";
 import type { SolarLayersResponse } from "@/src/types/app";
 
 export async function GET(request: Request) {
-  // The general bucket, then a stricter one: this route can buy a Data Layers call (C1).
-  const limited = rateLimited(request) ?? rateLimited(request, getLayersRateLimiter());
-  if (limited) return limited;
   const point = parseLatLng(request);
   if (point instanceof Response) return point;
 
   try {
-    const r = await getLayersStore().lookup(point.lat, point.lng);
+    // Charged only for real work (#58): the general bucket if the building lookup calls Google, the
+    // stricter one on a layers memory miss, which renders and can buy a Data Layers call (C1).
+    const r = await getLayersStore().lookup(point.lat, point.lng, {
+      building: gateFor(request),
+      layers: gateFor(request, getLayersRateLimiter()),
+    });
     if (r.status === 404) {
       return reply({ error: "NO_COVERAGE", message: "There's no sun map for this roof yet." }, 404);
     }
@@ -31,7 +33,7 @@ export async function GET(request: Request) {
       200,
     );
   } catch (e) {
-    if (!(e instanceof UpstreamError)) console.error("solar layers: unexpected error", e);
+    if (!(e instanceof UpstreamError || e instanceof RateLimitedError)) console.error("solar layers: unexpected error", e);
     return upstreamReply(e);
   }
 }

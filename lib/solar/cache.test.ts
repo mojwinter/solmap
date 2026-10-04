@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 import { UpstreamError, type FindClosestRequest, type GoogleCallResult } from "./client";
+import { RateLimitedError } from "./ratelimit";
 import {
   clampMaxAgeDays,
   createSolarStore,
@@ -240,6 +241,55 @@ describe("cache mode", () => {
     google = async () => ({ status: 200, body: { name: "buildings/x" } });
     await expect(store().lookup(P.lat, P.lng)).rejects.toBeInstanceOf(UpstreamError);
     expect(entryFiles()).toHaveLength(0);
+  });
+});
+
+describe("rate-limit gate (#58)", () => {
+  const P = { lat: 49.3, lng: -123.1 };
+  const counting = () => {
+    const g = Object.assign(() => void g.n++, { n: 0 });
+    return g;
+  };
+  const refuse = () => {
+    throw new RateLimitedError(7);
+  };
+
+  it("runs only when the lookup calls Google: memory, disk, cached 404 and synthetic answers are free", async () => {
+    const g = counting();
+    const s = store({ memoryTtlMs: 60_000 });
+    expect(await s.lookup(P.lat, P.lng, g)).toMatchObject({ layer: "google" });
+    expect(g.n).toBe(1);
+    for (let i = 0; i < 40; i++) expect(await s.lookup(P.lat, P.lng, g)).toMatchObject({ status: 200, layer: "memory" });
+    expect(await store().lookup(P.lat, P.lng, g)).toMatchObject({ status: 200, layer: "disk" });
+
+    google = async () => ({ status: 404, body: {} });
+    const far = { lat: 49.31, lng: -123.1 };
+    await store().lookup(far.lat, far.lng, g);
+    expect(g.n).toBe(2);
+    expect(await store().lookup(far.lat, far.lng, g)).toMatchObject({ status: 404, layer: "disk" });
+    expect(await store({ source: "fixtures" }).lookup(SOUTH.lat, SOUTH.lng, g)).toMatchObject({ source: "fixture" });
+    expect(g.n).toBe(2);
+    expect(calls).toHaveLength(2);
+  });
+
+  it("a refusal makes no Google call, spends no daily budget and isn't remembered", async () => {
+    const used: string[] = [];
+    const s = store({ memoryTtlMs: 60_000, budget: { take: (sku) => void used.push(sku), used: () => used.length } });
+    await expect(s.lookup(P.lat, P.lng, refuse)).rejects.toMatchObject({ name: "RateLimitedError", retryAfterSeconds: 7 });
+    expect(calls).toHaveLength(0);
+    expect(used).toHaveLength(0);
+    expect(logs.join("\n")).not.toMatch(/layer=google/);
+    expect(await s.lookup(P.lat, P.lng)).toMatchObject({ status: 200, layer: "google" }); // not a remembered failure
+  });
+
+  it("a lookup that joined one refused by another caller's limit retries once with its own gate", async () => {
+    const s = store({ memoryTtlMs: 60_000 });
+    const mine = counting();
+    const [a, b] = await Promise.allSettled([s.lookup(P.lat, P.lng, refuse), s.lookup(P.lat, P.lng, mine)]);
+    expect(a).toMatchObject({ status: "rejected", reason: expect.any(RateLimitedError) });
+    expect(b).toMatchObject({ status: "fulfilled", value: { status: 200, layer: "google" } });
+    expect(mine.n).toBe(1);
+    expect(calls).toHaveLength(1);
   });
 });
 
