@@ -3,7 +3,7 @@
  * Calls the deployed API over HTTP like a browser would (never lib/solar/client.ts: no key here), runs
  * the finance engine on each answer, prints one table and exits 1 if anything was flagged.
  *
- *   pnpm demo:check                                   # https://solmap.yardstick.football, `live` list
+ *   pnpm demo:check                                   # https://sunscore.tech, `live` list
  *   pnpm demo:check -- http://127.0.0.1:3100          # localhost → `fixtures` list (SOLAR_SOURCE=fixtures)
  *   pnpm demo:check -- <base> --list live|fixtures    # override the list
  *   pnpm demo:check -- <base> --cache-dir fixtures/solar   # also check disk-cache expiry (VPS / B's machine)
@@ -32,7 +32,7 @@ import { recommend } from "@/lib/finance";
 import { DEFAULT_INPUTS, INSTALL } from "@/src/config/bc";
 import type { BuildingResponse, RatePlan, Verdict } from "@/src/types/app";
 
-export const DEFAULT_BASE = "https://solmap.yardstick.football";
+export const DEFAULT_BASE = "https://sunscore.tech";
 export const SLOW_MS = 3000;
 export const EXPIRY_WARN_DAYS = 3;
 export const MIN_LIVE_ROWS = 3;

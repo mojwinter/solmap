@@ -126,7 +126,7 @@ describe("skipReason / defaultList", () => {
     expect(defaultList("http://127.0.0.1:3100")).toBe("fixtures");
     expect(defaultList("http://localhost:3000")).toBe("fixtures");
     expect(defaultList("http://[::1]:3000")).toBe("fixtures");
-    expect(defaultList("https://solmap.yardstick.football")).toBe("live");
+    expect(defaultList("https://sunscore.tech")).toBe("live");
   });
 });
 

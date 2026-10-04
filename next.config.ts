@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 // Sent on every response, pages and API routes alike.
 const securityHeaders = [
-  // One year. No preload: preloading is a decision for the whole yardstick.football domain.
+  // One year. No preload yet: it covers every subdomain of sunscore.tech and is slow to undo.
   { key: "Strict-Transport-Security", value: "max-age=31536000" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
