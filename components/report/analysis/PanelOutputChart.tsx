@@ -3,9 +3,9 @@
 import { useId, useMemo } from 'react';
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { BuildingResponse, ScenarioResult } from '@/src/types/app';
-import { kwh } from '@/lib/format';
+import { kwh, signedCad } from '@/lib/format';
 import { AXIS_TEXT, axisWidth, ChartSection, GRID, Legend, NumbersTable, TooltipCard } from './chart';
-import { niceTicks, panelBars, type PanelBar } from './derive';
+import { marginalNpv, niceTicks, panelBars, type PanelBar } from './derive';
 
 /**
  * Every panel spot on the roof, best first, in first-year kWh: the ones in the system on screen in sky,
@@ -15,16 +15,28 @@ import { niceTicks, panelBars, type PanelBar } from './derive';
 export function PanelOutputChart({
   building,
   scenario,
+  scenarios,
+  rebateCapKw,
   onPickPanels,
 }: {
   building: Pick<BuildingResponse, 'panels' | 'configs'>;
-  scenario: Pick<ScenarioResult, 'configIndex' | 'panelsCount' | 'acKwhYear1'>;
+  scenario: Pick<ScenarioResult, 'configIndex' | 'panelsCount' | 'acKwhYear1' | 'systemKwDc'>;
+  /** System size (kW DC) where the BC Hydro rebate stops growing, when you get one: named as the reason extra panels stop paying. */
+  rebateCapKw?: number;
+  /** Every layout's result (Recommendation.scenarios), for what each extra panel is worth. */
+  scenarios?: readonly Pick<ScenarioResult, 'panelsCount' | 'npv'>[];
   /** Pick the smallest size with at least this many panels. */
   onPickPanels?: (panels: number) => void;
 }) {
   const id = useId();
-  const bars = useMemo(() => panelBars(building, scenario), [building, scenario]);
+  const bars = useMemo(() => {
+    const adds = scenarios ? marginalNpv(scenarios) : null;
+    return panelBars(building, scenario).map((b) => ({ ...b, addsNpv: adds?.get(b.rank) ?? null }));
+  }, [building, scenario, scenarios]);
   if (bars.length === 0) return null;
+  // The first panel whose addition lowers the value in today's dollars (it stays lower from there, usually).
+  const perPanelKw = scenario.panelsCount > 0 ? scenario.systemKwDc / scenario.panelsCount : 0;
+  const firstLoss = bars.find((b) => b.addsNpv !== null && b.addsNpv !== undefined && b.addsNpv < 0);
 
   const best = bars[0];
   const lastUsed = bars[scenario.panelsCount - 1];
@@ -39,7 +51,14 @@ export function PanelOutputChart({
     (lastUsed && lastUsed !== best ? `; panel ${scenario.panelsCount}, the last in this size, ${kwh(lastUsed.kwh)} (${drop(best.kwh, lastUsed.kwh)}% less).` : '.') +
     (unusedAvg !== null
       ? ` The ${unused.length} spots left over average ${kwh(unusedAvg)}, down to ${kwh(worst.kwh)} on the weakest.`
-      : ' Every spot on the roof is in use.');
+      : ' Every spot on the roof is in use.') +
+    (firstLoss
+      ? ` From panel ${firstLoss.rank} on, adding a panel lowers the system’s value in today’s dollars${
+          rebateCapKw !== undefined && Math.abs((firstLoss.rank - 1) * perPanelKw - rebateCapKw) < perPanelKw
+            ? `: the rebate stops growing at ${rebateCapKw.toFixed(rebateCapKw % 1 ? 1 : 0)} kW, so each extra panel gets no rebate`
+            : ''
+        }.`
+      : '');
 
   const tickEvery = bars.length > 60 ? 20 : bars.length > 24 ? 10 : 5;
   const xTicks = bars.filter((b) => b.rank === 1 || b.rank % tickEvery === 0).map((b) => b.rank);
@@ -59,8 +78,8 @@ export function PanelOutputChart({
       }
       table={
         <NumbersTable
-          head={['Panel', 'kWh a year', 'In this system']}
-          rows={bars.map((b) => [b.rank, kwh(b.kwh), b.used ? 'Yes' : '—'])}
+          head={['Panel', 'kWh a year', 'Adding it (today’s $)', 'In this system']}
+          rows={bars.map((b) => [b.rank, kwh(b.kwh), b.addsNpv == null ? '—' : signedCad(b.addsNpv), b.used ? 'Yes' : '—'])}
         />
       }
     >
@@ -97,7 +116,10 @@ export function PanelOutputChart({
                   <TooltipCard
                     value={`${kwh(b.kwh)} kWh`}
                     label={`Panel ${b.rank}${b.used ? ' · in this system' : ''}`}
-                    rows={[{ label: 'Vs your best panel', value: b.rank === 1 ? '—' : `−${drop(best.kwh, b.kwh)}%` }]}
+                    rows={[
+                      { label: 'Vs your best panel', value: b.rank === 1 ? '—' : `−${drop(best.kwh, b.kwh)}%` },
+                      ...(b.addsNpv == null ? [] : [{ label: 'Adding it, today’s $', value: signedCad(b.addsNpv) }]),
+                    ]}
                   />
                 );
               }}

@@ -6,6 +6,7 @@ import { AssumptionsPanel } from '@/components/inputs/AssumptionsPanel';
 import { YourHome } from '@/components/inputs/YourHome';
 import { verdictFor } from '@/lib/finance';
 import { clampInputs } from '@/lib/finance/clamp';
+import { rebateCapKw } from '@/lib/finance/project';
 import { FLAGS, type Flags } from '@/lib/flags';
 import type { BuildingResponse } from '@/src/types/app';
 import { KeyFigures } from './analysis/KeyFigures';
@@ -322,6 +323,8 @@ function reportCards(
             <PanelOutputChart
               building={building}
               scenario={selected}
+              scenarios={recommendation.scenarios}
+              rebateCapKw={modelled.rebateEligible ? rebateCapKw(modelled.costPerWatt) : undefined}
               onPickPanels={(n) => setSelectedIndex(configIndexFor(building.configs, n))}
             />
           </Card>

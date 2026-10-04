@@ -9,6 +9,7 @@ import {
   focusEnd,
   largestPayingIndex,
   lifetimeFigures,
+  marginalNpv,
   monthlyProduction,
   monthlySplit,
   niceTicks,
@@ -230,5 +231,17 @@ describe('focusEnd', () => {
     expect(focusEnd([-100, -200, -300, -400, -500].map((v, i) => pt(i, v)), 'npv')).toBeNull();
     expect(focusEnd([500, 800, 700, 600, 500, 400].map((v, i) => pt(i, v)), 'npv')).toBeNull();
     expect(focusEnd([500, 800, 0, -100, -2000, -3000].map((v, i) => pt(i, v)), 'npv')).toBeNull();
+  });
+});
+
+describe('marginalNpv', () => {
+  it('is the value change from each extra panel, where both layouts exist', () => {
+    const m = marginalNpv(rec.scenarios);
+    const [a, b] = rec.scenarios;
+    expect(m.has(a.panelsCount)).toBe(false);
+    expect(m.get(b.panelsCount)).toBeCloseTo(b.npv - a.npv);
+    // Past the recommended size, extra panels lose value on the hero roof.
+    const last = rec.scenarios[rec.scenarios.length - 1];
+    expect(m.get(last.panelsCount)!).toBeLessThan(0);
   });
 });

@@ -79,7 +79,7 @@
   /* Chart marks only (never text). sun-500 is too light for a mark on white; chart-sun is its deeper
      step, validated against sky-600 for colour-blind separation (dataviz palette check). */
   --chart-sun: #e69500;
-  --chart-muted: rgba(11, 29, 51, 0.16);
+  --chart-muted: #d6dae0; /* opaque, so gridlines don't show through grey bars */
   --chart-1: var(--sky-600);
   --chart-2: var(--sun-500);
   --chart-3: var(--good);
@@ -135,7 +135,7 @@
 
   --popover: #141c28;
   --chart-sun: #ffc233;
-  --chart-muted: rgba(255, 255, 255, 0.2);
+  --chart-muted: #3a4452;
 }
 
 @theme {

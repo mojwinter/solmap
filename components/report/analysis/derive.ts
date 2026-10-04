@@ -108,6 +108,22 @@ export interface PanelBar {
   kwh: number;
   /** In the system on screen. */
   used: boolean;
+  /**
+   * What adding this panel does to the value in today's dollars (NPV of the layout with it minus the
+   * one without), when both layouts exist; null for the first layout's panels or a gap in the layouts.
+   */
+  addsNpv?: number | null;
+}
+
+/** NPV change from each panel: layout n vs layout n − 1, by panel count. */
+export function marginalNpv(scenarios: readonly Pick<ScenarioResult, 'panelsCount' | 'npv'>[]): Map<number, number> {
+  const byCount = new Map(scenarios.map((s) => [s.panelsCount, s.npv]));
+  const out = new Map<number, number>();
+  for (const [n, v] of byCount) {
+    const prev = byCount.get(n - 1);
+    if (prev !== undefined) out.set(n, v - prev);
+  }
+  return out;
 }
 
 /**
