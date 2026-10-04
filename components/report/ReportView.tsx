@@ -28,7 +28,6 @@ import { useBuilding, type BuildingState } from './useBuilding';
 import { reportSearch, type ReportQuery } from './urlState';
 import { useReportState } from './useReportState';
 import { ConfidenceBadge } from './verdict/ConfidenceBadge';
-import { ReasonChips } from './verdict/ReasonChips';
 import { VerdictCard } from './verdict/VerdictCard';
 
 /** The spot being reported on: from the URL, an address pick or a click on the map. */
@@ -191,16 +190,8 @@ function Report({
                 ),
               },
               { value: 'usage', label: 'Your usage', content: <UsageInputs inputs={inputs} onChange={setInputs} /> },
-              {
-                value: 'roof',
-                label: 'Roof',
-                content: (
-                  <>
-                    <ReasonChips reasons={recommendation.reasons} title="About this roof" />
-                    <SpecSheet building={building} scenario={selected} inputs={inputs} />
-                  </>
-                ),
-              },
+              // Sun-hours are on the map, pinned to the roof outline (components/map/RoofCallout.tsx).
+              { value: 'roof', label: 'Roof', content: <SpecSheet building={building} scenario={selected} inputs={inputs} /> },
             ]}
           />
         </>
