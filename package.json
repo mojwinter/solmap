@@ -10,7 +10,8 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "solar:warm": "tsx --conditions=react-server scripts/warm-cache.ts",
-    "solar:check": "tsx --conditions=react-server scripts/solar-check.ts"
+    "solar:check": "tsx --conditions=react-server scripts/solar-check.ts",
+    "ui:shots": "tsx e2e/ui-shots.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
@@ -41,6 +42,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.8",
+    "playwright": "^1.63.0",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5",

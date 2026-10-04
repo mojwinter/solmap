@@ -10,10 +10,10 @@ const TILE: Record<ReasonChip['tone'], string> = {
 };
 
 /** The verdict's reasons as an inset grouped list: icon tile + C's sentence. */
-export function ReasonChips({ reasons }: { reasons: ReasonChip[] }) {
+export function ReasonChips({ reasons, title }: { reasons: ReasonChip[]; title?: string }) {
   if (reasons.length === 0) return null;
-  return (
-    <ul className="rounded-md bg-fill-quiet px-3" aria-label="Why">
+  const list = (
+    <ul className="rounded-md bg-fill-quiet px-3" aria-label={title ? undefined : 'Why'}>
       {reasons.map((r) => (
         <li key={r.kind} className="flex items-center gap-3 border-separator py-2.5 not-first:border-t">
           <span className={cn('grid size-[30px] flex-none place-items-center rounded-sm', TILE[r.tone])}>
@@ -23,5 +23,14 @@ export function ReasonChips({ reasons }: { reasons: ReasonChip[] }) {
         </li>
       ))}
     </ul>
+  );
+  if (!title) return list;
+  return (
+    <section aria-labelledby="reasons-heading" className="grid gap-2">
+      <h2 id="reasons-heading" className="text-headline">
+        {title}
+      </h2>
+      {list}
+    </section>
   );
 }

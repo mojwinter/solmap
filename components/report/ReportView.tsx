@@ -1,8 +1,10 @@
 'use client';
 
+import { verdictFor } from '@/lib/finance';
 import type { BuildingResponse } from '@/src/types/app';
 import { Attribution } from './Attribution';
 import { MapPlaceholder } from './MapPlaceholder';
+import { Assumptions } from './money/Assumptions';
 import { MoneyBreakdown } from './money/MoneyBreakdown';
 import { PaybackHero } from './money/PaybackHero';
 import { ReportLayout } from './ReportLayout';
@@ -13,6 +15,7 @@ import { ReportSkeleton } from './states/ReportSkeleton';
 import { useBuilding } from './useBuilding';
 import { useReportState } from './useReportState';
 import { ConfidenceBadge } from './verdict/ConfidenceBadge';
+import { ReasonChips } from './verdict/ReasonChips';
 import { VerdictCard } from './verdict/VerdictCard';
 
 /** The report's only container: fetch → finance → props. Everything it renders is presentational. */
@@ -48,6 +51,7 @@ function Report({ building, address }: { building: BuildingResponse; address?: s
   const { inputs, recommendation, selectedIndex, selected, setSelectedIndex } = useReportState(building);
   const visibleCount = selected?.panelsCount ?? 0;
   const steps = recommendation.scenarios.map((s) => ({ panels: s.panelsCount, systemKwDc: s.systemKwDc }));
+  const onRecommended = selectedIndex === recommendation.recommendedIndex;
 
   return (
     <ReportLayout map={<MapPlaceholder building={building} visibleCount={visibleCount} />}>
@@ -60,12 +64,13 @@ function Report({ building, address }: { building: BuildingResponse; address?: s
           </div>
         </header>
 
-        <VerdictCard recommendation={recommendation} />
-
-        {selected && selectedIndex !== null && (
+        {selected && selectedIndex !== null ? (
           <>
+            {/* Money first (design principle); the badge follows the size on screen. */}
             <PaybackHero
               scenario={selected}
+              verdict={verdictFor(selected)}
+              headline={onRecommended ? recommendation.headline : undefined}
               startYear={new Date().getFullYear()}
               lifetimeYears={inputs.lifetimeYears}
             />
@@ -76,7 +81,12 @@ function Report({ building, address }: { building: BuildingResponse; address?: s
               onChange={setSelectedIndex}
             />
             <MoneyBreakdown scenario={selected} inputs={inputs} />
+            <ReasonChips reasons={recommendation.reasons} title="About this roof" />
+            <Assumptions warnings={selected.warnings} inputs={inputs} />
           </>
+        ) : (
+          // No configs: nothing fits, so there's no money to show.
+          <VerdictCard recommendation={recommendation} />
         )}
 
         <Attribution source={building.source} />
