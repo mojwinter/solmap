@@ -55,7 +55,8 @@ export function UsageInputs({ inputs, onChange }: { inputs: FinanceInputs; onCha
   return (
     // Not printed: the assumptions line under the money says which usage and plan the numbers use.
     <section aria-labelledby={`${ids}-heading`} className="grid gap-3 print:hidden">
-      <h2 id={`${ids}-heading`} className="text-headline">
+      {/* Its tab on the report already says "Your usage"; the heading still names the section for screen readers. */}
+      <h2 id={`${ids}-heading`} className="sr-only">
         Your usage
       </h2>
 

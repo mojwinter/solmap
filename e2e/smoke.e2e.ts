@@ -81,6 +81,8 @@ test('a shared link restores size, usage and plan, and the URL follows the contr
 
   const slider = page.getByRole('slider', { name: 'System size' });
   await expect(slider).toHaveAttribute('aria-valuetext', /^30 panels/);
+  // Usage and rate plan live in their own tab of the report panel.
+  await page.getByRole('tab', { name: 'Your usage' }).click();
   await expect(page.getByLabel('Electricity used in a year')).toHaveValue('16000');
   await expect(page.getByRole('group', { name: 'Rate plan' }).getByRole('button', { name: 'Flat' })).toHaveAttribute('aria-pressed', 'true');
 
