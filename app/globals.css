@@ -393,6 +393,24 @@
   h3 {
     break-after: avoid;
   }
+  /*
+   * Recharts draws at the width the chart had on screen, which can be wider than the page: fit each
+   * chart's SVG (it has a viewBox) into the page width instead of clipping it. Recharts 3 puts the chart
+   * in a zero-size div inside the container, so that one widens too. Heights stay put, or the responsive
+   * container measures 0 and draws nothing.
+   */
+  .recharts-responsive-container,
+  .recharts-responsive-container > div,
+  .recharts-wrapper {
+    width: 100% !important;
+  }
+  .recharts-surface {
+    width: 100% !important;
+    height: 100% !important;
+  }
+  .recharts-tooltip-wrapper {
+    display: none !important;
+  }
   a[href^="http"]::after {
     content: " (" attr(href) ")";
     font-size: 0.8em;

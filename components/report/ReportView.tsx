@@ -224,6 +224,11 @@ function reportCards(
   // Install year for PaybackHero and the chart, read once so they agree. The roof is fetched after
   // mount, so this only ever runs in the browser (the user's clock), never in server HTML.
   const startYear = new Date().getFullYear();
+  const firstYear = (
+    <Card>
+      <FirstYear scenario={selected} />
+    </Card>
+  );
 
   return {
     summary: (
@@ -253,10 +258,13 @@ function reportCards(
       <div className="grid gap-5 md:gap-6">
         <KeyFigures scenario={selected} />
         <Assumptions warnings={selected.warnings} />
-        {flags.charts && (
+        {/* Under the house: the savings chart, or without charts, the first year (so the column isn't short). */}
+        {flags.charts ? (
           <Card>
             <CashFlowChart scenario={selected} startYear={startYear} />
           </Card>
+        ) : (
+          firstYear
         )}
       </div>
     ),
@@ -267,7 +275,7 @@ function reportCards(
       </>
     ),
     details: (
-      <AnalysisGrid>
+      <AnalysisGrid columns={flags.charts ? 3 : 2}>
         {flags.charts && (
           <Card className="lg:col-span-2">
             <SizeSweepChart
@@ -280,9 +288,7 @@ function reportCards(
             />
           </Card>
         )}
-        <Card>
-          <FirstYear scenario={selected} />
-        </Card>
+        {flags.charts && firstYear}
         {flags.charts && (
           <Card className="lg:col-span-2">
             <MonthlyChart building={building} scenario={selected} annualUseKwh={inputs.annualConsumptionKwh} />
@@ -304,7 +310,7 @@ function reportCards(
           <SpecSheet building={building} scenario={selected} inputs={inputs} />
         </Card>
         {flags.assumptions && (
-          <Card className="lg:col-span-3 print:hidden">
+          <Card className="lg:col-span-full print:hidden">
             <AssumptionsPanel inputs={inputs} onChange={setInputs} />
           </Card>
         )}
@@ -313,10 +319,13 @@ function reportCards(
   };
 }
 
-/** The dashboard under the house: three columns on wide screens, one on phones. */
-function AnalysisGrid({ children }: { children: ReactNode }) {
+/** The dashboard under the house: two or three columns on wide screens (charts span two), one on phones. */
+function AnalysisGrid({ columns, children }: { columns: 2 | 3; children: ReactNode }) {
   return (
-    <section aria-label="Analysis" className="grid grid-cols-[minmax(0,1fr)] items-start gap-5 md:gap-6 lg:grid-cols-3 print:block">
+    <section
+      aria-label="Analysis"
+      className={`grid grid-cols-[minmax(0,1fr)] items-start gap-5 md:gap-6 ${columns === 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-2'} print:block`}
+    >
       {children}
     </section>
   );

@@ -10,9 +10,12 @@ import { billImpact } from './derive';
  */
 export function FirstYear({ scenario }: { scenario: ScenarioResult }) {
   return (
-    <div className="grid gap-6">
-      <EnergySplit scenario={scenario} />
-      <BillWaterfall scenario={scenario} />
+    // Side by side when the card is wide (under the house without charts), stacked in a narrow column.
+    <div className="@container">
+      <div className="grid gap-6 @3xl:grid-cols-2 @3xl:gap-8">
+        <EnergySplit scenario={scenario} />
+        <BillWaterfall scenario={scenario} />
+      </div>
     </div>
   );
 }
@@ -26,7 +29,7 @@ function EnergySplit({ scenario }: { scenario: ScenarioResult }) {
   const rate = selfUsedKwh > 0 ? selfUsedValue / selfUsedKwh : null;
 
   return (
-    <section aria-labelledby={id} className="grid gap-3">
+    <section aria-labelledby={id} className="grid content-start gap-3 print:break-inside-avoid">
       <div className="grid gap-1">
         <h2 id={id} className="text-headline">
           Where your solar goes
@@ -112,7 +115,7 @@ function BillWaterfall({ scenario }: { scenario: ScenarioResult }) {
   ];
 
   return (
-    <section aria-labelledby={id} className="grid gap-3">
+    <section aria-labelledby={id} className="grid content-start gap-3 print:break-inside-avoid">
       <div className="grid gap-1">
         <h2 id={id} className="text-headline">
           Your yearly power bill

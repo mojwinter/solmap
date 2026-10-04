@@ -33,7 +33,7 @@ export function ChartSection({
   className?: string;
 }) {
   return (
-    <section aria-labelledby={id} className={cn('grid content-start gap-3', className)}>
+    <section aria-labelledby={id} className={cn('grid content-start gap-3 print:break-inside-avoid', className)}>
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div className="grid min-w-0 flex-1 basis-56 gap-1">
           <h2 id={id} className="text-headline">
@@ -41,7 +41,7 @@ export function ChartSection({
           </h2>
           <p className="text-callout text-pretty text-ink-secondary">{summary}</p>
         </div>
-        {aside && <div className="w-full flex-none sm:w-auto">{aside}</div>}
+        {aside && <div className="w-full flex-none sm:w-auto print:hidden">{aside}</div>}
       </div>
       {children}
       {legend}

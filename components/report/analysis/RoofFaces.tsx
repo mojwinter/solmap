@@ -28,7 +28,7 @@ export function RoofFaces({
   const { roof } = building;
 
   return (
-    <section aria-labelledby={id} className="grid content-start gap-3">
+    <section aria-labelledby={id} className="grid content-start gap-3 print:break-inside-avoid">
       <div className="grid gap-1">
         <h2 id={id} className="text-headline">
           Your roof
