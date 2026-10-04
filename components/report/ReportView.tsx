@@ -10,7 +10,7 @@ import { HeaderSearch } from './HeaderSearch';
 import { HouseWindow } from './HouseWindow';
 import { Assumptions } from './money/Assumptions';
 import { CashFlowChart } from './money/CashFlowChart';
-import { CostStats, MoneyTiles, YearlyStats } from './money/MoneyStats';
+import { MoneyTiles, YearlyStats } from './money/MoneyStats';
 import { ImpactCard } from './impact/ImpactCard';
 import { NextStep } from './NextStep';
 import { SolarPotential } from './potential/SolarPotential';
@@ -182,7 +182,7 @@ type Cards = Pick<ComponentProps<typeof ReportLayout>, 'summary' | 'controls' | 
 
 /**
  * The cards round the house once there's a roof: the answer top right with the size slider under it,
- * the money (and break-even chart) under the house, then CO₂ and the next step.
+ * the yearly figures and savings chart under the house, then CO₂ and the next step.
  */
 function reportCards(
   building: BuildingResponse,
@@ -204,7 +204,7 @@ function reportCards(
       ),
     };
   }
-  const steps = recommendation.scenarios.map((s) => ({ panels: s.panelsCount, systemKwDc: s.systemKwDc }));
+  const steps = recommendation.scenarios.map((s) => ({ panels: s.panelsCount, acKwhYear1: s.acKwhYear1 }));
   // Install year for PaybackHero and the chart, read once so they agree. The roof is fetched after
   // mount, so this only ever runs in the browser (the user's clock), never in server HTML.
   const startYear = new Date().getFullYear();
@@ -229,11 +229,7 @@ function reportCards(
     ),
     analysis: (
       <Card className="grid gap-5">
-        <CostStats scenario={selected} inputs={inputs} />
-        {/* The power side, moved off the answer card so it leads with money. */}
-        <div className="border-t border-separator pt-5">
-          <YearlyStats scenario={selected} sunHours={building.roof.maxSunshineHoursPerYear} />
-        </div>
+        <YearlyStats scenario={selected} sunHours={building.roof.maxSunshineHoursPerYear} />
         {flags.charts && (
           <div className="border-t border-separator pt-5">
             <CashFlowChart scenario={selected} startYear={startYear} />
@@ -289,7 +285,7 @@ function ExplorePanel({
               <MoneyTiles scenario={selected} />
             </SolarPotential>
             <SizeSlider
-              steps={recommendation.scenarios.map((s) => ({ panels: s.panelsCount, systemKwDc: s.systemKwDc }))}
+              steps={recommendation.scenarios.map((s) => ({ panels: s.panelsCount, acKwhYear1: s.acKwhYear1 }))}
               value={selectedIndex}
               recommendedIndex={recommendation.recommendedIndex}
               onChange={setSelectedIndex}

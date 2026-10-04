@@ -2,13 +2,14 @@
 
 import { useEffect, useRef, type CSSProperties, type MouseEvent } from 'react';
 import { Icon } from '@/components/common/Icon';
-import { kw, panelsLabel } from '@/lib/format';
+import { kwh, panelsLabel } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import styles from './SizeSlider.module.css';
 
 export interface SizeStep {
   panels: number;
-  systemKwDc: number;
+  /** First-year AC production: the sum of these panels' own output, so each step adds a different amount. */
+  acKwhYear1: number;
 }
 
 // Hold a stepper to keep stepping: a roof can have 50+ configs, too many to click through one by one.
@@ -50,7 +51,7 @@ export function SizeSlider({
         <p className="font-rounded text-metric tabular-nums" aria-live="polite">
           {current.panels}
           <small className="ml-1 font-sans text-callout text-ink-secondary">
-            {current.panels === 1 ? 'panel' : 'panels'} · {kw(current.systemKwDc)} kW
+            {current.panels === 1 ? 'panel' : 'panels'} · {kwh(current.acKwhYear1)} kWh
           </small>
         </p>
       </div>
@@ -66,7 +67,7 @@ export function SizeSlider({
             value={value}
             onChange={(e) => onChange(Number(e.target.value))}
             aria-label="System size"
-            aria-valuetext={panelsLabel(current.panels, current.systemKwDc) + (onRecommended ? ', recommended' : '')}
+            aria-valuetext={panelsLabel(current.panels, current.acKwhYear1) + (onRecommended ? ', recommended' : '')}
             className={styles.range}
             style={{ '--pct': `${at(value)}%` } as CSSProperties}
           />
