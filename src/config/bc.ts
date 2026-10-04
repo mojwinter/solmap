@@ -171,15 +171,80 @@ export const TUNING = {
 } as const;
 
 /**
- * P1: manual estimate when Google has no roof. ASSUMPTION: orientation factors are rough values
- * for ~49°N at 25–35° tilt (approximated from NREL PVWatts). Check one against PVWatts before relying on it.
+ * NRCan "Photovoltaic potential and solar resource maps of Canada", municipality database
+ * (dataset updated 2024-02-15, values read 2026-10-03). Annual AC kWh per kWp after all losses
+ * (performance ratio 0.75), so these are AC, not DC. `south` = the south-facing tilt=latitude−15°
+ * column (34–44° in BC, the closest to a ~30° roof); `flat` = the horizontal (0°) column.
+ * The manual estimate uses the nearest town. Coordinates are town centres, ours, ±0.01°.
+ */
+export const BC_SOLAR_YIELD = {
+  towns: [
+    { name: 'Victoria', lat: 48.43, lng: -123.37, south: 1110, flat: 955 },
+    { name: 'Nanaimo', lat: 49.17, lng: -123.94, south: 1081, flat: 923 },
+    { name: 'Courtenay', lat: 49.69, lng: -124.99, south: 1042, flat: 881 },
+    { name: 'Campbell River', lat: 50.03, lng: -125.24, south: 1010, flat: 860 },
+    { name: 'Port Hardy', lat: 50.72, lng: -127.5, south: 946, flat: 813 },
+    { name: 'Tofino', lat: 49.15, lng: -125.91, south: 957, flat: 821 },
+    { name: 'Vancouver', lat: 49.26, lng: -123.12, south: 1025, flat: 892 },
+    { name: 'Surrey', lat: 49.19, lng: -122.85, south: 1014, flat: 887 },
+    { name: 'Abbotsford', lat: 49.05, lng: -122.33, south: 1013, flat: 890 },
+    { name: 'Chilliwack', lat: 49.16, lng: -121.95, south: 1007, flat: 887 },
+    { name: 'Hope', lat: 49.38, lng: -121.44, south: 1021, flat: 895 },
+    { name: 'Sechelt', lat: 49.47, lng: -123.76, south: 1021, flat: 881 },
+    { name: 'Powell River', lat: 49.84, lng: -124.52, south: 1035, flat: 881 },
+    { name: 'Squamish', lat: 49.7, lng: -123.16, south: 976, flat: 851 },
+    { name: 'Whistler', lat: 50.12, lng: -122.95, south: 1019, flat: 876 },
+    { name: 'Merritt', lat: 50.11, lng: -120.79, south: 1155, flat: 975 },
+    { name: 'Kamloops', lat: 50.67, lng: -120.33, south: 1171, flat: 972 },
+    { name: 'Salmon Arm', lat: 50.7, lng: -119.27, south: 1139, flat: 958 },
+    { name: 'Vernon', lat: 50.27, lng: -119.27, south: 1148, flat: 975 },
+    { name: 'Kelowna', lat: 49.89, lng: -119.5, south: 1150, flat: 988 },
+    { name: 'Penticton', lat: 49.49, lng: -119.59, south: 1151, flat: 996 },
+    { name: 'Osoyoos', lat: 49.03, lng: -119.47, south: 1153, flat: 1007 },
+    { name: 'Castlegar', lat: 49.32, lng: -117.66, south: 1126, flat: 980 },
+    { name: 'Trail', lat: 49.1, lng: -117.71, south: 1137, flat: 994 },
+    { name: 'Nelson', lat: 49.49, lng: -117.29, south: 1131, flat: 975 },
+    { name: 'Cranbrook', lat: 49.51, lng: -115.77, south: 1226, flat: 1016 },
+    { name: 'Revelstoke', lat: 50.99, lng: -118.2, south: 1107, flat: 928 },
+    { name: 'Golden', lat: 51.3, lng: -116.97, south: 1187, flat: 969 },
+    { name: '100 Mile House', lat: 51.64, lng: -121.29, south: 1147, flat: 933 },
+    { name: 'Williams Lake', lat: 52.14, lng: -122.14, south: 1136, flat: 920 },
+    { name: 'Quesnel', lat: 52.98, lng: -122.49, south: 1099, flat: 892 },
+    { name: 'Prince George', lat: 53.92, lng: -122.75, south: 1072, flat: 868 },
+    { name: 'Smithers', lat: 54.78, lng: -127.17, south: 990, flat: 840 },
+    { name: 'Terrace', lat: 54.52, lng: -128.6, south: 902, flat: 791 },
+    { name: 'Kitimat', lat: 54.05, lng: -128.65, south: 855, flat: 761 },
+    { name: 'Prince Rupert', lat: 54.31, lng: -130.32, south: 808, flat: 725 },
+    { name: 'Masset', lat: 54.01, lng: -132.15, south: 892, flat: 764 },
+    { name: 'Dawson Creek', lat: 55.76, lng: -120.24, south: 1177, flat: 868 },
+    { name: 'Fort St. John', lat: 56.25, lng: -120.85, south: 1172, flat: 857 },
+    { name: 'Fort Nelson', lat: 58.81, lng: -122.7, south: 1083, flat: 802 },
+  ],
+  asOf: '2024-02-15',
+  source:
+    'https://ftp.maps.canada.ca/pub/nrcan_rncan/Solar-energy_Energie-solaire/photovoltaic_canada_photovoltaique/municip_potentiel-potential.csv',
+} as const;
+
+/**
+ * P1: manual estimate when Google has no roof. Location yield comes from BC_SOLAR_YIELD.
+ * ASSUMPTION: the off-south orientation factors are rough values for ~49°N at 25–35° tilt
+ * (approximated from NREL PVWatts). Check one against PVWatts before relying on it.
  */
 export const MANUAL = {
   /** Fraction of the entered sun-facing roof area that can hold panels (setbacks, vents, edges) */
   usableFraction: 0.7,
-  /** DC yield of an unshaded south roof, kWh per kW DC per year */
-  southYieldDcKwhPerKw: 1150,
-  orientationFactor: { S: 1.0, SE: 0.95, SW: 0.95, E: 0.82, W: 0.82, FLAT: 0.88, N: 0.6 },
+  /** × the town's south AC yield. FLAT uses the town's horizontal yield instead. */
+  orientationFactor: { S: 1.0, SE: 0.95, SW: 0.95, E: 0.82, W: 0.82, N: 0.6 },
+  /** Google Solar API's default panel (solarPotential.panel*), so manual and real roofs size the same */
+  panel: { capacityWatts: 400, heightMeters: 1.879, widthMeters: 1.045, lifetimeYears: 20 },
+  /** Smallest config offered, like the smallest Google config (4 panels = 1.6 kW) */
+  minPanels: 4,
+  /** ASSUMPTION: residential maximum. Larger entries are clamped and the result says so (`clamped`). */
+  maxRoofAreaM2: 300,
+  /** Compass direction → azimuth (0 = north, 180 = south). FLAT has no facing; 180 keeps it out of the north warning. */
+  azimuthDegrees: { S: 180, SE: 135, SW: 225, E: 90, W: 270, N: 0, FLAT: 180 },
+  /** ASSUMPTION: typical BC pitched roof, matching the 25–35° tilt behind orientationFactor. Never shown as a fact. */
+  pitchDegrees: 30,
   source: 'https://pvwatts.nrel.gov/',
 } as const;
 
