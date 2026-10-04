@@ -37,14 +37,42 @@ export function PaybackHero({
           <p className="text-body text-ink-secondary">The panels wear out before they pay for themselves.</p>
         </>
       ) : (
-        <p className="font-rounded text-metric-xl tabular-nums">
-          {breakEvenYear(startYear, payback)}
-          <small className="ml-2 font-sans text-body font-medium tracking-normal text-ink-secondary">
-            in {years(payback)} years
-          </small>
-        </p>
+        <>
+          <p className="font-rounded text-metric-xl tabular-nums">
+            {breakEvenYear(startYear, payback)}
+            <small className="ml-2 font-sans text-body font-medium tracking-normal text-ink-secondary">
+              in {years(payback)} years
+            </small>
+          </p>
+          <LifeBar payback={payback} lifetimeYears={lifetimeYears} startYear={startYear} />
+        </>
       )}
       {headline && <p className="mt-1 text-body text-pretty text-ink-secondary">{headline}</p>}
     </section>
+  );
+}
+
+/**
+ * The panels' life as one bar: paying them off (quiet), then ahead (green), split at the break-even
+ * year, with the two lengths in words underneath so the colours are never the only cue.
+ */
+function LifeBar({ payback, lifetimeYears, startYear }: { payback: number; lifetimeYears: number; startYear: number }) {
+  const share = Math.min(Math.max(payback / lifetimeYears, 0), 1);
+  const ahead = Math.max(0, lifetimeYears - payback);
+  return (
+    <div className="mt-1 grid gap-1">
+      <div aria-hidden="true" className="flex h-2 gap-0.5 overflow-hidden rounded-pill">
+        <span className="h-full rounded-l-pill bg-chart-muted" style={{ width: `${share * 100}%` }} />
+        {ahead > 0 && <span className="h-full flex-1 rounded-r-pill bg-good" />}
+      </div>
+      <div className="flex justify-between gap-2 text-footnote text-ink-secondary tabular-nums">
+        <span>
+          {startYear}: paying it off
+        </span>
+        <span>
+          {ahead > 0 ? `${years(ahead)} years ahead, to ${startYear + lifetimeYears}` : `Panels last to ${startYear + lifetimeYears}`}
+        </span>
+      </div>
+    </div>
   );
 }

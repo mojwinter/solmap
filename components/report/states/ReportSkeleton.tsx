@@ -47,8 +47,8 @@ export function ReportSkeleton({ variant = 'money' }: { variant?: 'money' | 'sli
   }
   return (
     <div className="grid gap-4" aria-busy="true" aria-label="Loading your roof">
-      {/* PaybackHero, MoneyTiles and three reason rows, so the card barely resizes when they replace this. */}
-      <div className={`${block} h-[78px]`} />
+      {/* PaybackHero (with its life bar), MoneyTiles and three reason rows, so the card keeps its size. */}
+      <div className={`${block} h-[112px]`} />
       <div className="grid grid-cols-2 gap-2">
         <div className={`${block} h-[70px]`} />
         <div className={`${block} h-[70px]`} />
