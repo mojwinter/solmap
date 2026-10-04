@@ -4,8 +4,11 @@ import { StatList } from '@/components/common/StatList';
 import { cad, kwh, signedCad } from '@/lib/format';
 import { GRID_EMISSIONS } from '@/src/config/bc';
 
-/** What you pay (ⓘ: install cost − rebate) and the lifetime net, then a year's production, how much of average use it covers and the CO₂ it avoids. */
-export function MoneyBreakdown({ scenario, inputs }: { scenario: ScenarioResult; inputs: FinanceInputs }) {
+/**
+ * What you pay (ⓘ: install cost − rebate) and the lifetime net, then a year's sun on the roof's sunniest
+ * spot, production, how much of average use it covers and the CO₂ it avoids.
+ */
+export function MoneyBreakdown({ scenario, inputs, sunHours }: { scenario: ScenarioResult; inputs: FinanceInputs; sunHours: number }) {
   const lifetime = scenario.years.length || inputs.lifetimeYears;
   const net = scenario.lifetimeNetSavings;
   const co2Kg = scenario.acKwhYear1 * GRID_EMISSIONS.kgCo2ePerKwh;
@@ -28,9 +31,10 @@ export function MoneyBreakdown({ scenario, inputs }: { scenario: ScenarioResult;
         </h2>
         <StatList
           items={[
-            { icon: 'sun', label: 'Energy generated', valueUnit: 'kWh', value: kwh(scenario.acKwhYear1), tone: 'sun' },
+            { icon: 'sun', label: 'Sun hours', value: kwh(sunHours), tone: 'sun' },
+            { icon: 'bolt', label: 'Energy generated', valueUnit: 'kWh', value: kwh(scenario.acKwhYear1), tone: 'sky' },
             { icon: 'panels', label: 'Share of average use', value: `${Math.round(scenario.offsetPct * 100)}%` },
-            { icon: 'leaf', label: 'CO₂ saved', valueUnit: 'kg', value: Math.round(co2Kg).toLocaleString('en-CA') },
+            { icon: 'leaf', label: 'CO₂ emissions saved', valueUnit: 'kg', value: Math.round(co2Kg).toLocaleString('en-CA'), tone: 'good' },
           ]}
         />
       </section>

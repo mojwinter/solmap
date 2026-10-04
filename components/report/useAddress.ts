@@ -3,31 +3,50 @@
 import { useEffect, useState } from 'react';
 import { useMapsLibrary } from '@vis.gl/react-google-maps';
 
+const BUILDING_PREFIX = 'buildings/';
+const tidy = (address: string) => address.replace(/, Canada$/, '');
+
 /**
- * The street address for the report header: the one the user picked, else a reverse geocode of the
- * point (a click on the map or a link without `?address=`). Needs the Geocoding API on the browser key;
- * without it (or with no street result) this stays undefined and the header falls back.
+ * The street address for the report header: the one the user picked, else the address of the building
+ * the report is about (the Solar API names it `buildings/{place_id}`, so Places API (New) can look it up
+ * with the browser key), else a reverse geocode of the point (needs the Geocoding API on the browser key).
+ * Synthetic roofs and failed lookups leave this undefined and the header falls back.
  */
-export function useAddress(lat: number, lng: number, picked?: string): string | undefined {
+export function useAddress(lat: number, lng: number, picked?: string, buildingId?: string): string | undefined {
+  const places = useMapsLibrary('places');
   const geocoding = useMapsLibrary('geocoding');
-  // Tagged with the point it answers, so a new point never shows the last one's address.
+  // Tagged with the point and building it answers, so a new lookup never shows the last one's address.
   const [found, setFound] = useState<{ key: string; address: string } | null>(null);
-  const key = `${lat},${lng}`;
+  const key = `${lat},${lng}|${buildingId ?? ''}`;
 
   useEffect(() => {
-    if (picked || !geocoding) return;
+    // The header only shows once the roof has loaded, so wait for its building id: one lookup per report.
+    if (picked || !buildingId || !places || !geocoding) return;
     let live = true;
-    new geocoding.Geocoder()
-      .geocode({ location: { lat, lng } })
-      .then(({ results }) => {
-        const best = results.find((r) => r.types.includes('street_address') || r.types.includes('premise')) ?? results[0];
-        if (live && best) setFound({ key, address: best.formatted_address.replace(/, Canada$/, '') });
+
+    const byPlace = async () => {
+      if (!buildingId.startsWith(BUILDING_PREFIX)) return undefined;
+      const place = new places.Place({ id: buildingId.slice(BUILDING_PREFIX.length) });
+      await place.fetchFields({ fields: ['formattedAddress'] });
+      return place.formattedAddress ?? undefined;
+    };
+    const byPoint = async () => {
+      const { results } = await new geocoding.Geocoder().geocode({ location: { lat, lng } });
+      const best = results.find((r) => r.types.includes('street_address') || r.types.includes('premise')) ?? results[0];
+      return best?.formatted_address;
+    };
+
+    byPlace()
+      .catch(() => undefined)
+      .then((address) => address ?? byPoint())
+      .then((address) => {
+        if (live && address) setFound({ key, address: tidy(address) });
       })
       .catch(() => {});
     return () => {
       live = false;
     };
-  }, [geocoding, key, lat, lng, picked]);
+  }, [places, geocoding, key, lat, lng, picked, buildingId]);
 
   return picked ?? (found?.key === key ? found.address : undefined);
 }

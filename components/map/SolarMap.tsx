@@ -9,7 +9,6 @@ import { FluxLegend } from "./FluxLegend";
 import { FluxOverlay } from "./FluxOverlay";
 import { MAPS_API_KEY } from "./MapsProvider";
 import { PanelOverlay } from "./PanelOverlay";
-import { RoofCallout, roofCalloutSpace } from "./RoofCallout";
 import { token } from "./tokens";
 
 export type MapLayer = "satellite" | "sun";
@@ -53,8 +52,6 @@ function resolvePadding(padding: FitPadding, div: HTMLElement): Pad {
       if (el.dataset.mapInset === "top") p.top = Math.max(p.top, r.bottom - box.top + OVERLAY_GAP);
       if (el.dataset.mapInset === "bottom") p.bottom = Math.max(p.bottom, box.bottom - r.top + OVERLAY_GAP);
     }
-    // The sun-hours callout sits on the spotlit roof's top edge: keep room for it under the search box.
-    p.top += roofCalloutSpace();
   } else {
     p =
       typeof padding === "number"
@@ -257,7 +254,6 @@ export function SolarMap({
               {sunReady && <FluxOverlay layers={sunReady} visible={!!sunLayers} />}
               <PanelOverlay building={building} visibleCount={visibleCount} visible={!sunLayers} />
               <RoofSpotlight bounds={building.boundingBox} />
-              <RoofCallout building={building} />
             </>
           ) : (
             // Marks the looked-up spot until its roof arrives, or for good when there's no roof data.

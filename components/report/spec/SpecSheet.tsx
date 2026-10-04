@@ -37,7 +37,6 @@ export function SpecSheet({
         items={[
           { icon: 'roof', label: 'Roof area', unit: 'm²', value: m2(roof.areaMeters2) },
           { icon: 'panels', label: 'Max panels', value: kwh(roof.maxPanels) },
-          { icon: 'sun', tone: 'sun', label: 'Most sun', unit: 'hours a year', value: kwh(roof.maxSunshineHoursPerYear) },
         ]}
       />
       <p className="flex items-center gap-1.5 text-callout text-ink-secondary">

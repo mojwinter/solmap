@@ -65,7 +65,7 @@ export function ReportView({ lat, lng, address, query = {}, flags }: Place & { q
   const building = useBuilding(place.lat, place.lng);
   const roof = building.status === 'ready' ? building.data : null;
   const report = useReportState(roof, query);
-  const resolved = useAddress(place.lat, place.lng, place.address);
+  const resolved = useAddress(place.lat, place.lng, place.address, roof?.buildingId);
 
   // One writer for the URL: place + the report's shareable state, replaced in place (no history entries).
   const href = reportPath(place, { panels: report.panelsInUrl, kwh: report.inputs.annualConsumptionKwh, plan: report.inputs.ratePlan });
@@ -152,7 +152,6 @@ function Report({
       <header className="grid gap-1.5">
         <h1 className="font-display text-title">{address}</h1>
         <div className="flex flex-wrap items-center gap-2">
-          {building.postalCode && <span className="text-callout text-ink-secondary">{building.postalCode}</span>}
           <ConfidenceBadge imagery={building.imagery} />
           {flags.print && <span className="ml-auto"><PrintButton /></span>}
         </div>
@@ -176,7 +175,7 @@ function Report({
             recommendedIndex={recommendation.recommendedIndex}
             onChange={setSelectedIndex}
           />
-          <MoneyBreakdown scenario={selected} inputs={inputs} />
+          <MoneyBreakdown scenario={selected} inputs={inputs} sunHours={building.roof.maxSunshineHoursPerYear} />
           {flags.charts && <CashFlowChart scenario={selected} startYear={startYear} />}
           <Assumptions warnings={selected.warnings} />
         </>
