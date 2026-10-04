@@ -86,6 +86,7 @@ export function ReportView({ lat, lng, address, query = {}, flags }: Place & { q
             onMapClick={(p) => lookUp(p)}
             fitPadding="report"
             captions={false}
+            heatmap={flags.heatmap}
             className="h-full"
           >
             <MapControls />
