@@ -49,6 +49,10 @@ export function DevMap() {
   const config = building?.configs[configIndex];
   const count = config?.panelsCount ?? 0;
   const kw = building ? (count * building.panel.capacityWatts) / 1000 : 0;
+  // DESIGN.md → SizeSlider: "10 panels · 4.0 kW" (+ the config's DC energy).
+  const sizeLabel = `${count} panel${count === 1 ? "" : "s"} · ${kw.toFixed(1)} kW · ${Math.round(
+    config?.yearlyEnergyDcKwh ?? 0,
+  ).toLocaleString("en-CA")} kWh/yr (DC)`;
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-4">
@@ -77,14 +81,13 @@ export function DevMap() {
 
           {building.configs.length > 0 ? (
             <label className="flex flex-col gap-1 text-sm">
-              <span>
-                <b>{count}</b> panels · {kw.toFixed(1)} kW · {Math.round(config?.yearlyEnergyDcKwh ?? 0).toLocaleString()} kWh/yr (DC)
-              </span>
+              <span className="font-medium">{sizeLabel}</span>
               <input
                 type="range"
                 min={0}
                 max={building.configs.length - 1}
                 value={configIndex}
+                aria-valuetext={sizeLabel}
                 onChange={(e) => setConfigIndex(Number(e.target.value))}
               />
             </label>
