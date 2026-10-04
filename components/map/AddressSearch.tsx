@@ -50,6 +50,9 @@ export function AddressSearch({ onSelect, placeholder = "Enter your address", va
   const map = useMap();
   const listId = useId();
   const session = useRef<google.maps.places.AutocompleteSessionToken | null>(null);
+  // The text a pick put in the field. It isn't typing, so it mustn't search again (a billed request under a
+  // fresh session) or reopen the list. Typing clears it.
+  const picked = useRef<string | null>(null);
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [active, setActive] = useState(0);
@@ -59,7 +62,11 @@ export function AddressSearch({ onSelect, placeholder = "Enter your address", va
   useEffect(() => {
     if (!places || query.trim().length < MIN_CHARS) return;
     let cancelled = false;
+    // Checked before and after the wait: a pick can land mid-debounce or mid-request without changing the query.
+    const stale = () => cancelled || query === picked.current;
+    if (stale()) return;
     const timer = setTimeout(async () => {
+      if (stale()) return;
       try {
         // One session per search (typing + the pick's details call), so Google bills it as one session.
         session.current ??= new places.AutocompleteSessionToken();
@@ -71,7 +78,7 @@ export function AddressSearch({ onSelect, placeholder = "Enter your address", va
           locationRestriction: BC_BOX,
           origin,
         });
-        if (cancelled) return;
+        if (stale()) return;
         const rows = found
           .flatMap((s) => (s.placePrediction ? [{ row: suggestionRow(s.placePrediction), prediction: s.placePrediction }] : []))
           .slice(0, MAX_ROWS);
@@ -94,6 +101,7 @@ export function AddressSearch({ onSelect, placeholder = "Enter your address", va
   const pick = async (index: number) => {
     const choice = suggestions[index];
     if (!choice) return;
+    picked.current = choice.row.title;
     setQuery(choice.row.title);
     setOpen(false);
     try {
@@ -181,6 +189,7 @@ export function AddressSearch({ onSelect, placeholder = "Enter your address", va
             spellCheck={false}
             onChange={(e) => {
               const v = e.target.value;
+              picked.current = null;
               setQuery(v);
               if (v.trim().length < MIN_CHARS) {
                 setSuggestions([]);
