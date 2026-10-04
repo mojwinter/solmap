@@ -2,13 +2,8 @@
 
 import { useEffect, useRef } from "react";
 import { useMap, useMapsLibrary } from "@vis.gl/react-google-maps";
-import { panelPolygon, type OffsetFn } from "@/lib/geo/panels";
+import { panelColors, panelPolygon, type OffsetFn } from "@/lib/geo/panels";
 import type { BuildingResponse } from "@/src/types/app";
-import { token } from "./tokens";
-
-// DESIGN.md §4: dark blue panels, thin light stroke; opacity encodes yearly energy (brighter = more productive).
-const MIN_OPACITY = 0.45;
-const MAX_OPACITY = 0.95;
 
 interface Props {
   /** Polygons are rebuilt when this object changes, so keep it referentially stable (state, not re-parsed per render). */
@@ -37,20 +32,16 @@ export function PanelOverlay({ building, visibleCount }: Props) {
       return { lat: p.lat(), lng: p.lng() };
     };
     const dims = { widthMeters: building.panel.widthMeters, heightMeters: building.panel.heightMeters };
-    const energies = building.panels.map((p) => p.yearlyEnergyDcKwh);
-    const min = Math.min(...energies);
-    const range = Math.max(...energies) - min || 1;
-
-    // Opacity is normalised over all of the roof's panels, so resizing never changes a panel's shade.
-    const fill = token("--sky-700");
+    // Styled like Google's js-solar-potential sample (BuildingInsightsSection.svelte): see panelColors.
+    const colors = panelColors(building.panels);
     polygons.current = building.panels.map(
-      (panel) =>
+      (panel, i) =>
         new maps.Polygon({
           paths: panelPolygon(panel, building.segments, dims, computeOffset),
-          fillColor: fill,
-          fillOpacity: MIN_OPACITY + ((panel.yearlyEnergyDcKwh - min) / range) * (MAX_OPACITY - MIN_OPACITY),
-          strokeColor: "#ffffff",
-          strokeOpacity: 0.7,
+          fillColor: colors[i],
+          fillOpacity: 0.9,
+          strokeColor: "#B0BEC5",
+          strokeOpacity: 0.9,
           strokeWeight: 1,
           clickable: false,
         }),

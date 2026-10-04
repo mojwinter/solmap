@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { LatLngLiteral, PanelLite, SegmentLite } from "@/src/types/app";
-import { panelPolygon, type OffsetFn } from "./panels";
+import { panelColors, panelPolygon, type OffsetFn } from "./panels";
 
 // Fixture panel size (synthetic roofs / Google's default 400 W panel).
 const DIMS = { widthMeters: 1.045, heightMeters: 1.879 };
@@ -125,5 +125,37 @@ describe("panelPolygon", () => {
   it("looks up google.maps lazily (module loads without it, call explains what's missing)", () => {
     expect((globalThis as { google?: unknown }).google).toBeUndefined();
     expect(() => panelPolygon(panel(), [segment(0)], DIMS)).toThrow(/geometry/);
+  });
+});
+
+describe("panelColors", () => {
+  const LIGHTEST = "rgb(232,234,246)"; // #E8EAF6
+  const DARKEST = "rgb(26,35,126)"; // #1A237E
+  const energies = (...kwh: number[]) => kwh.map((yearlyEnergyDcKwh) => panel({ yearlyEnergyDcKwh }));
+
+  it("ramps from the lightest (least energy) to the darkest (most energy), in panel order", () => {
+    expect(panelColors(energies(500, 300, 400))).toEqual([DARKEST, LIGHTEST, "rgb(129,135,186)"]);
+  });
+
+  it("normalises per roof, so the same relative energy gets the same colour on any roof", () => {
+    expect(panelColors(energies(300, 400, 500))).toEqual(panelColors(energies(1000, 1050, 1100)));
+  });
+
+  it("colours a panel by the whole roof, so it never changes when the visible count does", () => {
+    const all = energies(500, 450, 400, 350, 300);
+    const colors = panelColors(all);
+    // PanelOverlay colours every panel once and only toggles visibility.
+    expect(colors.slice(0, 2)).not.toEqual(panelColors(all.slice(0, 2)));
+    expect(colors[0]).toBe(DARKEST);
+    expect(colors[4]).toBe(LIGHTEST);
+  });
+
+  it("gives equal-energy panels (and a lone panel) the lightest colour instead of NaN", () => {
+    expect(panelColors(energies(400, 400, 400))).toEqual([LIGHTEST, LIGHTEST, LIGHTEST]);
+    expect(panelColors(energies(400))).toEqual([LIGHTEST]);
+  });
+
+  it("returns no colours for a roof with no panels", () => {
+    expect(panelColors([])).toEqual([]);
   });
 });
