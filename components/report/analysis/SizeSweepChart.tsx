@@ -17,7 +17,7 @@ import type { ScenarioResult } from '@/src/types/app';
 import { SegmentedControl } from '@/components/common/SegmentedControl';
 import { cad, kw, signedCad, years } from '@/lib/format';
 import { AXIS_TEXT, axisWidth, ChartSection, GRID, Legend, NumbersTable, TooltipCard } from './chart';
-import { largestPayingIndex, niceTicks, peakIndex, sweep, type SweepPoint } from './derive';
+import { focusEnd, largestPayingIndex, niceTicks, peakIndex, sweep, type SweepPoint } from './derive';
 
 /** value = savings in today's dollars (what the recommendation maximises); net = plain dollars; payback = years. */
 type Metric = 'npv' | 'net' | 'payback';
@@ -79,11 +79,16 @@ export function SizeSweepChart({
 }) {
   const id = useId();
   const [metric, setMetric] = useState<Metric>('npv');
+  const [showAll, setShowAll] = useState(false);
   const points = useMemo(() => sweep(scenarios), [scenarios]);
-  const rows = useMemo(() => rowsFor(points, metric === 'payback' ? 'net' : metric), [points, metric]);
+  const money: Money = metric === 'payback' ? 'net' : metric;
+  // A big loss on a full roof can flatten the peak: zoom to the sizes round it unless asked for all.
+  const end = metric === 'payback' ? null : focusEnd(points, money, [selectedIndex, recommendedIndex]);
+  const zoomed = end !== null && !showAll;
+  const shown = useMemo(() => (zoomed ? points.slice(0, end + 1) : points), [points, zoomed, end]);
+  const rows = useMemo(() => rowsFor(shown, money), [shown, money]);
   if (points.length < 2) return null;
 
-  const money: Money = metric === 'payback' ? 'net' : metric;
   const peak = points[peakIndex(points, money)!];
   const lastPaying = largestPayingIndex(points);
   const selected = points[selectedIndex];
@@ -92,8 +97,9 @@ export function SizeSweepChart({
   const biggest = points[points.length - 1];
   const pct = Math.round((discountRate - 1) * 100);
 
-  const xTicks = niceTicks(first.kw, biggest.kw, 5).filter((t) => t >= first.kw - 1e-9 && t <= biggest.kw + 1e-9);
-  const values = points.map((p) => p[money]);
+  const lastShown = shown[shown.length - 1];
+  const xTicks = niceTicks(first.kw, lastShown.kw, 5).filter((t) => t >= first.kw - 1e-9 && t <= lastShown.kw + 1e-9);
+  const values = shown.map((p) => p[money]);
   const moneyTicks = niceTicks(Math.min(0, ...values), Math.max(0, ...values), 4);
   const paybacks = points.flatMap((p) => (p.payback === null ? [] : [p.payback]));
   const payTicks = niceTicks(0, Math.max(lifetimeYears, ...paybacks), 5);
@@ -150,12 +156,30 @@ export function SizeSweepChart({
         />
       }
       legend={
-        <Legend
-          items={[
-            ...(recommended ? [{ label: `Recommended · ${recommended.panels} panels`, color: 'var(--sky-600)' }] : []),
-            ...(showSelected ? [{ label: `On screen · ${selected.panels} panels`, color: 'var(--ink)' }] : []),
-          ]}
-        />
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <Legend
+            items={[
+              ...(recommended ? [{ label: `Recommended · ${recommended.panels} panels`, color: 'var(--sky-600)' }] : []),
+              ...(showSelected ? [{ label: `On screen · ${selected.panels} panels`, color: 'var(--ink)' }] : []),
+            ]}
+          />
+          {end !== null && (
+            <p className="flex flex-wrap items-center gap-x-2 text-callout text-ink-secondary">
+              {zoomed && (
+                <span>
+                  Up to {kw(lastShown.kw)} kW shown; a full roof ({kw(biggest.kw)} kW) comes to {signedCad(biggest[money])}.
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => setShowAll((v) => !v)}
+                className="rounded-sm font-semibold text-sky-700 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring print:hidden"
+              >
+                {zoomed ? `Show all ${points.length} sizes` : 'Zoom to the best sizes'}
+              </button>
+            </p>
+          )}
+        </div>
       }
       table={
         <NumbersTable
@@ -178,7 +202,7 @@ export function SizeSweepChart({
             <XAxis
               dataKey="kw"
               type="number"
-              domain={[first.kw, biggest.kw]}
+              domain={[first.kw, lastShown.kw]}
               ticks={xTicks}
               tickFormatter={(v: number) => `${Number.isInteger(v) ? v : kw(v)} kW`}
               tick={AXIS_TEXT}

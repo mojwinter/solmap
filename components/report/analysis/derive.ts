@@ -328,3 +328,19 @@ export function monthlySplit(months: readonly MonthBar[], usedKwhYear: number, s
   }
   return months.map((m, i) => ({ ...m, usedKwh: used[i], soldKwh: Math.max(0, m.kwh - used[i]) }));
 }
+
+/**
+ * Where the sizes chart can stop so a big loss on a full roof doesn't flatten the peak: the first size
+ * past the peak whose value falls below −2 × the peak (at least −$1,000), or null when the whole range
+ * reads fine (no gain to protect, or the tail never falls that far, or it's near the end anyway).
+ * `keep` are indices that must stay on screen (the size on screen, the recommended one).
+ */
+export function focusEnd(points: readonly SweepPoint[], key: 'net' | 'npv', keep: readonly (number | null)[] = []): number | null {
+  const top = peakIndex(points, key);
+  if (top === null || points[top][key] <= 0) return null;
+  const floor = -2 * Math.max(points[top][key], 500);
+  const cut = points.findIndex((p, i) => i > top && p[key] < floor);
+  if (cut < 0) return null;
+  const end = Math.max(cut, ...keep.filter((k): k is number => k !== null));
+  return end >= points.length - 3 ? null : end;
+}

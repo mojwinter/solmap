@@ -6,6 +6,7 @@ import { trimBuilding } from '@/lib/solar/trim';
 import type { SolarBuilding } from '@/lib/solar/schema';
 import {
   billImpact,
+  focusEnd,
   largestPayingIndex,
   lifetimeFigures,
   monthlyProduction,
@@ -211,5 +212,23 @@ describe('monthlySplit', () => {
     );
     expect(tiny[0].usedKwh).toBeCloseTo(10);
     expect(tiny[1].usedKwh).toBeCloseTo(90);
+  });
+});
+
+describe('focusEnd', () => {
+  const pt = (index: number, npv: number) => ({ index, panels: index + 4, kw: (index + 4) * 0.4, net: npv, npv, payback: null, exportShare: 0 });
+
+  it('stops past the peak once the loss passes twice the peak', () => {
+    const points = [500, 800, 600, 0, -1000, -2000, -5000, -9000, -14000, -20000].map((v, i) => pt(i, v));
+    // Peak 800 → floor −1,600: the first size below it is index 5.
+    expect(focusEnd(points, 'npv')).toBe(5);
+    // The size on screen further out stays visible.
+    expect(focusEnd(points, 'npv', [6])).toBe(6);
+  });
+
+  it('shows everything when nothing is gained, the tail is mild, or the cut is near the end', () => {
+    expect(focusEnd([-100, -200, -300, -400, -500].map((v, i) => pt(i, v)), 'npv')).toBeNull();
+    expect(focusEnd([500, 800, 700, 600, 500, 400].map((v, i) => pt(i, v)), 'npv')).toBeNull();
+    expect(focusEnd([500, 800, 0, -100, -2000, -3000].map((v, i) => pt(i, v)), 'npv')).toBeNull();
   });
 });
