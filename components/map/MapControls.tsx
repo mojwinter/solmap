@@ -17,14 +17,14 @@ export function MapControls() {
     <div data-map-inset="bottom" className="absolute bottom-9 left-4 flex gap-3 md:left-6">
       <SegmentedControl
         label="Map style"
-        // While the sun map loads, show it as chosen so the click feels immediate.
-        value={sunStatus === "loading" ? "sun" : layer}
+        // SolarMap already reports "sun" while its map loads, so a click shows at once.
+        value={layer}
         onChange={setLayer}
         options={[
           { value: "satellite", label: "Satellite" },
           {
             value: "sun",
-            label: sunStatus === "loading" ? "Loading…" : "Sun exposure",
+            label: layer === "sun" && sunStatus === "loading" ? "Loading…" : "Sun exposure",
             disabled: !sunAvailable,
             hint: sunStatus === "none" ? "No sun map for this roof" : "Not available",
           },
