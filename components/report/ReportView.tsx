@@ -6,6 +6,7 @@ import { MapControls } from '@/components/map/MapControls';
 import { MapsProvider } from '@/components/map/MapsProvider';
 import { SolarMap } from '@/components/map/SolarMap';
 import { verdictFor } from '@/lib/finance';
+import { FLAGS, type Flags } from '@/lib/flags';
 import type { BuildingResponse } from '@/src/types/app';
 import { Attribution } from './Attribution';
 import { Assumptions } from './money/Assumptions';
@@ -41,8 +42,10 @@ function reportPath({ lat, lng, address }: Place) {
  * presentational. One map lives through every state (loading, no coverage, error, ready), so a
  * new lookup doesn't reload it; a search or a click on the map swaps the place in state and
  * rewrites the URL without a navigation, so the report stays shareable.
+ * `flags` comes from the page (server-read SOLMAP_FLAGS): render each P1 feature only behind its flag,
+ * e.g. `{flags.battery && <BatteryToggle … />}`, and add new names to lib/flags.ts first.
  */
-export function ReportView({ lat, lng, address }: Place) {
+export function ReportView({ lat, lng, address, flags }: Place & { flags: Flags }) {
   const [place, setPlace] = useState<Place>({ lat, lng, address });
 
   // A real navigation (e.g. a demo link in NoCoverage) brings new props: follow them.
@@ -80,7 +83,7 @@ export function ReportView({ lat, lng, address }: Place) {
         }
         search={<AddressSearch onSelect={(p) => lookUp({ lat: p.lat, lng: p.lng, address: p.address || undefined })} />}
       >
-        <Panel building={building} report={report} address={place.address} />
+        <Panel building={building} report={report} address={place.address} flags={flags} />
       </ReportLayout>
     </MapsProvider>
   );
@@ -90,10 +93,12 @@ function Panel({
   building,
   report,
   address,
+  flags,
 }: {
   building: BuildingState & { retry: () => void };
   report: ReturnType<typeof useReportState>;
   address?: string;
+  flags: Flags;
 }) {
   switch (building.status) {
     case 'loading':
@@ -104,7 +109,7 @@ function Panel({
     case 'error':
       return <ApiErrorState message={building.message} onRetry={building.retry} />;
     case 'ready':
-      return <Report building={building.data} report={report} address={address} />;
+      return <Report building={building.data} report={report} address={address} flags={flags} />;
   }
 }
 
@@ -112,10 +117,12 @@ function Report({
   building,
   report,
   address,
+  flags,
 }: {
   building: BuildingResponse;
   report: ReturnType<typeof useReportState>;
   address?: string;
+  flags: Flags;
 }) {
   const { inputs, recommendation, selectedIndex, selected, setSelectedIndex } = report;
   // Always set when there's a roof; this only narrows the type.
@@ -124,7 +131,9 @@ function Report({
   const onRecommended = selectedIndex === recommendation.recommendedIndex;
 
   return (
-    <div className="grid gap-6">
+    // No P1 UI on the report yet: gate the first ones (heatmap toggle, battery, charts, print) with `flags`.
+    // data-flags shows which are on, for ops and the E2E smoke test.
+    <div className="grid gap-6" data-flags={FLAGS.filter((f) => flags[f]).join(' ')}>
       <header className="grid gap-1.5">
         <h1 className="font-display text-title">{address ?? 'Your roof'}</h1>
         <div className="flex flex-wrap items-center gap-2">

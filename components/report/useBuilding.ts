@@ -1,17 +1,19 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import type { ApiError, BuildingResponse } from '@/src/types/app';
+import { getBuilding } from '@/lib/solar/get-building';
+import type { BuildingResponse } from '@/src/types/app';
 
 export type BuildingState =
   | { status: 'loading' }
   | { status: 'ready'; data: BuildingResponse }
   | { status: 'no_coverage' }
-  /** The API only answers inside BC's bounding box (400 BAD_REQUEST for a valid point outside it). */
+  /** A point outside BC's bounding box (400), or a building Google places outside BC (404). */
   | { status: 'outside_bc' }
+  /** Rate limit (429), today's Google budget spent (503), or the service didn't answer; `message` says which. */
   | { status: 'error'; message?: string };
 
-/** GET /api/solar/building for one point. `retry()` refetches. */
+/** GET /api/solar/building for one point, through getBuilding. `retry()` refetches. */
 export function useBuilding(lat: number, lng: number): BuildingState & { retry: () => void } {
   const [attempt, setAttempt] = useState(0);
   const key = `${lat},${lng},${attempt}`;
@@ -24,14 +26,14 @@ export function useBuilding(lat: number, lng: number): BuildingState & { retry: 
     const settle = (state: BuildingState) => {
       if (!controller.signal.aborted) setResult({ key, state });
     };
-    fetch(`/api/solar/building?lat=${lat}&lng=${lng}`, { signal: controller.signal })
-      .then(async (res) => {
-        if (res.ok) return settle({ status: 'ready', data: (await res.json()) as BuildingResponse });
-        const body = (await res.json().catch(() => null)) as ApiError | null;
-        if (body?.error === 'NO_COVERAGE') return settle({ status: 'no_coverage' });
-        if (body?.error === 'BAD_REQUEST') return settle({ status: 'outside_bc' });
-        settle({ status: 'error', message: body?.message });
+    getBuilding(lat, lng, { signal: controller.signal })
+      .then((r) => {
+        if (r.ok) return settle({ status: 'ready', data: r.building });
+        if (r.reason === 'outside-bc') return settle({ status: 'outside_bc' });
+        if (r.error === 'NO_COVERAGE') return settle({ status: 'no_coverage' });
+        settle({ status: 'error', message: r.message });
       })
+      // Only an abort rejects, and settle ignores those.
       .catch(() => settle({ status: 'error' }));
     return () => controller.abort();
   }, [key, lat, lng]);
