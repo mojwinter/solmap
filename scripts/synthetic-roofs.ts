@@ -22,6 +22,7 @@ import type {
   SolarPanel,
   SolarPanelConfig,
 } from "@/src/types/solar";
+import { degreesPerMeter } from "@/lib/geo/meters";
 
 /** Google's default 400 W panel. */
 export const PANEL_WIDTH_M = 1.045;
@@ -152,8 +153,7 @@ const axisValues = (a: Axis): number[] =>
     : Array.from({ length: a.count }, (_, i) => (a.sign ?? 1) * (a.start + i * a.step + a.step / 2));
 
 export function buildRoof(spec: RoofSpec): BuildingInsightsResponse & { _note: string } {
-  const mlat = 1 / 111320;
-  const mlng = 1 / (111320 * Math.cos(radians(spec.lat)));
+  const { lat: mlat, lng: mlng } = degreesPerMeter(spec.lat);
   const P = (dx: number, dy: number): LatLng => ({
     latitude: pyRound(spec.lat + dy * mlat, 7),
     longitude: pyRound(spec.lng + dx * mlng, 7),

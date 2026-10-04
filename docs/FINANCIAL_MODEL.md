@@ -161,14 +161,35 @@ Reason chips are in DESIGN.md §5.
 ## Manual estimate (P1, for the no-coverage state)
 
 When Google has no roof, the user gives: sun-facing roof area (m²), facing (S/SE/SW/E/W/N/flat).
-`lib/finance/manual.ts` builds a `BuildingResponse` with `source: 'manual'`, no panels, one segment, and
-synthetic configs for 4 … maxPanels:
+`manualBuilding({ center, roofAreaM2, facing })` in `lib/finance/manual.ts` returns `{ building, clamped, yieldFrom }`.
+`building` is a `BuildingResponse` with `source: 'manual'`, no panels, one segment, and synthetic configs for
+`MANUAL.minPanels` (4) … maxPanels. Constants are in `MANUAL` and `BC_SOLAR_YIELD` (`src/config/bc.ts`):
 
 ```
-maxPanels   = floor(area × MANUAL.usableFraction / (panelHeight × panelWidth))   // 1.879 × 1.045 m
-dcPerPanel  = MANUAL.southYieldDcKwhPerKw × orientationFactor[facing] × 0.4      // 400 W panels
-config(n)   = { panelsCount: n, yearlyEnergyDcKwh: n × dcPerPanel, segments: [] }
+area        = clamp(roofAreaM2, 0, MANUAL.maxRoofAreaM2)                       // 300 m²; NaN → 0
+maxPanels   = floor(area × MANUAL.usableFraction / (panel.heightMeters × panel.widthMeters))   // 1.879 × 1.045 m
+town        = nearest BC_SOLAR_YIELD town to center                           // NRCan, ~40 BC towns
+acKwhPerKw  = facing = FLAT ? town.flat : town.south × orientationFactor[facing]
+dcPerPanel  = acKwhPerKw / DEFAULT_INPUTS.dcToAcDerate × panel.capacityWatts / 1000
+config(n)   = { panelsCount: n, yearlyEnergyDcKwh: n × dcPerPanel, segments: [{ segmentIndex: 0, … }] }
 ```
+
+- **Yield is AC and local.** NRCan's municipal PV potential is AC kWh per kWp after all losses
+  (performance ratio 0.75). `south` is the south-facing latitude−15° tilt column (34–44° in BC, the
+  closest to the assumed 30° pitch), and `flat` is the horizontal column. Dividing by the default derate
+  cancels `evaluate`'s × `dcToAcDerate`, so at default inputs the AC result is NRCan's, with losses counted once.
+  A south roof makes 1025 kWh/kW in Vancouver, 1150 in Kelowna and 808 in Prince Rupert. Show
+  `yieldFrom.town` in the assumptions ("Sun data for Kelowna, NRCan").
+- **`clamped`** is true when the area was out of range or not a number. Show the same "we adjusted your
+  input" notice as `CLAMPED_INPUT`.
+- The segment carries `azimuthDegrees[facing]` and an assumed `pitchDegrees` (30°, 0° when flat), so the
+  orientation chip works. For manual roofs it shows only the user's input ("Roof faces south", "Flat roof"),
+  never the assumed pitch.
+- No imagery: `imagery` is `{ quality: 'LOW', date: '' }` because the contract requires it, and `reasonChips`
+  skips the imagery chip. With no sunshine data, the shading and sun chips never appear.
+- Fewer than 4 panels (or bad input) → `configs: []` → `recommend` says "Not enough usable roof".
+- A north roof (Vancouver: 1025 × 0.6 ≈ 615 kWh/kW AC) falls below the sanity band and gets
+  `SPECIFIC_YIELD_OUT_OF_RANGE`, which is fair.
 
 Then run the normal `recommend`. Show a "Rough estimate, no roof imagery" badge.
 
@@ -224,5 +245,6 @@ New Westminster only); property-value effects.
 - Solar & battery rebates: https://app.bchydro.com/accounts-billing/electrical-connections/customer-generation/solar-battery-rebates.html
 - Rebate Terms and Conditions (effective 2026-07-29; §8 defines the residential single-family solar rebate as $1,000/kW, capped at the lesser of 50% of cost and $5,000): https://app.bchydro.com/content/dam/BCHydro/customer-portal/documents/power-smart/residential/programs/solar-battery-rebate-terms-and-conditions.pdf
 - Costs, yield, lifespan, degradation: https://www.bchydro.com/powersmart/residential/tips-technologies/solar-panels.html
+- Manual-estimate yield by town (NRCan PV potential, municipality database, updated 2024-02-15): https://ftp.maps.canada.ca/pub/nrcan_rncan/Solar-energy_Energie-solaire/photovoltaic_canada_photovoltaique/municip_potentiel-potential.csv
 - Google non-US cost method: https://developers.google.com/maps/documentation/solar/calculate-costs-non-us
 - Orientation factors (manual estimate): https://pvwatts.nrel.gov/
