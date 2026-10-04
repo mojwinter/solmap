@@ -11,6 +11,7 @@ import { FLAGS, type Flags } from '@/lib/flags';
 import type { BuildingResponse } from '@/src/types/app';
 import { Attribution } from './Attribution';
 import { Assumptions } from './money/Assumptions';
+import { CashFlowChart } from './money/CashFlowChart';
 import { MoneyBreakdown } from './money/MoneyBreakdown';
 import { PaybackHero } from './money/PaybackHero';
 import { LargeBuildingNote } from './notices/LargeBuildingNote';
@@ -176,6 +177,9 @@ function Report({
             />
           )}
           <MoneyBreakdown scenario={selected} inputs={inputs} />
+          {flags.charts && (
+            <CashFlowChart scenario={selected} startYear={new Date().getFullYear()} lifetimeYears={inputs.lifetimeYears} />
+          )}
           <ReasonChips reasons={recommendation.reasons} title="About this roof" />
           <Assumptions warnings={selected.warnings} inputs={inputs} />
           <UsageInputs inputs={inputs} onChange={setInputs} />

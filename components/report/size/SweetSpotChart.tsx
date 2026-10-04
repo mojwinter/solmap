@@ -65,7 +65,7 @@ export function SweetSpotChart({
     data: points,
     syncId: ids,
     onClick: pick,
-    margin: { top: 8, right: 12, bottom: 0, left: 0 },
+    margin: { top: 8, right: 20, bottom: 0, left: 0 },
     style: { cursor: 'pointer' },
   };
   const xAxis = (showTicks: boolean) => (
