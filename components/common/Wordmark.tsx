@@ -1,49 +1,36 @@
 import Link from 'next/link';
-import { useId } from 'react';
 
 /**
- * The Sunscore app icon: the sun rising behind a roof. Same drawing and colours as app/icon.svg
- * (the tab icon), so keep the two in step. Fixed hex rather than tokens: a logo doesn't change in Dusk.
+ * The Sunscore mark: a line-drawn sun rising behind a roof. Same lines as app/icon.svg (the tab icon),
+ * without its blue tile, so keep the two in step. Drawn in currentColor, with the viewBox cropped to the
+ * lines and a slightly heavier stroke so it holds its own next to the semibold name.
  */
 function SunscoreMark({ className }: { className?: string }) {
-  // Scoped ids (the mark can appear more than once on a page), stripped to characters url(#…) accepts.
-  const id = `sunscore-mark${useId().replace(/[^\w-]/g, '')}`;
-  const sky = `${id}-sky`;
-  const tile = `${id}-tile`;
   return (
-    <svg viewBox="0 0 64 64" aria-hidden="true" className={className}>
-      <defs>
-        <linearGradient id={sky} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#5cb8ff" />
-          <stop offset="1" stopColor="#0a6fd8" />
-        </linearGradient>
-        <clipPath id={tile}>
-          <rect width="64" height="64" rx="14" />
-        </clipPath>
-      </defs>
-      <g clipPath={`url(#${tile})`}>
-        <rect width="64" height="64" fill={`url(#${sky})`} />
-        <circle cx="32" cy="25" r="15.5" fill="#ffe066" />
-        <circle cx="32" cy="25" r="11" fill="#ffb800" />
-        <path d="M14 66 V47 L32 33 L50 47 V66 Z" fill="#0b1d33" />
-        <path
-          d="M7 52 L32 32.5 L57 52"
-          fill="none"
-          stroke="#ffffff"
-          strokeWidth="5.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </g>
+    <svg
+      viewBox="6 4.5 52 53.5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className={className}
+    >
+      <path d="M19 29 A13 13 0 0 1 45 29" />
+      <path d="M32 11.5 V6.5 M44.37 16.63 L47.91 13.09 M19.63 16.63 L16.09 13.09 M49.23 25.96 L54.16 25.09 M14.77 25.96 L9.84 25.09" />
+      <path d="M8 47 L32 29 L56 47" />
+      <path d="M16 41 V56 H48 V41" />
+      <path d="M32 29 V56" />
     </svg>
   );
 }
 
-/** The Sunscore mark (the app icon) and the name. Pass `href` to make it a link home. */
+/** The Sunscore mark and the name. Pass `href` to make it a link home. */
 export function Wordmark({ href }: { href?: string }) {
   const mark = (
     <>
-      <SunscoreMark className="size-[30px] shrink-0" />
+      <SunscoreMark className="size-8 shrink-0 text-sky-600" />
       Sunscore
     </>
   );
