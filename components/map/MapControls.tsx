@@ -1,22 +1,15 @@
 "use client";
 
 import { Icon, type IconName } from "@/components/common/Icon";
-import { panelGradient } from "@/lib/geo/panels";
+import { PanelLegend } from "./PanelLegend";
 import { useSolarMap } from "./SolarMap";
 
 export type { MapLayer } from "./SolarMap";
 
-const LEGEND_LABEL = "Panel colours: darker panels make more energy";
-
 /**
  * Bottom-left map controls: icon-only Satellite / Sun exposure toggle and Recentre (names live in
- * tooltips and aria-labels), plus the panel-shade legend while panels are drawn: just the colours,
- * the ramp panelColors() paints (light = less energy, dark = more).
- * - Desktop: a vertical strip hugging the left edge of the results card, its bottom level with the
- *   card's bottom (both inset 24px).
- *   The offset follows ReportLayout's card (right-6 + w-[440px]) plus a 12px gap; keep them in step.
- * - Phones: a short horizontal strip at the right edge of the map, level with the controls.
- * Both sit inside the space the roof fit already keeps clear (the card / the controls row).
+ * tooltips and aria-labels), then the panel-shade legend (Less ▬ More) while panels are drawn.
+ * The row is a bottom inset, so the roof fit keeps it clear.
  * Render inside <SolarMap>: everything comes from useSolarMap(), so there are no props to wire.
  */
 export function MapControls() {
@@ -47,26 +40,8 @@ export function MapControls() {
         <button type="button" onClick={recentre} aria-label="Recentre" title="Recentre" className={`${PILL} glass-thin size-10`}>
           <Icon name="locate" size={18} />
         </button>
+        {panelsShown && <PanelLegend />}
       </div>
-      {panelsShown && (
-        <>
-          <span
-            role="img"
-            aria-label={LEGEND_LABEL}
-            title="Darker panels make more energy"
-            className="absolute right-[476px] bottom-6 hidden h-60 w-3 rounded-pill shadow-control md:block motion-safe:animate-in motion-safe:fade-in motion-safe:duration-300"
-            style={{ backgroundImage: panelGradient("to top") }}
-          />
-          <span
-            role="img"
-            aria-label={LEGEND_LABEL}
-            title="Darker panels make more energy"
-            // Level with the 40px controls row (bottom-9): 36 + (40 − 12) / 2 = 50px.
-            className="absolute right-4 bottom-[50px] h-3 w-20 rounded-pill shadow-control md:hidden motion-safe:animate-in motion-safe:fade-in motion-safe:duration-300"
-            style={{ backgroundImage: panelGradient("to right") }}
-          />
-        </>
-      )}
     </>
   );
 }

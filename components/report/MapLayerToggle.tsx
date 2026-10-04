@@ -1,10 +1,8 @@
 'use client';
 
 import { SegmentedControl } from '@/components/map/MapControls';
+import { PanelLegend } from '@/components/map/PanelLegend';
 import { useSolarMap, type MapLayer } from '@/components/map/SolarMap';
-import { panelGradient } from '@/lib/geo/panels';
-
-const LEGEND_LABEL = 'Panel colours: darker panels make more energy';
 
 /**
  * The house window's map controls, top-left: A's icon-only Satellite / Sun exposure toggle and, while
@@ -33,15 +31,7 @@ export function MapLayerToggle() {
           },
         ]}
       />
-      {panelsShown && (
-        <span
-          role="img"
-          aria-label={LEGEND_LABEL}
-          title="Darker panels make more energy"
-          className="h-3 w-20 rounded-pill shadow-control motion-safe:animate-in motion-safe:fade-in motion-safe:duration-300"
-          style={{ backgroundImage: panelGradient('to right') }}
-        />
-      )}
+      {panelsShown && <PanelLegend />}
     </div>
   );
 }
