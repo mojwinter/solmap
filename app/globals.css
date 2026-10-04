@@ -51,6 +51,9 @@
   --elev-float: 0 24px 60px rgba(10, 42, 74, 0.22), 0 2px 8px rgba(10, 42, 74, 0.1);
   --elev-control: 0 6px 18px rgba(10, 42, 74, 0.16);
   --elev-sheen: 0 0 #0000; /* no inset white top highlight */
+  /* Report cards sit on the page, not over the map: a solid surface and a low, soft shadow. */
+  --surface: #ffffff;
+  --elev-card: 0 1px 2px rgba(10, 42, 74, 0.06), 0 10px 30px rgba(10, 42, 74, 0.08);
   --backdrop-glass: blur(40px) saturate(180%);
   --backdrop-soft: blur(20px) saturate(160%);
 
@@ -123,6 +126,8 @@
   --elev-float: 0 24px 60px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
   --elev-control: 0 6px 18px rgba(0, 0, 0, 0.4);
   --elev-sheen: 0 0 #0000;
+  --surface: #121b29;
+  --elev-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 30px rgba(0, 0, 0, 0.3);
 
   --popover: #141c28;
 }
@@ -176,6 +181,17 @@
   --radius-lg: 22px;
   --radius-xl: 30px;
   --radius-pill: 999px;
+
+  /* The search dot opening into the address field: the field is revealed from the dot's edge rightwards. */
+  --animate-search-open: search-open 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  @keyframes search-open {
+    from {
+      clip-path: inset(0 calc(100% - 46px) 0 0 round 23px);
+    }
+    to {
+      clip-path: inset(-100px round 30px);
+    }
+  }
 
   /* Drop Tailwind's own sky palette so only the design's sky steps exist. */
   --color-sky-*: initial;
@@ -279,6 +295,14 @@
   }
 }
 
+/* A report card on the page (no frost: nothing is behind it). Inside, use fill-quiet tiles as on glass. */
+@utility card {
+  background-color: var(--surface);
+  border: 1px solid var(--separator);
+  box-shadow: var(--elev-sheen), var(--elev-card);
+  color: var(--ink);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -303,7 +327,8 @@
     background: #fff;
   }
   .glass,
-  .glass-thin {
+  .glass-thin,
+  .card {
     background: none;
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
@@ -317,18 +342,18 @@
     display: none !important;
   }
   /*
-   * Chromium won't split a grid item across pages, so the report column (a grid of sections, each a grid)
-   * would push a tall section like the spec sheet whole onto the next page. Lay them out as blocks on paper.
-   * Unlayered, so it beats the `grid` utility; the :not() leaves print:hidden sections hidden.
+   * Chromium won't split a grid item across pages, so the report (a grid of columns of cards, each a grid)
+   * would push a tall card whole onto the next page. On paper it's one column of blocks: the layout marks
+   * its grid and columns print:block; the cards follow here. Unlayered, so it beats the `grid` utility.
    */
-  [data-flags],
-  [data-flags] > section:not([class*="print:hidden"]) {
+  [data-flags] .card {
     display: block;
   }
-  [data-flags] > * + * {
+  [data-flags] > * + *,
+  [data-print-stack] > * + * {
     margin-top: 1.5rem;
   }
-  [data-flags] > section > * + * {
+  [data-flags] .card > * + * {
     margin-top: 0.75rem;
   }
   /* Rows and tiles stay whole; whole sections may split, or a tall one strands a near-empty page. */
