@@ -23,6 +23,10 @@ const BC_BOX: google.maps.LatLngBoundsLiteral = {
   north: BC_BOUNDS.latMax,
   east: BC_BOUNDS.lngMax,
 };
+// Distances are measured from the map's centre; before there is a map (the landing page) they're from
+// central Vancouver, where most users and every live demo roof are (#71). Places (New) takes either a
+// locationRestriction or a locationBias, not both, and we keep the BC box so every pick is a valid lookup.
+const DEFAULT_ORIGIN: google.maps.LatLngLiteral = { lat: 49.25, lng: -123.1 };
 const MAX_ROWS = 5;
 const MIN_CHARS = 3;
 const DEBOUNCE_MS = 200;
@@ -36,7 +40,7 @@ interface Suggestion {
  * Daylight AddressSearch: a Spotlight-style frosted card and our own result list (a compact 17px field
  * over the map, the 26px field on the landing),
  * fed by Places API (New) autocomplete (docs/SOLAR_API.md, Gotcha 8). Canada only, inside BC's box;
- * distances are from the map's centre when there is a map. Must sit inside <MapsProvider>.
+ * distances are from the map's centre, or central Vancouver before there is a map. Must sit inside <MapsProvider>.
  */
 export function AddressSearch({ onSelect, placeholder = "Enter your address", variant = "map", className }: Props) {
   const places = useMapsLibrary("places");
@@ -56,13 +60,13 @@ export function AddressSearch({ onSelect, placeholder = "Enter your address", va
       try {
         // One session per search (typing + the pick's details call), so Google bills it as one session.
         session.current ??= new places.AutocompleteSessionToken();
-        const origin = map?.getCenter()?.toJSON();
+        const origin = map?.getCenter()?.toJSON() ?? DEFAULT_ORIGIN;
         const { suggestions: found } = await places.AutocompleteSuggestion.fetchAutocompleteSuggestions({
           input: query,
           sessionToken: session.current,
           includedRegionCodes: ["ca"],
           locationRestriction: BC_BOX,
-          ...(origin && { origin }),
+          origin,
         });
         if (cancelled) return;
         const rows = found
