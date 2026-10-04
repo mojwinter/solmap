@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { UsageInputs } from '@/components/inputs/UsageInputs';
 import { AddressSearch } from '@/components/map/AddressSearch';
 import { MapControls } from '@/components/map/MapControls';
 import { MapsProvider } from '@/components/map/MapsProvider';
@@ -18,12 +17,12 @@ import { LargeBuildingNote } from './notices/LargeBuildingNote';
 import { OutsideBcBanner } from './notices/OutsideBcBanner';
 import { PrintButton, PrintHeader } from './PrintBar';
 import { ReportLayout } from './ReportLayout';
-import { ReportTabs } from './ReportTabs';
 import { SizeSlider } from './size/SizeSlider';
 import { SpecSheet } from './spec/SpecSheet';
 import { ApiErrorState } from './states/ApiErrorState';
 import { NoCoverage } from './states/NoCoverage';
 import { ReportSkeleton } from './states/ReportSkeleton';
+import { useAddress } from './useAddress';
 import { useBuilding, type BuildingState } from './useBuilding';
 import { reportSearch, type ReportQuery } from './urlState';
 import { useReportState } from './useReportState';
@@ -66,6 +65,7 @@ export function ReportView({ lat, lng, address, query = {}, flags }: Place & { q
   const building = useBuilding(place.lat, place.lng);
   const roof = building.status === 'ready' ? building.data : null;
   const report = useReportState(roof, query);
+  const resolved = useAddress(place.lat, place.lng, place.address);
 
   // One writer for the URL: place + the report's shareable state, replaced in place (no history entries).
   const href = reportPath(place, { panels: report.panelsInUrl, kwh: report.inputs.annualConsumptionKwh, plan: report.inputs.ratePlan });
@@ -93,7 +93,7 @@ export function ReportView({ lat, lng, address, query = {}, flags }: Place & { q
         }
         search={<AddressSearch onSelect={(p) => lookUp({ lat: p.lat, lng: p.lng, address: p.address || undefined })} />}
       >
-        <Panel building={building} report={report} address={place.address} flags={flags} />
+        <Panel building={building} report={report} address={resolved ?? `${place.lat}, ${place.lng}`} flags={flags} />
       </ReportLayout>
     </MapsProvider>
   );
@@ -107,7 +107,7 @@ function Panel({
 }: {
   building: BuildingState & { retry: () => void };
   report: ReturnType<typeof useReportState>;
-  address?: string;
+  address: string;
   flags: Flags;
 }) {
   switch (building.status) {
@@ -131,10 +131,10 @@ function Report({
 }: {
   building: BuildingResponse;
   report: ReturnType<typeof useReportState>;
-  address?: string;
+  address: string;
   flags: Flags;
 }) {
-  const { inputs, setInputs, recommendation, selectedIndex, selected, setSelectedIndex } = report;
+  const { inputs, recommendation, selectedIndex, selected, setSelectedIndex } = report;
   // Always set when there's a roof; this only narrows the type.
   if (!recommendation) return null;
   const steps = recommendation.scenarios.map((s) => ({ panels: s.panelsCount, systemKwDc: s.systemKwDc }));
@@ -149,7 +149,7 @@ function Report({
     <div className="grid gap-5" data-flags={FLAGS.filter((f) => flags[f]).join(' ')}>
       <PrintHeader />
       <header className="grid gap-1.5">
-        <h1 className="font-display text-title">{address ?? 'Your roof'}</h1>
+        <h1 className="font-display text-title">{address}</h1>
         <div className="flex flex-wrap items-center gap-2">
           {building.postalCode && <span className="text-callout text-ink-secondary">{building.postalCode}</span>}
           <ConfidenceBadge imagery={building.imagery} />
@@ -175,25 +175,9 @@ function Report({
             recommendedIndex={recommendation.recommendedIndex}
             onChange={setSelectedIndex}
           />
-          {/* The answer and the size stay in view; the detail is grouped in tabs so the panel isn't one long scroll. */}
-          <ReportTabs
-            tabs={[
-              {
-                value: 'savings',
-                label: 'Savings',
-                content: (
-                  <>
-                    <MoneyBreakdown scenario={selected} inputs={inputs} />
-                    {flags.charts && <CashFlowChart scenario={selected} startYear={startYear} />}
-                    <Assumptions warnings={selected.warnings} inputs={inputs} />
-                  </>
-                ),
-              },
-              { value: 'usage', label: 'Your usage', content: <UsageInputs inputs={inputs} onChange={setInputs} />, print: false },
-              // Sun-hours are on the map, pinned to the roof outline (components/map/RoofCallout.tsx).
-              { value: 'roof', label: 'Roof', content: <SpecSheet building={building} scenario={selected} inputs={inputs} /> },
-            ]}
-          />
+          <MoneyBreakdown scenario={selected} inputs={inputs} />
+          {flags.charts && <CashFlowChart scenario={selected} startYear={startYear} />}
+          <Assumptions warnings={selected.warnings} />
         </>
       ) : (
         <>
