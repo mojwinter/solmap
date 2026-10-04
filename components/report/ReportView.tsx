@@ -17,8 +17,8 @@ import { SolarPotential } from './potential/SolarPotential';
 import { PaybackHero } from './money/PaybackHero';
 import { LargeBuildingNote } from './notices/LargeBuildingNote';
 import { OutsideBcBanner } from './notices/OutsideBcBanner';
-import { PrintButton, PrintHeader } from './PrintBar';
 import { ReportLayout } from './ReportLayout';
+import { ReportTitle } from './ReportTitle';
 import { SizeSlider } from './size/SizeSlider';
 import { SpecSheet } from './spec/SpecSheet';
 import { ApiErrorState } from './states/ApiErrorState';
@@ -28,7 +28,6 @@ import { useAddress } from './useAddress';
 import { useBuilding, type BuildingState } from './useBuilding';
 import { reportSearch, type ReportQuery } from './urlState';
 import { useReportState } from './useReportState';
-import { ConfidenceBadge } from './verdict/ConfidenceBadge';
 import { VerdictCard } from './verdict/VerdictCard';
 
 /** The spot being reported on: from the URL or an address pick. */
@@ -115,20 +114,7 @@ function ReportPage({
   );
 
   const title = (
-    <header className="grid gap-1.5">
-      {roof && <PrintHeader />}
-      <h1 className="font-display text-title text-balance md:text-display">{address}</h1>
-      {roof && (
-        <div className="flex flex-wrap items-center gap-2">
-          <ConfidenceBadge imagery={roof.imagery} />
-          {flags.print && (
-            <span className="ml-auto">
-              <PrintButton />
-            </span>
-          )}
-        </div>
-      )}
-    </header>
+    <ReportTitle address={address} imagery={roof?.imagery} loading={building.status === 'loading'} print={flags.print} />
   );
 
   const cards = ((): Cards => {
@@ -138,6 +124,11 @@ function ReportPage({
           summary: (
             <Card>
               <ReportSkeleton />
+            </Card>
+          ),
+          controls: (
+            <Card>
+              <ReportSkeleton variant="slider" />
             </Card>
           ),
           analysis: (
