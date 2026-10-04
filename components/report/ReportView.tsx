@@ -18,6 +18,7 @@ import { LargeBuildingNote } from './notices/LargeBuildingNote';
 import { OutsideBcBanner } from './notices/OutsideBcBanner';
 import { PrintButton, PrintHeader } from './PrintBar';
 import { ReportLayout } from './ReportLayout';
+import { ReportTabs } from './ReportTabs';
 import { SizeSlider } from './size/SizeSlider';
 import { SpecSheet } from './spec/SpecSheet';
 import { ApiErrorState } from './states/ApiErrorState';
@@ -146,7 +147,7 @@ function Report({
   return (
     // P1 UI renders only behind its flag (`flags.charts && …`; the print button is `flags.print`, print CSS always applies).
     // data-flags shows which are on, for ops and the E2E smoke test.
-    <div className="grid gap-6" data-flags={FLAGS.filter((f) => flags[f]).join(' ')}>
+    <div className="grid gap-5" data-flags={FLAGS.filter((f) => flags[f]).join(' ')}>
       <PrintHeader />
       <header className="grid gap-1.5">
         <h1 className="font-display text-title">{address ?? 'Your roof'}</h1>
@@ -175,19 +176,41 @@ function Report({
             recommendedIndex={recommendation.recommendedIndex}
             onChange={setSelectedIndex}
           />
-          <MoneyBreakdown scenario={selected} inputs={inputs} />
-          {flags.charts && (
-            <CashFlowChart scenario={selected} startYear={startYear} />
-          )}
-          <ReasonChips reasons={recommendation.reasons} title="About this roof" />
-          <Assumptions warnings={selected.warnings} inputs={inputs} />
-          <UsageInputs inputs={inputs} onChange={setInputs} />
+          {/* The answer and the size stay in view; the detail is grouped in tabs so the panel isn't one long scroll. */}
+          <ReportTabs
+            tabs={[
+              {
+                value: 'savings',
+                label: 'Savings',
+                content: (
+                  <>
+                    <MoneyBreakdown scenario={selected} inputs={inputs} />
+                    {flags.charts && <CashFlowChart scenario={selected} startYear={startYear} />}
+                    <Assumptions warnings={selected.warnings} inputs={inputs} />
+                  </>
+                ),
+              },
+              { value: 'usage', label: 'Your usage', content: <UsageInputs inputs={inputs} onChange={setInputs} /> },
+              {
+                value: 'roof',
+                label: 'Roof',
+                content: (
+                  <>
+                    <ReasonChips reasons={recommendation.reasons} title="About this roof" />
+                    <SpecSheet building={building} scenario={selected} inputs={inputs} />
+                  </>
+                ),
+              },
+            ]}
+          />
         </>
       ) : (
-        // No configs: nothing fits, so there's no money to show.
-        <VerdictCard recommendation={recommendation} />
+        <>
+          {/* No configs: nothing fits, so there's no money to show. */}
+          <VerdictCard recommendation={recommendation} />
+          <SpecSheet building={building} scenario={selected} inputs={inputs} />
+        </>
       )}
-      <SpecSheet building={building} scenario={selected} inputs={inputs} />
 
       <Attribution source={building.source} />
     </div>
