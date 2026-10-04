@@ -21,13 +21,13 @@ const KNOBS: Record<Knob, { label: string; step: number; format: (v: number) => 
   costPerWatt: {
     label: 'Install cost',
     step: 0.05,
-    format: (v) => `$${v.toFixed(2)} a watt`,
+    format: (v) => `$${v.toFixed(2)}/W`,
     hint: `BC Hydro: $${INSTALL.costPerKwDcLow / 1000}–$${INSTALL.costPerKwDcHigh / 1000} a watt installed. Use your quote once you have one.`,
   },
   costIncrease: {
     label: 'Power prices rise',
     step: 0.0025,
-    format: (v) => `${pct(v)} a year`,
+    format: (v) => `${pct(v)}/yr`,
     hint: 'Recent BC Hydro increases were 3.75% a year. Faster rises make solar pay sooner.',
   },
   daytimeLoadShare: {
@@ -37,9 +37,9 @@ const KNOBS: Record<Knob, { label: string; step: number; format: (v: number) => 
     hint: 'The most solar you can use as it’s made. Home by day, or run laundry at noon? Go higher.',
   },
   discountRate: {
-    label: 'Interest you’d earn instead',
+    label: 'Interest elsewhere',
     step: 0.0025,
-    format: (v) => `${pct(v)} a year`,
+    format: (v) => `${pct(v)}/yr`,
     hint: 'Counts future savings for less in “value today”. Higher favours smaller systems.',
   },
   panelWatts: {

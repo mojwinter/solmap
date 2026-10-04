@@ -1,38 +1,7 @@
 // Pure figures for the report's analysis section: ScenarioResult (and the roof) → what the charts and
 // tiles draw. No React, no fetch; every number comes from lib/finance's projection, so the charts can
 // never disagree with the answer card. Tested in derive.test.ts.
-import { evaluate } from '@/lib/finance/project';
-import { INPUT_RANGES, INSTALL } from '@/src/config/bc';
-import type { BuildingResponse, ConfigLite, FinanceInputs, ScenarioResult } from '@/src/types/app';
-
-/** Sum of a column over the panels' lifetime. */
-const total = (s: Pick<ScenarioResult, 'years'>, key: 'productionKwh' | 'savings' | 'selfUsedKwh' | 'exportedKwh') =>
-  s.years.reduce((sum, y) => sum + y[key], 0);
-
-export interface LifetimeFigures {
-  /** AC kWh over the panels' life, after degradation. */
-  energyKwh: number;
-  /** Savings over the life, before subtracting what you paid. */
-  grossSavings: number;
-  /** What you pay (after the rebate) per kWh the panels make over their life; null when they make nothing. */
-  costPerKwh: number | null;
-  /** Lifetime savings for every dollar paid: 2.4 = $2.40 back per $1. Null when the system is free. */
-  returnPerDollar: number | null;
-  /** Share of lifetime production used at home (the rest sells at the export rate). */
-  selfUseShare: number;
-}
-
-export function lifetimeFigures(s: Pick<ScenarioResult, 'years' | 'netCost'>): LifetimeFigures {
-  const energyKwh = total(s, 'productionKwh');
-  const grossSavings = total(s, 'savings');
-  return {
-    energyKwh,
-    grossSavings,
-    costPerKwh: energyKwh > 0 ? s.netCost / energyKwh : null,
-    returnPerDollar: s.netCost > 0 ? grossSavings / s.netCost : null,
-    selfUseShare: energyKwh > 0 ? total(s, 'selfUsedKwh') / energyKwh : 0,
-  };
-}
+import type { BuildingResponse, ScenarioResult } from '@/src/types/app';
 
 export interface BillImpact {
   /** Year-1 bill for the same usage with no panels (pre-tax, as lib/finance models it). */
@@ -60,45 +29,6 @@ export function billImpact(s: Pick<ScenarioResult, 'billWithoutSolarYear1' | 'ye
     cut: before > 0 ? saved / before : 0,
     avoidedRatePerKwh: selfUsedKwh > 0 ? selfUsedValue / selfUsedKwh : null,
   };
-}
-
-export interface SweepPoint {
-  index: number;
-  panels: number;
-  kw: number;
-  /** Net savings over the life (CAD). */
-  net: number;
-  /** The same, in today's dollars (future savings discounted): what recommend() maximises. */
-  npv: number;
-  /** Years to pay back; null = never within the lifetime. */
-  payback: number | null;
-  /** Share of year-1 production sold back, 0–1. */
-  exportShare: number;
-}
-
-/** One point per roof config: how the money changes as the system grows (the sweet-spot chart). */
-export function sweep(scenarios: readonly ScenarioResult[]): SweepPoint[] {
-  return scenarios.map((s, index) => ({
-    index,
-    panels: s.panelsCount,
-    kw: s.systemKwDc,
-    net: s.lifetimeNetSavings,
-    npv: s.npv,
-    payback: s.paybackYears,
-    exportShare: s.acKwhYear1 > 0 ? s.year1.exportedKwh / s.acKwhYear1 : 0,
-  }));
-}
-
-/** The config with the highest `key` (the top of the curve). */
-export function peakIndex(points: readonly SweepPoint[], key: 'net' | 'npv' = 'net'): number | null {
-  if (points.length === 0) return null;
-  return points.reduce((best, p) => (p[key] > points[best][key] ? p.index : best), 0);
-}
-
-/** The largest config that still pays back within the lifetime, or null when none does. */
-export function largestPayingIndex(points: readonly SweepPoint[]): number | null {
-  for (let i = points.length - 1; i >= 0; i--) if (points[i].payback !== null) return points[i].index;
-  return null;
 }
 
 export interface PanelBar {
@@ -137,53 +67,6 @@ export function panelBars(
   const config = building.configs[s.configIndex];
   const acPerDc = config && config.yearlyEnergyDcKwh > 0 ? s.acKwhYear1 / config.yearlyEnergyDcKwh : 0;
   return building.panels.map((p, i) => ({ rank: i + 1, kwh: p.yearlyEnergyDcKwh * acPerDc, used: i < s.panelsCount }));
-}
-
-export interface RoofFace {
-  index: number;
-  azimuth: number;
-  pitch: number;
-  areaM2: number;
-  /** Median annual sun hours on this face. */
-  medianSunHours: number;
-  /** (q5 − q1) / q5: how much less sun the shadier parts get (verdict.ts's shading test). */
-  shadeSpread: number;
-  /** Panels this face holds in the system on screen. */
-  panelsUsed: number;
-  /** Panels the roof's largest layout puts here. */
-  panelsMax: number;
-  /** First-year AC kWh from this face in the system on screen. */
-  kwhUsed: number;
-}
-
-/** The roof's faces, largest first, with what the system on screen uses of each. */
-export function roofFaces(
-  building: Pick<BuildingResponse, 'segments' | 'configs' | 'panels'>,
-  s: Pick<ScenarioResult, 'configIndex' | 'acKwhYear1'> | null,
-): RoofFace[] {
-  const config = s ? building.configs[s.configIndex] : undefined;
-  const acPerDc = s && config && config.yearlyEnergyDcKwh > 0 ? s.acKwhYear1 / config.yearlyEnergyDcKwh : 0;
-  const maxCounts = new Map<number, number>();
-  for (const p of building.panels) maxCounts.set(p.segmentIndex, (maxCounts.get(p.segmentIndex) ?? 0) + 1);
-  return building.segments
-    .map((seg) => {
-      const used = config?.segments.find((c) => c.segmentIndex === seg.index);
-      const q = seg.sunshineQuantiles;
-      const q1 = q[1] ?? 0;
-      const q5 = q[5] ?? 0;
-      return {
-        index: seg.index,
-        azimuth: seg.azimuthDegrees,
-        pitch: seg.pitchDegrees,
-        areaM2: seg.areaMeters2,
-        medianSunHours: q5,
-        shadeSpread: q5 > 0 ? Math.max(0, (q5 - q1) / q5) : 0,
-        panelsUsed: used?.panelsCount ?? 0,
-        panelsMax: maxCounts.get(seg.index) ?? 0,
-        kwhUsed: (used?.yearlyEnergyDcKwh ?? 0) * acPerDc,
-      };
-    })
-    .sort((a, b) => b.areaM2 - a.areaM2);
 }
 
 /**
@@ -243,68 +126,6 @@ export function weightedPitch(
   return energy > 0 ? sum / energy : 30;
 }
 
-export interface SensitivityRow {
-  key: 'cost' | 'prices' | 'daytime' | 'rebate';
-  label: string;
-  /** The two ends tried, worse-for-you first where it's clear. */
-  ends: { setting: string; payback: number | null; net: number }[];
-}
-
-/**
- * What moves the payback for the size on screen: each assumption at both ends of its BC range (install
- * cost per BC Hydro's $/W band, price rises and daytime use per INPUT_RANGES, the rebate on or off),
- * everything else as it is now. Re-runs lib/finance's evaluate(), so it's the same model as the answer.
- */
-export function sensitivity(
-  config: Pick<ConfigLite, 'panelsCount' | 'yearlyEnergyDcKwh'>,
-  configIndex: number,
-  apiPanelWatts: number,
-  inputs: FinanceInputs,
-): SensitivityRow[] {
-  const run = (patch: Partial<FinanceInputs>) => {
-    const s = evaluate(config, configIndex, apiPanelWatts, { ...inputs, ...patch });
-    return { payback: s.paybackYears, net: s.lifetimeNetSavings };
-  };
-  const pct = (m: number) => `${Math.round((m - 1) * 1000) / 10}%`;
-  const rows: SensitivityRow[] = [
-    {
-      key: 'cost',
-      label: 'Install cost',
-      ends: [INSTALL.costPerKwDcHigh, INSTALL.costPerKwDcLow].map((perKw) => ({
-        setting: `$${(perKw / 1000).toFixed(2)}/W`,
-        ...run({ costPerWatt: perKw / 1000 }),
-      })),
-    },
-    {
-      key: 'prices',
-      label: 'Power prices rise',
-      ends: [INPUT_RANGES.costIncrease.min, INPUT_RANGES.costIncrease.max].map((m) => ({
-        setting: m === 1 ? 'not at all' : `${pct(m)} a year`,
-        ...run({ costIncrease: m }),
-      })),
-    },
-    {
-      key: 'daytime',
-      label: 'Daytime use',
-      ends: [INPUT_RANGES.daytimeLoadShare.min, INPUT_RANGES.daytimeLoadShare.max].map((d) => ({
-        setting: `${Math.round(d * 100)}%`,
-        ...run({ daytimeLoadShare: d }),
-      })),
-    },
-  ];
-  if (inputs.rebateEligible) {
-    rows.push({
-      key: 'rebate',
-      label: 'BC Hydro rebate',
-      ends: [
-        { setting: 'none', ...run({ rebateEligible: false }) },
-        { setting: 'as now', ...run({}) },
-      ],
-    });
-  }
-  return rows;
-}
-
 export interface MonthSplit extends MonthBar {
   /** Of `kwh`, used at home as it's made. */
   usedKwh: number;
@@ -343,20 +164,4 @@ export function monthlySplit(months: readonly MonthBar[], usedKwhYear: number, s
     if (!changed) break;
   }
   return months.map((m, i) => ({ ...m, usedKwh: used[i], soldKwh: Math.max(0, m.kwh - used[i]) }));
-}
-
-/**
- * Where the sizes chart can stop so a big loss on a full roof doesn't flatten the peak: the first size
- * past the peak whose value falls below −2 × the peak (at least −$1,000), or null when the whole range
- * reads fine (no gain to protect, or the tail never falls that far, or it's near the end anyway).
- * `keep` are indices that must stay on screen (the size on screen, the recommended one).
- */
-export function focusEnd(points: readonly SweepPoint[], key: 'net' | 'npv', keep: readonly (number | null)[] = []): number | null {
-  const top = peakIndex(points, key);
-  if (top === null || points[top][key] <= 0) return null;
-  const floor = -2 * Math.max(points[top][key], 500);
-  const cut = points.findIndex((p, i) => i > top && p[key] < floor);
-  if (cut < 0) return null;
-  const end = Math.max(cut, ...keep.filter((k): k is number => k !== null));
-  return end >= points.length - 3 ? null : end;
 }

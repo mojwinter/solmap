@@ -57,18 +57,15 @@ never leaves a gap beside a tall one), with cards assigned so the two end about 
 main (wide)                         | side (360–400px)
 house window                        | answer (payback year, verdict, install cost, 25-year savings)
 key figures (4 tiles)               | size slider (with a value curve over the track)
-savings over time [charts]          | your home (usage + rate plan, opens in place)
-which size pays best [charts]       | where your solar goes + yearly bill [charts; else under the house]
-how sure is this? [charts]          | spec sheet [charts; else in main]
-month by month [charts]             | your roof
-                                    | panel by panel [charts]
+savings over time [charts]          | where your solar goes + yearly bill [charts; else under the house]
+month by month [charts]             | panel by panel [charts]
                                     | environmental impact · get real quotes
 ─────────────── what we assumed [assumptions] (full width) ───────────────
 footer: attribution + sources
 ```
 
-Narrower (and printed), one column in reading order (each block's `order`: house, answer, slider, your
-home, figures and savings, sizes, first year, how sure, spec, month by month, roof, panels, impact, quotes).
+Narrower (and printed), one column in reading order (each block's `order`: house, answer, slider,
+figures and savings, first year, month by month, panels, impact, quotes, then assumptions).
 
 **Keep it clean (like the original answer card):** each card is a title, the visual and its key number.
 No explanatory paragraphs or sub-notes on screen: each chart's takeaway sentence is screen-reader only
@@ -103,7 +100,7 @@ chart are in a closed "See the numbers" table, so nothing depends on hovering or
 - Best input of all: "Annual kWh" from the BC Hydro account's consumption history. Link to where to find it.
 - "Electric heat?" hint text that links to the flat rate explanation.
 
-**SpecSheet** (printable)
+**SpecSheet** (printable; on the report only when nothing fits the roof, with the roof's area, max panels and sun hours. With a system, production and sun hours are key figures)
 | Field | Source |
 |---|---|
 | System size (kW DC) | panelsCount × panel W |
@@ -117,24 +114,17 @@ chart are in a closed "See the numbers" table, so nothing depends on hovering or
 | Imagery | quality + capture date |
 | Next steps | "Get 3 quotes from Home Performance Contractor Network members; apply for self-generation **before** buying equipment (required for the rebate)." |
 
-**Key figures** (always on): year 1 savings, share off the bill, solar cost per kWh over its life, and
-dollars back per $1 paid. Number and label only; each ⓘ shows the sum.
+**Key figures** (always on): kWh a year, sun hours a year (the roof's sunniest spot), yearly savings
+(year one; the ⓘ says it grows with price rises, less panel wear) and share off the bill. Number and
+label only; each ⓘ shows the sum.
 
 **Where your solar goes** (always on): year-1 split used at home vs sold at 10¢, and the yearly bill as a
 waterfall (without solar → minus solar used → minus export credit → with solar).
 
-**Your roof** (always on): a compass of the roof faces (wedge = area, sky = used by this size, south-ish arc
-marked), sunniest spot and roof area, and a row per face: direction, pitch, a cloud if shaded, panels used.
-
 **[P1, `charts`] Charts**
-- *Which size pays best (sweet spot):* x = system kW (each config); one measure at a time, never two
-  y-axes: value today (NPV, the default, what the recommendation maximises), total saved, or payback
-  years. Recommended and on-screen sizes marked; clicking picks a size.
 - *Savings over time (cash flow):* cumulative net savings, years 0–25, break-even marked.
-- *How sure is this?:* payback with each assumption at both ends of its BC range (install cost, price
-  rises, daytime use, rebate), biggest swing first.
-- *Month by month:* year-1 output spread by NRCan's monthly shape for the nearest town, against the
-  household's average month.
+- *Month by month:* year-1 output spread by NRCan's monthly shape for the nearest town, split into used
+  at home and sold, against the household's daytime use.
 - *Panel by panel:* every panel spot's year-1 kWh, best first, the ones in use highlighted.
 
 **[P1, `assumptions`] What we assumed**: install cost, price rises, daytime use share, discount rate and

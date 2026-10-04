@@ -1,27 +1,34 @@
 import type { ReactNode } from 'react';
 import type { ScenarioResult } from '@/src/types/app';
 import { InfoPopover } from '@/components/common/InfoPopover';
-import { cad, cents } from '@/lib/format';
+import { cad, kwh } from '@/lib/format';
 import { cn } from '@/lib/utils';
-import { billImpact, lifetimeFigures } from './derive';
+import { billImpact } from './derive';
 
 /**
- * Four headline figures for the size on screen: what year one saves, how much of the bill it covers,
- * what your own solar costs per kWh, and what comes back for every dollar paid. Just the number and a
+ * Four headline figures for the size on screen: what it makes in a year, the roof's sun hours, what
+ * it saves a year (year one) and how much of the bill it covers. Just the number and a
  * short label; the ⓘ on each shows how it's worked out (printed inline on paper).
  */
-export function KeyFigures({ scenario }: { scenario: ScenarioResult }) {
+export function KeyFigures({ scenario, sunHours }: { scenario: ScenarioResult; sunHours: number }) {
   const bill = billImpact(scenario);
-  const life = lifetimeFigures(scenario);
-  const lifetime = scenario.years.length;
-  const back = life.returnPerDollar;
 
   return (
     // Four across when its column is wide enough (container query), else two by two.
     <div className="@container">
       <section aria-label="Key figures" className="grid grid-cols-2 gap-3 @2xl:grid-cols-4">
         <Figure
-          label="Year 1 savings"
+          label="kWh/yr"
+          value={kwh(scenario.acKwhYear1)}
+          info={<p className="max-w-64">First-year production after wiring losses (AC). Panels lose about 0.5% a year after that.</p>}
+        />
+        <Figure
+          label="Sun hours/yr"
+          value={kwh(sunHours)}
+          info={<p className="max-w-64">Annual sunshine on the sunniest part of your roof, from Google’s aerial data.</p>}
+        />
+        <Figure
+          label="Yearly savings"
           value={cad(scenario.year1.total)}
           info={
             <Rows
@@ -30,6 +37,7 @@ export function KeyFigures({ scenario }: { scenario: ScenarioResult }) {
                 ['Solar you sell back', cad(scenario.year1.exportValue)],
               ]}
               total={['First-year savings', cad(scenario.year1.total)]}
+              foot="Year one. It grows a little each year as power prices rise, less about 0.5% a year as panels age."
             />
           }
         />
@@ -48,35 +56,6 @@ export function KeyFigures({ scenario }: { scenario: ScenarioResult }) {
             />
           }
         />
-        <Figure
-          label="Cost per kWh"
-          value={life.costPerKwh === null ? '—' : cents(life.costPerKwh)}
-          info={
-            <Rows
-              rows={[
-                ['You pay', cad(scenario.netCost)],
-                [`Energy over ${lifetime} years`, `${Math.round(life.energyKwh).toLocaleString('en-CA')} kWh`],
-                ...(bill.avoidedRatePerKwh === null ? [] : ([['BC Hydro rate it replaces', cents(bill.avoidedRatePerKwh)]] as [string, string][])),
-              ]}
-              total={['Cost per kWh', life.costPerKwh === null ? '—' : cents(life.costPerKwh)]}
-            />
-          }
-        />
-        <Figure
-          label="Back per $1"
-          value={back === null ? '—' : `$${back.toFixed(2)}`}
-          tone={back === null ? undefined : back >= 1 ? 'good' : 'poor'}
-          info={
-            <Rows
-              rows={[
-                [`Savings over ${lifetime} years`, cad(life.grossSavings)],
-                ['You pay', cad(scenario.netCost)],
-              ]}
-              total={['Back per $1 paid', back === null ? '—' : `$${back.toFixed(2)}`]}
-              foot="Under $1.00 means the panels don’t earn back what they cost."
-            />
-          }
-        />
       </section>
     </div>
   );
@@ -84,12 +63,13 @@ export function KeyFigures({ scenario }: { scenario: ScenarioResult }) {
 
 function Figure({ label, value, tone, info }: { label: string; value: string; tone?: 'good' | 'poor'; info: ReactNode }) {
   return (
-    <div className="card grid content-start gap-0.5 rounded-lg p-4">
-      <span className={cn('font-rounded text-metric', tone === 'good' && 'text-good-ink', tone === 'poor' && 'text-poor-ink')}>
+    <div className="card relative grid content-start gap-0.5 rounded-lg p-3.5">
+      <span className={cn('pr-5 font-rounded text-metric', tone === 'good' && 'text-good-ink', tone === 'poor' && 'text-poor-ink')}>
         {value}
       </span>
-      <span className="flex items-center gap-1 text-callout text-ink-secondary">
-        {label}
+      <span className="text-callout text-ink-secondary">{label}</span>
+      {/* In the corner, so the label keeps the tile's full width. */}
+      <span className="absolute top-2.5 right-2.5">
         <InfoPopover label={`How “${label.toLowerCase()}” is worked out`}>{info}</InfoPopover>
       </span>
       <div className="hidden text-footnote text-ink-secondary print:block">{info}</div>

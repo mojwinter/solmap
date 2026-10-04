@@ -7,8 +7,8 @@ const m2 = (n: number) => kwh(n); // whole square metres, same grouping as kWh
 
 /**
  * The printable spec sheet (DESIGN.md §3): the selected system's size, panels, area and production,
- * and next steps on paper (the roof's faces are in RoofFaces beside it; imagery is badged under the
- * address). Without a scenario (nothing fits) it shows only the roof facts.
+ * the roof's yearly sun hours, and next steps on paper (imagery is badged under the address). Without
+ * a scenario (nothing fits) it shows only the roof facts.
  */
 export function SpecSheet({
   building,
@@ -28,7 +28,6 @@ export function SpecSheet({
       </h2>
       {scenario && <System building={building} scenario={scenario} inputs={inputs} />}
 
-      {/* With a system, the roof's faces and size are in RoofFaces next to this. */}
       {!scenario && (
         <>
           <SubHeading>Whole roof</SubHeading>
@@ -36,6 +35,7 @@ export function SpecSheet({
             items={[
               { icon: 'roof', label: 'Roof area', unit: 'm²', value: m2(roof.areaMeters2) },
               { icon: 'panels', label: 'Max panels', value: kwh(roof.maxPanels) },
+              { icon: 'sun', tone: 'sun', label: 'Sun hours', unit: 'a year, sunniest spot', value: kwh(roof.maxSunshineHoursPerYear) },
             ]}
           />
         </>
@@ -84,6 +84,7 @@ function System({
           { icon: 'panels', label: 'Panels', unit: `${inputs.panelWatts} W`, value: scenario.panelsCount },
           { icon: 'roof', label: 'Array area', unit: 'm²', value: m2(arrayArea) },
           { icon: 'sun', tone: 'sun', label: 'Production', unit: 'kWh a year', value: kwh(scenario.acKwhYear1) },
+          { icon: 'sun', label: 'Sun hours', unit: 'a year, sunniest spot', value: kwh(building.roof.maxSunshineHoursPerYear) },
         ]}
       />
       {/* An out-of-range yield is flagged with the report's other warnings (SPECIFIC_YIELD_OUT_OF_RANGE). */}

@@ -3,7 +3,6 @@
 import { useEffect, useState, type ComponentProps } from 'react';
 import { MapsProvider } from '@/components/map/MapsProvider';
 import { AssumptionsPanel } from '@/components/inputs/AssumptionsPanel';
-import { YourHome } from '@/components/inputs/YourHome';
 import { verdictFor } from '@/lib/finance';
 import { clampInputs } from '@/lib/finance/clamp';
 import { rebateCapKw } from '@/lib/finance/project';
@@ -13,9 +12,6 @@ import { KeyFigures } from './analysis/KeyFigures';
 import { FirstYear } from './analysis/FirstYear';
 import { MonthlyChart } from './analysis/MonthlyChart';
 import { PanelOutputChart } from './analysis/PanelOutputChart';
-import { RoofFaces } from './analysis/RoofFaces';
-import { Sensitivity } from './analysis/Sensitivity';
-import { SizeSweepChart } from './analysis/SizeSweepChart';
 import { Card } from './Card';
 import { HeaderSearch } from './HeaderSearch';
 import { HouseWindow } from './HouseWindow';
@@ -207,14 +203,9 @@ function reportCards(
         </Card>
       ),
       analysis: (
-        <div className="grid gap-5 md:grid-cols-2 md:gap-6">
-          <Card>
-            <RoofFaces building={building} scenario={null} />
-          </Card>
-          <Card>
-            <SpecSheet building={building} scenario={selected} inputs={inputs} />
-          </Card>
-        </div>
+        <Card>
+          <SpecSheet building={building} scenario={selected} inputs={inputs} />
+        </Card>
       ),
     };
   }
@@ -229,20 +220,10 @@ function reportCards(
       <FirstYear scenario={selected} />
     </Card>
   );
-  const specSheet = (
-    <Card>
-      <SpecSheet building={building} scenario={selected} inputs={inputs} />
+  const assumptions = (
+    <Card className="print:hidden">
+      <AssumptionsPanel inputs={inputs} onChange={setInputs} />
     </Card>
-  );
-  const sweep = (
-    <SizeSweepChart
-      scenarios={recommendation.scenarios}
-      selectedIndex={selectedIndex}
-      recommendedIndex={recommendation.recommendedIndex}
-      lifetimeYears={inputs.lifetimeYears}
-      discountRate={inputs.discountRate}
-      onSelect={setSelectedIndex}
-    />
   );
   const monthly = (
     <MonthlyChart
@@ -267,18 +248,13 @@ function reportCards(
       </SolarPotential>
     ),
     controls: (
-      <div className="grid gap-5 md:gap-6">
-        <Card>
-          <SizeSlider steps={steps} value={selectedIndex} recommendedIndex={recommendation.recommendedIndex} onChange={setSelectedIndex} />
-        </Card>
-        <Card className="print:hidden">
-          <YourHome inputs={inputs} onChange={setInputs} />
-        </Card>
-      </div>
+      <Card>
+        <SizeSlider steps={steps} value={selectedIndex} recommendedIndex={recommendation.recommendedIndex} onChange={setSelectedIndex} />
+      </Card>
     ),
     analysis: (
       <div className="grid gap-5 md:gap-6">
-        <KeyFigures scenario={selected} />
+        <KeyFigures scenario={selected} sunHours={building.roof.maxSunshineHoursPerYear} />
         <Assumptions warnings={selected.warnings} />
         {/* Under the house: the savings chart, or without charts, the first year (so the column isn't short). */}
         {flags.charts ? (
@@ -290,49 +266,36 @@ function reportCards(
         )}
       </div>
     ),
-    // Two stacks, balanced by height (charts on: ~2,200px each on the hero roof). `order` is the phone
-    // reading order: house 1, answer 2, controls 3, figures + savings 4, then these.
-    main: flags.charts
+    // Two stacks, balanced by height. `order` is the phone reading order: house 1, answer 2,
+    // controls 3, figures + savings 4, then these.
+    main: flags.charts ? [{ key: 'monthly', order: 6, node: <Card>{monthly}</Card> }] : [],
+    side: flags.charts
       ? [
-          { key: 'sizes', order: 5, node: <Card>{sweep}</Card> },
-          { key: 'sensitivity', order: 7, node: <Card><Sensitivity building={building} scenario={selected} inputs={inputs} /></Card> },
-          { key: 'monthly', order: 9, node: <Card>{monthly}</Card> },
+          { key: 'first-year', order: 5, node: firstYear },
+          {
+            key: 'panels',
+            order: 7,
+            node: (
+              <Card>
+                <PanelOutputChart
+                  building={building}
+                  scenario={selected}
+                  scenarios={recommendation.scenarios}
+                  rebateCapKw={modelled.rebateEligible ? rebateCapKw(modelled.costPerWatt) : undefined}
+                  onPickPanels={(n) => setSelectedIndex(configIndexFor(building.configs, n))}
+                />
+              </Card>
+            ),
+          },
         ]
-      : [{ key: 'spec', order: 8, node: specSheet }],
-    side: [
-      ...(flags.charts ? [{ key: 'first-year', order: 6, node: firstYear }, { key: 'spec', order: 8, node: specSheet }] : []),
-      { key: 'roof', order: 10, node: <Card><RoofFaces building={building} scenario={selected} /></Card> },
-      ...(flags.charts
-        ? [
-            {
-              key: 'panels',
-              order: 11,
-              node: (
-                <Card>
-                  <PanelOutputChart
-                    building={building}
-                    scenario={selected}
-                    scenarios={recommendation.scenarios}
-                    rebateCapKw={modelled.rebateEligible ? rebateCapKw(modelled.costPerWatt) : undefined}
-                    onPickPanels={(n) => setSelectedIndex(configIndexFor(building.configs, n))}
-                  />
-                </Card>
-              ),
-            },
-          ]
-        : []),
-    ],
+      : [],
     extras: (
       <>
         <ImpactCard scenario={selected} />
         <NextStep />
       </>
     ),
-    details: flags.assumptions && (
-      <Card className="print:hidden">
-        <AssumptionsPanel inputs={inputs} onChange={setInputs} />
-      </Card>
-    ),
+    details: flags.assumptions && assumptions,
   };
 }
 
