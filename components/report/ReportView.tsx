@@ -23,9 +23,8 @@ import { SolarPotential } from './potential/SolarPotential';
 import { PaybackHero } from './money/PaybackHero';
 import { LargeBuildingNote } from './notices/LargeBuildingNote';
 import { OutsideBcBanner } from './notices/OutsideBcBanner';
-import { ReportFooter } from './ReportFooter';
 import { ReportLayout } from './ReportLayout';
-import { ReportTitle } from './ReportTitle';
+import { AddressSkeleton, ReportTitle } from './ReportTitle';
 import { SizeSlider } from './size/SizeSlider';
 import { SpecSheet } from './spec/SpecSheet';
 import { ApiErrorState } from './states/ApiErrorState';
@@ -105,8 +104,10 @@ function ReportPage({
   lookUp: (next: Place) => void;
 }) {
   const roof = building.status === 'ready' ? building.data : null;
-  const resolved = useAddress(place.lat, place.lng, place.address, roof?.buildingId);
-  const address = resolved ?? `${place.lat}, ${place.lng}`;
+  const found = useAddress(place.lat, place.lng, place.address, roof?.buildingId);
+  // Undefined (a skeleton) while the roof or its address may still arrive; lat, lng only once nothing will.
+  const finding = building.status === 'loading' || found.pending;
+  const address = found.address ?? (finding ? undefined : `${place.lat}, ${place.lng}`);
   const { selected } = report;
 
   const house = (
@@ -185,7 +186,6 @@ function ReportPage({
         }
         house={house}
         {...cards}
-        footer={roof && <ReportFooter source={roof.source} />}
       />
   );
 }
@@ -302,7 +302,8 @@ function ExplorePanel({
 }: {
   building: BuildingState & { retry: () => void };
   report: ReturnType<typeof useReportState>;
-  address: string;
+  /** Undefined while it's still being found. */
+  address?: string;
 }) {
   const { inputs, recommendation, selectedIndex, selected, setSelectedIndex } = report;
   const body = (() => {
@@ -340,7 +341,11 @@ function ExplorePanel({
   })();
   return (
     <div className="grid gap-5">
-      <p className="font-display text-title text-balance">{address}</p>
+      {address ? (
+        <p className="font-display text-title text-balance">{address}</p>
+      ) : (
+        <AddressSkeleton className="font-display text-title" />
+      )}
       {body}
     </div>
   );

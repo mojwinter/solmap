@@ -57,7 +57,7 @@ export function ReportLayout({
   side?: LayoutBlock[];
   /** Full width under both stacks. */
   details?: ReactNode;
-  /** Last line of the page: sources and attribution. */
+  /** Last line of the page (e.g. sources and attribution). */
   footer?: ReactNode;
   /** The P1 flags that are on, space-separated: ops and the E2E smoke test read data-flags. */
   flags?: string;
