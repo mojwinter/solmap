@@ -3,16 +3,33 @@
   --pct: 50%;
   appearance: none;
   -webkit-appearance: none;
+  display: block;
   width: 100%;
   height: 28px;
   margin: 0;
   background: transparent;
   cursor: pointer;
+  touch-action: pan-y;
+}
+.range:focus {
+  outline: none;
 }
 .range::-webkit-slider-runnable-track {
   height: 6px;
   border-radius: 999px;
   background: linear-gradient(to right, var(--sky-600) var(--pct), var(--sky-200) var(--pct));
+}
+/* The recommended size: a 2px notch in the track (the thumb covers it when it sits there). */
+.marked::-webkit-slider-runnable-track {
+  background:
+    linear-gradient(
+      to right,
+      transparent calc(var(--rec) - 1px),
+      var(--notch) calc(var(--rec) - 1px),
+      var(--notch) calc(var(--rec) + 1px),
+      transparent calc(var(--rec) + 1px)
+    ),
+    linear-gradient(to right, var(--sky-600) var(--pct), var(--sky-200) var(--pct));
 }
 .range::-moz-range-track {
   height: 6px;
@@ -33,6 +50,7 @@
   background: #ffffff;
   border: 0.5px solid var(--separator);
   box-shadow: var(--elev-control);
+  transition: transform 150ms ease;
 }
 .range::-moz-range-thumb {
   width: 26px;
@@ -41,9 +59,43 @@
   background: #ffffff;
   border: 0.5px solid var(--separator);
   box-shadow: var(--elev-control);
+  transition: transform 150ms ease;
 }
-.range:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
-  border-radius: 999px;
+
+/* Grows a little under the pointer and while dragged, so the hit target reads as grabbable. */
+.range:hover::-webkit-slider-thumb {
+  transform: scale(1.06);
+}
+.range:active::-webkit-slider-thumb {
+  transform: scale(1.12);
+}
+.range:hover::-moz-range-thumb {
+  transform: scale(1.06);
+}
+.range:active::-moz-range-thumb {
+  transform: scale(1.12);
+}
+
+/* Focus ring on the thumb (the design's 2px focus-ring, 2px offset), not round the whole track. */
+.range:focus-visible::-webkit-slider-thumb {
+  box-shadow:
+    0 0 0 2px #ffffff,
+    0 0 0 4px var(--focus-ring),
+    var(--elev-control);
+}
+.range:focus-visible::-moz-range-thumb {
+  box-shadow:
+    0 0 0 2px #ffffff,
+    0 0 0 4px var(--focus-ring),
+    var(--elev-control);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Separate rules: a selector list with an unknown vendor pseudo-element is dropped whole. */
+  .range::-webkit-slider-thumb {
+    transition: none;
+  }
+  .range::-moz-range-thumb {
+    transition: none;
+  }
 }
