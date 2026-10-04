@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { AssumptionsDrawer } from '@/components/inputs/AssumptionsDrawer';
 import { UsageInputs } from '@/components/inputs/UsageInputs';
 import { AddressSearch } from '@/components/map/AddressSearch';
 import { MapControls } from '@/components/map/MapControls';
@@ -135,7 +136,7 @@ function Report({
   const onRecommended = selectedIndex === recommendation.recommendedIndex;
 
   return (
-    // No P1 UI on the report yet: gate the first ones (heatmap toggle, battery, charts, print) with `flags`.
+    // P1 UI renders only behind its flag (the assumptions drawer, with the battery choice inside it).
     // data-flags shows which are on, for ops and the E2E smoke test.
     <div className="grid gap-6" data-flags={FLAGS.filter((f) => flags[f]).join(' ')}>
       <header className="grid gap-1.5">
@@ -168,6 +169,9 @@ function Report({
           <ReasonChips reasons={recommendation.reasons} title="About this roof" />
           <Assumptions warnings={selected.warnings} inputs={inputs} />
           <UsageInputs inputs={inputs} onChange={setInputs} />
+          {flags.assumptions && (
+            <AssumptionsDrawer inputs={inputs} onChange={setInputs} warnings={selected.warnings} battery={flags.battery} />
+          )}
         </>
       ) : (
         // No configs: nothing fits, so there's no money to show.
