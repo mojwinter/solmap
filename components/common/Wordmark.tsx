@@ -2,8 +2,8 @@ import Link from 'next/link';
 
 /**
  * The Sunscore mark: a line-drawn sun rising behind a roof. Same lines as app/icon.svg (the tab icon),
- * without its blue tile, so keep the two in step. Drawn in currentColor, with the viewBox cropped to the
- * lines and a slightly heavier stroke so it holds its own next to the semibold name.
+ * without its blue tile, so keep the two in step. Drawn in currentColor so it takes the name's ink colour.
+ * The viewBox is cropped to the lines, and the stroke is a little heavier so it holds its own next to the name.
  */
 function SunscoreMark({ className }: { className?: string }) {
   return (
@@ -30,7 +30,7 @@ function SunscoreMark({ className }: { className?: string }) {
 export function Wordmark({ href }: { href?: string }) {
   const mark = (
     <>
-      <SunscoreMark className="size-8 shrink-0 text-sky-600" />
+      <SunscoreMark className="size-8 shrink-0" />
       Sunscore
     </>
   );
