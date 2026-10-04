@@ -2,8 +2,8 @@ import Link from 'next/link';
 
 /**
  * The Sunscore mark: a line-drawn sun rising behind a roof. Same lines as app/icon.svg (the tab icon),
- * without its blue tile, so keep the two in step. Drawn in currentColor so it takes the name's ink colour.
- * The viewBox is cropped to the lines, and the stroke is a little heavier so it holds its own next to the name.
+ * without its blue tile, so keep the two in step. Drawn in currentColor, with the viewBox cropped to the lines
+ * and a heavier stroke than the tab icon so it holds up at 22px next to the logotype.
  */
 function SunscoreMark({ className }: { className?: string }) {
   return (
@@ -11,7 +11,7 @@ function SunscoreMark({ className }: { className?: string }) {
       viewBox="6 4.5 52 53.5"
       fill="none"
       stroke="currentColor"
-      strokeWidth="4"
+      strokeWidth="4.5"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
@@ -26,15 +26,30 @@ function SunscoreMark({ className }: { className?: string }) {
   );
 }
 
-/** The Sunscore mark and the name. Pass `href` to make it a link home. */
+/**
+ * "Sunscore" set in Manrope ExtraBold (SIL Open Font License) with -0.015em tracking, outlined to one path so
+ * the name looks the same on every device without loading a web font (DESIGN.md: system faces, no web font).
+ * The viewBox is the ink bounds in font units (2000/em, cap height 1440, y up is negative).
+ */
+function SunscoreLogotype({ className }: { className?: string }) {
+  return (
+    <svg viewBox="80 -1469 9019 1501" fill="currentColor" aria-hidden="true" className={className}>
+      <path d="M684 30Q524 30 396 -26Q267 -83 184 -188Q102 -294 80 -440L364 -482Q394 -358 488 -291Q582 -224 702 -224Q769 -224 832 -245Q895 -266 936 -307Q976 -348 976 -408Q976 -430 970 -450Q963 -471 948 -489Q933 -507 906 -523Q878 -539 836 -552L462 -662Q420 -674 364 -696Q309 -718 257 -759Q205 -800 170 -868Q136 -935 136 -1038Q136 -1183 209 -1279Q282 -1375 404 -1422Q526 -1469 674 -1468Q823 -1466 940 -1417Q1057 -1368 1136 -1274Q1215 -1181 1250 -1046L956 -996Q940 -1066 897 -1114Q854 -1162 794 -1187Q735 -1212 670 -1214Q606 -1216 550 -1196Q493 -1177 458 -1140Q422 -1103 422 -1052Q422 -1005 451 -976Q480 -946 524 -928Q568 -910 614 -898L864 -830Q920 -815 988 -790Q1056 -766 1118 -722Q1181 -679 1222 -608Q1262 -537 1262 -428Q1262 -312 1214 -226Q1165 -139 1083 -82Q1001 -26 898 2Q794 30 684 30ZM1854 32Q1727 32 1647 -11Q1567 -54 1522 -120Q1478 -186 1459 -258Q1440 -329 1436 -388Q1432 -447 1432 -474V-1080H1708V-570Q1708 -533 1712 -476Q1716 -418 1737 -360Q1758 -302 1806 -263Q1853 -224 1940 -224Q1975 -224 2015 -235Q2055 -246 2090 -278Q2125 -309 2148 -370Q2170 -432 2170 -532L2326 -458Q2326 -330 2274 -218Q2222 -106 2118 -37Q2013 32 1854 32ZM2204 0V-358H2170V-1080H2444V0ZM3430 0V-510Q3430 -547 3426 -604Q3422 -662 3401 -720Q3380 -778 3332 -817Q3285 -856 3198 -856Q3163 -856 3123 -845Q3083 -834 3048 -802Q3013 -771 2990 -710Q2968 -649 2968 -548L2812 -622Q2812 -750 2864 -862Q2916 -974 3020 -1043Q3125 -1112 3284 -1112Q3411 -1112 3491 -1069Q3571 -1026 3616 -960Q3660 -894 3679 -822Q3698 -751 3702 -692Q3706 -633 3706 -606V0ZM2692 0V-1080H2934V-722H2968V0ZM4358 30Q4154 30 4028 -62Q3903 -155 3876 -324L4154 -366Q4171 -290 4230 -247Q4288 -204 4378 -204Q4452 -204 4492 -232Q4532 -261 4532 -312Q4532 -344 4516 -364Q4500 -383 4444 -402Q4389 -421 4272 -452Q4140 -486 4061 -528Q3982 -570 3947 -628Q3912 -687 3912 -770Q3912 -874 3965 -950Q4018 -1027 4114 -1068Q4211 -1110 4342 -1110Q4469 -1110 4567 -1071Q4665 -1032 4726 -960Q4786 -888 4800 -790L4522 -740Q4515 -800 4470 -835Q4425 -870 4348 -876Q4273 -881 4228 -856Q4182 -831 4182 -784Q4182 -756 4202 -737Q4221 -718 4282 -698Q4344 -678 4470 -646Q4593 -614 4668 -572Q4742 -529 4776 -470Q4810 -410 4810 -326Q4810 -160 4690 -65Q4570 30 4358 30ZM5476 30Q5308 30 5188 -45Q5068 -120 5004 -249Q4940 -378 4940 -540Q4940 -704 5006 -833Q5073 -962 5194 -1036Q5315 -1110 5480 -1110Q5671 -1110 5800 -1014Q5930 -917 5966 -750L5694 -678Q5670 -762 5610 -809Q5551 -856 5476 -856Q5390 -856 5335 -814Q5280 -773 5254 -702Q5228 -630 5228 -540Q5228 -399 5290 -312Q5353 -224 5476 -224Q5568 -224 5616 -266Q5664 -308 5688 -386L5966 -328Q5920 -156 5792 -63Q5664 30 5476 30ZM6592 30Q6429 30 6306 -43Q6183 -116 6114 -244Q6046 -373 6046 -540Q6046 -709 6116 -838Q6186 -966 6309 -1038Q6432 -1110 6592 -1110Q6755 -1110 6878 -1037Q7002 -964 7071 -836Q7140 -707 7140 -540Q7140 -372 7070 -244Q7001 -115 6878 -42Q6754 30 6592 30ZM6592 -224Q6723 -224 6788 -312Q6852 -401 6852 -540Q6852 -684 6786 -770Q6721 -856 6592 -856Q6503 -856 6446 -816Q6389 -776 6362 -705Q6334 -634 6334 -540Q6334 -395 6400 -310Q6465 -224 6592 -224ZM7330 0V-1080H7570V-816L7544 -850Q7565 -906 7600 -952Q7635 -998 7686 -1028Q7725 -1052 7771 -1066Q7817 -1079 7866 -1082Q7915 -1086 7964 -1080V-826Q7919 -840 7860 -836Q7800 -831 7752 -808Q7704 -786 7671 -750Q7638 -713 7621 -664Q7604 -614 7604 -552V0ZM8606 30Q8440 30 8314 -42Q8187 -113 8116 -238Q8044 -364 8044 -526Q8044 -703 8114 -834Q8184 -965 8307 -1038Q8430 -1110 8590 -1110Q8760 -1110 8879 -1030Q8998 -950 9055 -805Q9112 -660 9095 -464H8826V-564Q8826 -729 8774 -802Q8721 -874 8602 -874Q8463 -874 8398 -790Q8332 -705 8332 -540Q8332 -389 8398 -306Q8463 -224 8590 -224Q8670 -224 8727 -259Q8784 -294 8814 -360L9086 -282Q9025 -134 8894 -52Q8762 30 8606 30ZM8248 -464V-666H8964V-464Z" />
+    </svg>
+  );
+}
+
+/** The Sunscore mark and logotype. Pass `href` to make it a link home. */
 export function Wordmark({ href }: { href?: string }) {
   const mark = (
     <>
-      <SunscoreMark className="size-8 shrink-0" />
-      Sunscore
+      <SunscoreMark className="size-[22px] shrink-0" />
+      {/* 15px tall puts the cap height at about 14px. */}
+      <SunscoreLogotype className="h-[15px] w-auto" />
+      <span className="sr-only">Sunscore</span>
     </>
   );
-  const className = 'inline-flex items-center gap-2 text-headline';
+  const className = 'inline-flex items-center gap-[7px] text-ink';
   return href ? (
     <Link
       href={href}
