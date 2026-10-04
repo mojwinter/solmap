@@ -126,6 +126,11 @@ function ReportPage({
               <ReportSkeleton />
             </Card>
           ),
+          controls: (
+            <Card>
+              <ReportSkeleton variant="slider" />
+            </Card>
+          ),
           analysis: (
             <Card>
               <ReportSkeleton variant="list" />
