@@ -81,7 +81,7 @@ export function UsageInputs({ inputs, onChange }: { inputs: FinanceInputs; onCha
             prefix="$"
             inputMode="decimal"
             value={bill}
-            placeholder="0"
+            placeholder="Amount on your bill"
             onChange={(v) => {
               setBill(v);
               apply({ bill: v });
