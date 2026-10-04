@@ -19,6 +19,14 @@ export function signedCad(n: number): string {
   return `${r > 0 ? '+' : MINUS}$${whole.format(Math.abs(r))}`;
 }
 
+/**
+ * The calendar year the system pays for itself: 2026 + 11.7 years → 2038. One rule for every place
+ * that names the year (PaybackHero, the cash-flow chart), so they can't disagree.
+ */
+export function breakEvenYear(startYear: number, paybackYears: number): number {
+  return startYear + Math.round(paybackYears);
+}
+
 /** 4762.6 → "4,763" (pair with a small "kWh" unit). */
 export function kwh(n: number): string {
   return whole.format(Math.round(n));
