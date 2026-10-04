@@ -1,5 +1,5 @@
 /**
- * Sky ground where the map goes, for the route-level loading and error screens (they don't know
+ * Sky ground in the house window, for the route-level loading and error screens (they don't know
  * the location yet). ReportView itself always shows the real <SolarMap>.
  */
 export function MapPlaceholder() {
