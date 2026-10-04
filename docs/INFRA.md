@@ -22,7 +22,7 @@ Shared VPS 2.24.120.101 (Hostinger, Ubuntu 24.04, ~8 GB RAM): also runs puckbank
 Cloudflare (proxied, Full Strict, Access) → puckbank's Caddy :443 ─┬─ puckbank.com …
                                                                    ├─ yardstick.football         → yardstick:3000
                                                                    ├─ sunscore.tech              → solmap:3000
-                                                                   └─ solmap.yardstick.football  → 308 to sunscore.tech
+                                                                   └─ solmap.yardstick.football  → 301 to sunscore.tech
                                       (all on the docker network `puckbank_puckbank`)
 ```
 
@@ -63,7 +63,7 @@ sunscore.tech {
 	reverse_proxy solmap:3000
 }
 
-# www → apex 308 redirect, matching www.puckbank.com.
+# www → apex 301 redirect, matching www.puckbank.com.
 www.sunscore.tech {
 	redir https://sunscore.tech{uri} permanent
 }
