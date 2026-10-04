@@ -1,13 +1,12 @@
 'use client'; // Reads the URL, so the title is the one the report will show
 
 import { useSearchParams } from 'next/navigation';
-import { Card } from '@/components/report/Card';
 import { HeaderSearchPlaceholder } from '@/components/report/HeaderSearch';
 import { HOUSE_WINDOW, HouseCard } from '@/components/report/HouseCard';
 import { MapPlaceholder } from '@/components/report/MapPlaceholder';
 import { ReportLayout } from '@/components/report/ReportLayout';
 import { ReportTitle } from '@/components/report/ReportTitle';
-import { ReportSkeleton } from '@/components/report/states/ReportSkeleton';
+import { loadingCards } from '@/components/report/states/loadingCards';
 import { parseReportQuery } from '@/components/report/urlState';
 
 /**
@@ -21,7 +20,8 @@ export default function Loading() {
   return (
     <ReportLayout
       search={<HeaderSearchPlaceholder />}
-      title={<ReportTitle address={address} loading />}
+      // As with the charts below: the title's buttons are assumed on, as on prod.
+      title={<ReportTitle address={address} loading actionsPending={{ settings: true, pdf: true }} />}
       house={
         <HouseCard>
           <div className={HOUSE_WINDOW}>
@@ -29,17 +29,10 @@ export default function Loading() {
           </div>
         </HouseCard>
       }
-      summary={
-        <Card>
-          <ReportSkeleton />
-        </Card>
-      }
-      controls={
-        <Card>
-          <ReportSkeleton variant="slider" />
-        </Card>
-      }
-      analysis={<ReportSkeleton variant="figures" />}
+      // Charts assumed on (they are on prod): this client screen can't read the server-side flags,
+      // and reading them here would make the screen wait for the server instead of showing at once.
+      {...loadingCards(true)}
+      fadeIn
     />
   );
 }
