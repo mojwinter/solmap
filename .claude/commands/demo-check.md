@@ -10,7 +10,9 @@ For each address in `fixtures/demo-addresses.json` (the `live` list for a real d
 1. `curl` `<base>/api/solar/building?lat=..&lng=..` and record status, `source` (live / cache / fixture), `imagery.quality`, `configs.length`, and response time.
    On demo day every `live` address should come back as `cache`; a `live` there means it wasn't warmed.
 2. Run the finance engine on the response with `DEFAULT_INPUTS` plus the address's `ratePlan` / `annualKwh`
-   via `pnpm tsx scripts/demo-check.ts <base>` (write that script if it doesn't exist yet; it belongs to B and only imports `lib/finance`).
+   via `pnpm demo:check -- <base>` (`scripts/demo-check.ts`, owned by B; it does steps 1–3 itself and only imports `lib/finance`).
+   It picks the `fixtures` list for localhost and `live` otherwise (`--list live|fixtures` overrides), skips `live` rows still at
+   `"TODO"`, and on the VPS add `--cache-dir <SOLAR_CACHE_DIR>` for the expiry check. Exit code 1 = something flagged.
    Print recommended panels, kW, payback, NPV, export share and verdict.
 3. Flag: non-200s (except the expected NO_COVERAGE one), specific yield outside 700–1,400 kWh/kW, verdicts that differ from
    `expectedVerdict`, responses over 3 s, and (if I'm on the VPS or B's machine) any disk-cache entry whose
