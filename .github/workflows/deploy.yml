@@ -1,5 +1,5 @@
 name: Deploy
-# Every push to main: CI → build the image → push to GHCR → SSH to the shared VPS → pull
+# Every push to main: CI + E2E smoke → build the image → push to GHCR → SSH to the shared VPS → pull
 # and restart the one `solmap` service on that commit's image. Same flow as yardstick's deploy.yml.
 # The SSH step is skipped until the repo variable DEPLOY_ENABLED is `true` (docs/INFRA.md).
 on:
@@ -28,8 +28,11 @@ jobs:
   ci:
     uses: ./.github/workflows/ci.yml
 
+  e2e:
+    uses: ./.github/workflows/e2e.yml
+
   build-and-push:
-    needs: ci
+    needs: [ci, e2e]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
