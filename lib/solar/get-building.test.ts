@@ -6,7 +6,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 vi.mock("server-only", () => ({}));
 
 import { GET } from "@/app/api/solar/building/route";
-import { DEFAULT_ERROR_MESSAGES, getBuilding } from "./get-building";
+import { DAILY_LIMIT_MESSAGE, DEFAULT_ERROR_MESSAGES, getBuilding, REASON_HEADER } from "./get-building";
 
 const json = (body: unknown, status: number, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json", ...headers } });
@@ -32,13 +32,31 @@ describe("getBuilding: status mapping", () => {
   });
 
   it.each([
-    [400, "BAD_REQUEST", { error: "BAD_REQUEST", message: "lat must be between 48.2 and 60 (inside BC)" }],
-    [404, "NO_COVERAGE", { error: "NO_COVERAGE", message: "That building is outside BC, and Solmap only covers BC." }],
+    [404, "NO_COVERAGE", { error: "NO_COVERAGE", message: "We can't see this roof yet: there's no solar data for this spot." }],
     [502, "UPSTREAM", { error: "UPSTREAM", message: "The solar data service didn't answer. Please try again in a minute." }],
-    [503, "UPSTREAM", { error: "UPSTREAM", message: "daily limit reached" }],
   ] as const)("%i → %s, keeping the server's message", async (status, error, body) => {
     mockFetch(async () => json(body, status));
     expect(await getBuilding(49.25, -123.15)).toEqual({ ok: false, error, message: body.message });
+  });
+
+  it("400 → BAD_REQUEST, marked outside BC", async () => {
+    const body = { error: "BAD_REQUEST", message: "lat must be between 48.2 and 60 (inside BC)" };
+    mockFetch(async () => json(body, 400));
+    expect(await getBuilding(49.25, -123.15)).toEqual({ ok: false, error: "BAD_REQUEST", message: body.message, reason: "outside-bc" });
+  });
+
+  it("404 with the outside-BC header → NO_COVERAGE, marked outside BC", async () => {
+    const body = { error: "NO_COVERAGE", message: "That building is outside BC, and Solmap only covers BC." };
+    mockFetch(async () => json(body, 404, { [REASON_HEADER]: "outside-bc" }));
+    expect(await getBuilding(49.25, -123.15)).toEqual({ ok: false, error: "NO_COVERAGE", message: body.message, reason: "outside-bc" });
+  });
+
+  it("503 from the route (daily budget spent) → UPSTREAM with the daily-limit message", async () => {
+    mockFetch(async () => json({ error: "UPSTREAM", message: "daily limit reached" }, 503));
+    expect(await getBuilding(49.25, -123.15)).toEqual({ ok: false, error: "UPSTREAM", message: DAILY_LIMIT_MESSAGE });
+    // A proxy's own 503 isn't the budget: plain "didn't answer".
+    mockFetch(async () => new Response("<html>Service Unavailable</html>", { status: 503 }));
+    expect(await getBuilding(49.25, -123.15)).toEqual({ ok: false, error: "UPSTREAM", message: DEFAULT_ERROR_MESSAGES.UPSTREAM });
   });
 
   it("429 → RATE_LIMITED with a default message (the route sends none)", async () => {
@@ -130,6 +148,6 @@ describe("getBuilding against the real route (SOLAR_SOURCE=fixtures)", () => {
 
   it("outside BC → BAD_REQUEST", async () => {
     viaRoute();
-    expect(await getBuilding(45, -75)).toMatchObject({ ok: false, error: "BAD_REQUEST" });
+    expect(await getBuilding(45, -75)).toMatchObject({ ok: false, error: "BAD_REQUEST", reason: "outside-bc" });
   });
 });

@@ -1,9 +1,10 @@
 // Smoke test of the report pages on the production build (SOLAR_SOURCE=fixtures, no keys).
 // Catches "main no longer renders" once map, finance and UI changes combine. Keep it few and fast:
 // select by role and text, never CSS, and don't assert on the map (no Maps key in CI).
-import { expect, test as base } from '@playwright/test';
+import { expect, test as base, type Page } from '@playwright/test';
 import demo from '@/fixtures/demo-addresses.json';
 import { VERDICT } from '@/components/report/copy';
+import { DAILY_LIMIT_MESSAGE, DEFAULT_ERROR_MESSAGES } from '@/lib/solar/get-building';
 import type { Verdict } from '@/src/types/app';
 
 /** Every test fails if its page throws an uncaught error. */
@@ -58,6 +59,48 @@ test('a roof too small for panels says not recommended', async ({ page }) => {
   const verdict = page.getByRole('region', { name: 'Is solar worth it here?' });
   await expect(verdict).toBeVisible();
   await expect(verdict).toContainText(VERDICT[tiny.expectedVerdict as Verdict].label);
+});
+
+/** ApiErrorState (Next's route announcer is also an alert). */
+const errorState = (page: Page) =>
+  page.getByRole('alert').filter({ has: page.getByRole('heading', { name: /couldn.t load this roof/i }) });
+
+test('a point outside BC says the tool covers BC only', async ({ page }) => {
+  await page.goto('/report/45/-75');
+  await expect(page.getByRole('heading', { name: 'This tool covers BC only' })).toBeVisible();
+});
+
+test('rate limited (429): the error state retries into the report', async ({ page }) => {
+  // The roof is fetched in the browser, so the first lookup can be answered with a 429 here.
+  let calls = 0;
+  await page.route('**/api/solar/building?*', (route) =>
+    ++calls === 1
+      ? route.fulfill({ status: 429, json: { error: 'RATE_LIMITED' }, headers: { 'Retry-After': '1' } })
+      : route.continue(),
+  );
+  await page.goto('/report/49.25/-123.15');
+
+  const alert = errorState(page);
+  await expect(alert).toContainText(DEFAULT_ERROR_MESSAGES.RATE_LIMITED);
+  await alert.getByRole('button', { name: 'Try again' }).click();
+  await expect(page.getByRole('region', { name: /pays for itself in|payback/i })).toBeVisible();
+});
+
+test("daily Google budget spent (503) gets its own copy", async ({ page }) => {
+  await page.route('**/api/solar/building?*', (route) =>
+    route.fulfill({ status: 503, json: { error: 'UPSTREAM', message: 'daily limit reached' } }),
+  );
+  await page.goto('/report/49.25/-123.15');
+  await expect(errorState(page)).toContainText(DAILY_LIMIT_MESSAGE);
+});
+
+test('P1 flags are all off in production when SOLMAP_FLAGS is unset', async ({ page }) => {
+  test.skip(!!process.env.BASE_URL, 'only the server this config starts is known to run without SOLMAP_FLAGS');
+  await page.goto('/report/49.25/-123.15');
+  // data-flags lists the P1 flags the page was rendered with (components/report/ReportView.tsx).
+  const report = page.locator('[data-flags]');
+  await expect(report).toBeVisible();
+  await expect(report).toHaveAttribute('data-flags', '');
 });
 
 test('health check answers ok', async ({ request }) => {

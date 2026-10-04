@@ -7,6 +7,7 @@ vi.mock("server-only", () => ({}));
 
 import { GET } from "@/app/api/solar/building/route";
 import { entryFileName } from "@/lib/solar/cache";
+import { REASON_HEADER } from "@/lib/solar/get-building";
 
 const cacheDir = mkdtempSync(path.join(tmpdir(), "solar-route-"));
 const env = { ...process.env };
@@ -150,5 +151,39 @@ describe("GET /api/solar/building rate limit (SOLAR_SOURCE=cache, #58)", () => {
     expect(Number(res.headers.get("retry-after"))).toBeGreaterThan(0);
     expect((await uncached(7, "203.0.113.21")).status).toBe(502); // another IP has its own bucket
     expect((await get(`lat=${ROOF.lat}&lng=${ROOF.lng}`, IP)).status).toBe(200); // the cached roof still loads
+  });
+});
+
+describe("GET /api/solar/building for a building outside BC (SOLAR_SOURCE=cache)", () => {
+  const ROOF = { lat: 48.99, lng: -122.75 }; // inside BC's box, but Google places the building in WA
+
+  beforeAll(() => {
+    resetSingletons();
+    process.env.SOLAR_SOURCE = "cache";
+    delete process.env.SOLAR_API_KEY;
+    const body = JSON.parse(readFileSync(path.join(process.cwd(), "fixtures/synthetic/south-gable.json"), "utf8"));
+    const [dLat, dLng] = [ROOF.lat - body.center.latitude, ROOF.lng - body.center.longitude];
+    Object.assign(body, { name: "buildings/TEST-wa", regionCode: "US", administrativeArea: "WA" });
+    body.center = { latitude: ROOF.lat, longitude: ROOF.lng };
+    for (const c of [body.boundingBox.sw, body.boundingBox.ne]) [c.latitude, c.longitude] = [c.latitude + dLat, c.longitude + dLng];
+    const request = { ...ROOF, requiredQuality: "LOW" as const, experiments: [] };
+    const fetchedAt = new Date().toISOString();
+    mkdirSync(path.join(cacheDir, "building"), { recursive: true });
+    writeFileSync(path.join(cacheDir, "building", entryFileName(Date.parse(fetchedAt), request)), JSON.stringify({ fetchedAt, request, status: 200, body }));
+  });
+
+  it("404 NO_COVERAGE with the outside-BC reason header, so the report can say 'BC only'", async () => {
+    const res = await get(`lat=${ROOF.lat}&lng=${ROOF.lng}`);
+    expect(res.status).toBe(404);
+    expect(res.headers.get(REASON_HEADER)).toBe("outside-bc");
+    expect(await res.json()).toMatchObject({ error: "NO_COVERAGE" });
+  });
+
+  it("a plain no-coverage 404 has no reason header", async () => {
+    process.env.SOLAR_SOURCE = "fixtures";
+    resetSingletons();
+    const res = await get("lat=53.9171&lng=-122.7497");
+    expect(res.status).toBe(404);
+    expect(res.headers.get(REASON_HEADER)).toBeNull();
   });
 });

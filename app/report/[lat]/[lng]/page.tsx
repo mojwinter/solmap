@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { ReportView } from '@/components/report/ReportView';
+import { getFlags } from '@/lib/flags.server';
 
 function parseCoord(raw: string, limit: number): number | null {
   const n = Number(raw);
@@ -18,6 +19,8 @@ export default async function ReportPage({ params, searchParams }: PageProps<'/r
 
   const { address } = await searchParams;
   const label = typeof address === 'string' && address.trim() ? address.trim().slice(0, 120) : undefined;
+  // P1 features render only when their flag is on (docs/INFRA.md → Feature flags; all off on prod by default).
+  const flags = await getFlags();
 
-  return <ReportView lat={lat} lng={lng} address={label} />;
+  return <ReportView lat={lat} lng={lng} address={label} flags={flags} />;
 }

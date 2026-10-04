@@ -8,6 +8,9 @@
  *
  * Status → error: 400 BAD_REQUEST, 404 NO_COVERAGE, 429 RATE_LIMITED, 502/503 and anything else
  * (incl. a 403 from the Cloudflare Access check, a bad body, a network failure) UPSTREAM.
+ * `reason: "outside-bc"` marks both ways a spot can be outside BC: a point outside BC's box (400) and a
+ * building Google places outside BC (404 with the route's `X-Solmap-Reason` header). The route's 503
+ * (today's Google budget is spent) gets its own message, since retrying won't help until tomorrow.
  * Aborting through `signal` rejects with the AbortError, as fetch does, so a cancelled lookup
  * never shows up as an error state.
  */
@@ -15,7 +18,10 @@ import type { ApiErrorCode, BuildingResponse } from "@/src/types/app";
 
 export type GetBuildingResult =
   | { ok: true; building: BuildingResponse }
-  | { ok: false; error: ApiErrorCode; message?: string };
+  | { ok: false; error: ApiErrorCode; message?: string; reason?: "outside-bc" };
+
+/** Response header the building route sets on a 404 for a building outside BC. */
+export const REASON_HEADER = "X-Solmap-Reason";
 
 /** Shown when the server didn't send a message of its own. */
 export const DEFAULT_ERROR_MESSAGES: Record<ApiErrorCode, string> = {
@@ -25,13 +31,18 @@ export const DEFAULT_ERROR_MESSAGES: Record<ApiErrorCode, string> = {
   UPSTREAM: "The solar data service didn't answer. Please try again in a minute.",
 };
 
+/** The route's 503: the daily Google budget is spent (docs/INFRA.md → Cost safety). */
+export const DAILY_LIMIT_MESSAGE =
+  "We've hit today's limit for new roof lookups. Please try again tomorrow.";
+
 const errorForStatus = (status: number): ApiErrorCode =>
   status === 400 ? "BAD_REQUEST" : status === 404 ? "NO_COVERAGE" : status === 429 ? "RATE_LIMITED" : "UPSTREAM";
 
-const fail = (error: ApiErrorCode, message?: string): GetBuildingResult => ({
+const fail = (error: ApiErrorCode, message?: string, reason?: "outside-bc"): GetBuildingResult => ({
   ok: false,
   error,
   message: message || DEFAULT_ERROR_MESSAGES[error],
+  ...(reason && { reason }),
 });
 
 const isAbort = (e: unknown) => e instanceof Error && e.name === "AbortError";
@@ -64,8 +75,11 @@ export async function getBuilding(lat: number, lng: number, opts: { signal?: Abo
     return fail("UPSTREAM");
   }
 
-  const message = body && typeof body === "object" && typeof (body as { message?: unknown }).message === "string"
-    ? (body as { message: string }).message
-    : undefined;
-  return fail(errorForStatus(res.status), message);
+  const json = body && typeof body === "object" ? (body as { error?: unknown; message?: unknown }) : undefined;
+  // A 503 from a proxy in front of us has no JSON body: that's the plain "didn't answer" case.
+  if (res.status === 503 && json?.error === "UPSTREAM") return fail("UPSTREAM", DAILY_LIMIT_MESSAGE);
+  const message = typeof json?.message === "string" ? json.message : undefined;
+  const error = errorForStatus(res.status);
+  const outsideBc = error === "BAD_REQUEST" || (error === "NO_COVERAGE" && res.headers.get(REASON_HEADER) === "outside-bc");
+  return fail(error, message, outsideBc ? "outside-bc" : undefined);
 }
