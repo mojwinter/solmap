@@ -12,9 +12,8 @@ function mass(kg: number): { value: string; unit: string } {
 }
 
 /**
- * CO₂ the grid power the panels replace would have emitted, a year and over their life, with the
- * honest caveat (CLAUDE.md rule 6): BC's grid is mostly hydro, so solar here avoids far less than it
- * would on a fossil grid, and BC Hydro itself says it doesn't necessarily cut your footprint.
+ * CO₂ the grid power the panels replace would have emitted, a year and over their life. CLAUDE.md
+ * rule 6 asks for a BC-grid caveat with these figures; one is coming in a follow-up.
  */
 export function ImpactCard({ scenario }: { scenario: ScenarioResult }) {
   const perKwh = GRID_EMISSIONS.kgCo2ePerKwh;
@@ -51,7 +50,6 @@ export function ImpactCard({ scenario }: { scenario: ScenarioResult }) {
             </div>
           </dl>
         )}
-        <p className="text-callout text-pretty text-ink-secondary">BC’s grid is mostly hydro, so the climate benefit is small.</p>
       </section>
     </Card>
   );
