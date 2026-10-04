@@ -65,7 +65,6 @@ export function ReportView({ lat, lng, address, query = {}, flags }: Place & { q
   const building = useBuilding(place.lat, place.lng);
   const roof = building.status === 'ready' ? building.data : null;
   const report = useReportState(roof, query);
-  const resolved = useAddress(place.lat, place.lng, place.address, roof?.buildingId);
 
   // One writer for the URL: place + the report's shareable state, replaced in place (no history entries).
   const href = reportPath(place, { panels: report.panelsInUrl, kwh: report.inputs.annualConsumptionKwh, plan: report.inputs.ratePlan });
@@ -94,23 +93,27 @@ export function ReportView({ lat, lng, address, query = {}, flags }: Place & { q
         }
         search={<AddressSearch onSelect={(p) => lookUp({ lat: p.lat, lng: p.lng, address: p.address || undefined })} />}
       >
-        <Panel building={building} report={report} address={resolved ?? `${place.lat}, ${place.lng}`} flags={flags} />
+        <Panel place={place} building={building} report={report} flags={flags} />
       </ReportLayout>
     </MapsProvider>
   );
 }
 
 function Panel({
+  place,
   building,
   report,
-  address,
   flags,
 }: {
+  place: Place;
   building: BuildingState & { retry: () => void };
   report: ReturnType<typeof useReportState>;
-  address: string;
   flags: Flags;
 }) {
+  // Inside <MapsProvider>, so the lookup can load the Places library.
+  const resolved = useAddress(place.lat, place.lng, place.address, building.status === 'ready' ? building.data.buildingId : undefined);
+  const address = resolved ?? `${place.lat}, ${place.lng}`;
+
   switch (building.status) {
     case 'loading':
       return <ReportSkeleton />;
