@@ -4,6 +4,7 @@
 import { expect, test as base } from '@playwright/test';
 import demo from '@/fixtures/demo-addresses.json';
 import { VERDICT } from '@/components/report/copy';
+import { DEFAULT_INPUTS } from '@/src/config/bc';
 import type { Verdict } from '@/src/types/app';
 
 /** Every test fails if its page throws an uncaught error. */
@@ -32,14 +33,46 @@ test('home page loads', async ({ page }) => {
   await page.waitForLoadState('load');
 });
 
-test('hero roof shows its expected verdict and the source line', async ({ page }) => {
+// The page has no usage inputs yet (#19), so it runs on DEFAULT_INPUTS: only demo rows with those
+// inputs can be checked here. lib/finance/__tests__/demo-verdicts.test.ts covers every row's verdict.
+const roofsWithMoney = demo.fixtures.filter(
+  (f) =>
+    !['NO_COVERAGE', 'not_recommended'].includes(f.expectedVerdict) &&
+    f.ratePlan === DEFAULT_INPUTS.ratePlan &&
+    f.annualKwh === DEFAULT_INPUTS.annualConsumptionKwh,
+);
+
+for (const roof of roofsWithMoney) {
+  test(`${roof.label} shows its expected verdict and the source line`, async ({ page }) => {
+    await page.goto(`/report/${roof.lat}/${roof.lng}`);
+
+    const payback = page.getByRole('region', { name: /pays for itself in|payback/i });
+    await expect(payback).toBeVisible();
+    await expect(payback).toContainText(VERDICT[roof.expectedVerdict as Verdict].label);
+    await expect(page.getByText(SYNTHETIC_SOURCE)).toBeVisible();
+  });
+}
+
+test('moving the size slider re-runs the numbers, and "Use it" goes back', async ({ page }) => {
   const hero = fixture(49.25, -123.15);
   await page.goto(`/report/${hero.lat}/${hero.lng}`);
 
   const payback = page.getByRole('region', { name: /pays for itself in|payback/i });
-  await expect(payback).toBeVisible();
-  await expect(payback).toContainText(VERDICT[hero.expectedVerdict as Verdict].label);
-  await expect(page.getByText(SYNTHETIC_SOURCE)).toBeVisible();
+  const slider = page.getByRole('slider', { name: 'System size' });
+  await expect(page.getByText('Recommended size')).toBeVisible();
+  const recommendedSize = await slider.getAttribute('aria-valuetext');
+  const recommendedPayback = await payback.textContent();
+
+  // Step whichever way is open, so this survives the recommendation moving to either end.
+  const more = page.getByRole('button', { name: 'More panels' });
+  await (await more.isEnabled() ? more : page.getByRole('button', { name: 'Fewer panels' })).click();
+  await expect(slider).not.toHaveAttribute('aria-valuetext', recommendedSize!);
+  await expect(page.getByText(`We recommend ${recommendedSize}`)).toBeVisible();
+  await expect(payback).not.toHaveText(recommendedPayback!);
+
+  await page.getByRole('button', { name: 'Use it' }).click();
+  await expect(slider).toHaveAttribute('aria-valuetext', recommendedSize!);
+  await expect(payback).toHaveText(recommendedPayback!);
 });
 
 test('a point with no roof data shows the no-coverage state', async ({ page }) => {
