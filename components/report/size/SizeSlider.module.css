@@ -19,18 +19,6 @@
   border-radius: 999px;
   background: linear-gradient(to right, var(--sky-600) var(--pct), var(--sky-200) var(--pct));
 }
-/* The recommended size: a 2px notch in the track (the thumb covers it when it sits there). */
-.marked::-webkit-slider-runnable-track {
-  background:
-    linear-gradient(
-      to right,
-      transparent calc(var(--rec) - 1px),
-      var(--notch) calc(var(--rec) - 1px),
-      var(--notch) calc(var(--rec) + 1px),
-      transparent calc(var(--rec) + 1px)
-    ),
-    linear-gradient(to right, var(--sky-600) var(--pct), var(--sky-200) var(--pct));
-}
 .range::-moz-range-track {
   height: 6px;
   border-radius: 999px;
