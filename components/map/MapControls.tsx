@@ -12,7 +12,8 @@ const LEGEND_LABEL = "Panel colours: darker panels make more energy";
  * Bottom-left map controls: icon-only Satellite / Sun exposure toggle and Recentre (names live in
  * tooltips and aria-labels), plus the panel-shade legend while panels are drawn: just the colours,
  * the ramp panelColors() paints (light = less energy, dark = more).
- * - Desktop: a slim vertical strip hugging the left edge of the results card, in its lower part.
+ * - Desktop: a vertical strip hugging the left edge of the results card, its bottom level with the
+ *   card's bottom (both inset 24px).
  *   The offset follows ReportLayout's card (right-6 + w-[440px]) plus a 12px gap; keep them in step.
  * - Phones: a short horizontal strip at the right edge of the map, level with the controls.
  * Both sit inside the space the roof fit already keeps clear (the card / the controls row).
@@ -43,7 +44,7 @@ export function MapControls() {
             },
           ]}
         />
-        <button type="button" onClick={recentre} aria-label="Recentre" title="Recentre" className={`${PILL} glass-thin size-10 justify-center`}>
+        <button type="button" onClick={recentre} aria-label="Recentre" title="Recentre" className={`${PILL} glass-thin size-10`}>
           <Icon name="locate" size={18} />
         </button>
       </div>
@@ -53,15 +54,15 @@ export function MapControls() {
             role="img"
             aria-label={LEGEND_LABEL}
             title="Darker panels make more energy"
-            className="absolute right-[476px] bottom-14 hidden h-36 w-2.5 rounded-pill shadow-control ring-1 ring-white/70 md:block"
+            className="absolute right-[476px] bottom-6 hidden h-60 w-3 rounded-pill shadow-control ring-1 ring-white/70 md:block"
             style={{ backgroundImage: panelGradient("to top") }}
           />
           <span
             role="img"
             aria-label={LEGEND_LABEL}
             title="Darker panels make more energy"
-            // Level with the 40px controls row (bottom-9): 36 + (40 − 10) / 2 = 51px.
-            className="absolute right-4 bottom-[51px] h-2.5 w-14 rounded-pill shadow-control ring-1 ring-white/70 md:hidden"
+            // Level with the 40px controls row (bottom-9): 36 + (40 − 12) / 2 = 50px.
+            className="absolute right-4 bottom-[50px] h-3 w-20 rounded-pill shadow-control ring-1 ring-white/70 md:hidden"
             style={{ backgroundImage: panelGradient("to right") }}
           />
         </>
@@ -70,8 +71,10 @@ export function MapControls() {
   );
 }
 
+// Round icon buttons. No height here: each button sets its own size (a fixed h-10 used to win over
+// the segments' size-8, stretching the selected blue into a clipped oval).
 const PILL =
-  "inline-flex h-10 items-center rounded-pill text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring motion-safe:transition-transform motion-safe:duration-150 motion-safe:active:scale-[.97]";
+  "inline-flex shrink-0 items-center justify-center rounded-pill text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring motion-safe:transition-transform motion-safe:duration-150 motion-safe:active:scale-[.97]";
 
 interface Option<T extends string> {
   value: T;
@@ -115,7 +118,7 @@ export function SegmentedControl<T extends string>({
             disabled={o.disabled}
             title={o.disabled ? (o.hint ?? "Not available") : o.label}
             onClick={() => onChange(o.value)}
-            className={`${PILL} size-8 justify-center disabled:cursor-not-allowed disabled:text-ink-tertiary ${
+            className={`${PILL} size-8 disabled:cursor-not-allowed disabled:text-ink-tertiary ${
               selected ? "bg-sky-600 text-on-sky-600 shadow-control" : ""
             }`}
           >
