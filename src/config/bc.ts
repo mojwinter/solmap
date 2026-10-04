@@ -54,11 +54,13 @@ export const REBATES = {
     maxFractionOfCost: 0.5,
     maxResidential: 5000,
   },
+  /** T&C §8: $500/kWh, capped at the lesser of 50% of cost and the cap. §4(ii)(i): at least 5 kWh. */
   battery: {
     perKwh: 500,
     maxFractionOfCost: 0.5,
     maxResidential: 1500,
     maxResidentialPeakSaver: 5000,
+    minKwh: 5,
   },
   conditions: [
     'BC Hydro (or City of New Westminster) residential account; FortisBC customers not eligible',
@@ -67,6 +69,8 @@ export const REBATES = {
     'Installed by a Home Performance Contractor Network (HPCN) member (since 2026-06-01)',
     'Tesla products not eligible',
     'Battery rebate requires pairing with solar, unless enrolled in Peak Saver',
+    'Battery must be on the Qualified Product List and at least 5 kWh',
+    'Peak Saver ($5,000 battery cap) requires enrolling the battery within 14 days of the in-service date',
     'First come, first served while funding lasts',
   ],
   source:
@@ -107,6 +111,30 @@ export const DEFAULT_INPUTS: FinanceInputs = {
   discountRate: 1.04, // Google non-US method default
   rebateEligible: true,
 };
+
+/**
+ * Peak Saver rewards for an enrolled home battery (Peak Saver T&C §9, updated 2026-10-01, checked 2026-10-03).
+ * One Program Period a year (Nov 1 – Mar 31). Batteries can't opt out of control events (T&C §8(c)).
+ * Paid as bill credits. Projecting the seasonal reward over the whole lifetime is an ASSUMPTION
+ * (the program and the battery both have to last that long).
+ */
+export const PEAK_SAVER = {
+  batteryEnrollmentIncentive: 500, // one-time
+  batterySeasonalReward: 250, // per Program Period (winter), i.e. per year
+  source: 'https://www.bchydro.com/powersmart/residential/rebates-programs/peak-saver/enroll-smart-home-devices.html',
+  terms:
+    'https://www.bchydro.com/content/dam/BCHydro/customer-portal/documents/power-smart/residential/programs/tc-peak-saver-connected-program.pdf',
+} as const;
+
+/**
+ * Battery self-use model (FINANCIAL_MODEL.md → Self-use → Battery). ASSUMPTION, not BC Hydro numbers:
+ * the battery raises the self-use cap K by min(roundTrip × kWh × cyclesPerYear, maxShareOfUse × consumption).
+ */
+export const BATTERY_MODEL = {
+  roundTripEfficiency: 0.9,
+  cyclesPerYear: 250,
+  maxShareOfUse: 0.3,
+} as const;
 
 /** Allowed ranges for user-editable inputs. The engine clamps to these and adds a CLAMPED_INPUT warning. */
 export const INPUT_RANGES = {

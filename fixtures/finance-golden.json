@@ -1,5 +1,5 @@
 {
-  "note": "Golden cases for lib/finance, generated 2026-10-03 from the reference formulas in docs/FINANCIAL_MODEL.md (self-use curve model). Numbers must match within `tolerance` (relative; absolute 0.01 when expected is 0). recommendedIndex, panelsCount, verdict and null paybacks must match exactly. Never edit an expected value to make a test pass: if the model changes, regenerate the whole file and explain why in the PR.",
+  "note": "Golden cases for lib/finance, generated 2026-10-03 from the reference formulas in docs/FINANCIAL_MODEL.md (self-use curve model). Numbers must match within `tolerance` (relative; absolute 0.01 when expected is 0). recommendedIndex, panelsCount, verdict and null paybacks must match exactly. Never edit an expected value to make a test pass: if the model changes, regenerate the whole file and explain why in the PR. The `battery` section (P1, added 2026-10-03) was generated the same way from FINANCIAL_MODEL.md → Self-use → Battery, with BC Hydro rebate and Peak Saver amounts from src/config/bc.ts; it is separate from `scenarios` because `battery` has no default input.",
   "tolerance": 0.005,
   "defaults": {
     "annualConsumptionKwh": 10000,
@@ -569,6 +569,184 @@
         "npv": 722.67,
         "paybackYears": 14.24,
         "verdict": "weak"
+      }
+    }
+  ],
+  "battery": [
+    {
+      "name": "flat_4kw_battery_10kwh",
+      "why": "Battery (ASSUMPTION model): 10 kWh adds 2,250 kWh/yr to the self-use cap; battery rebate capped at $1,500 without Peak Saver",
+      "apiPanelWatts": 400,
+      "config": {
+        "panelsCount": 10,
+        "yearlyEnergyDcKwh": 4600
+      },
+      "inputs": {
+        "ratePlan": "flat",
+        "battery": {
+          "kWh": 10,
+          "costPerKwh": 1000,
+          "peakSaver": false
+        }
+      },
+      "expected": {
+        "systemKwDc": 4.0,
+        "acKwhYear1": 3910.0,
+        "installCost": 20000.0,
+        "rebate": 5500.0,
+        "netCost": 14500.0,
+        "billWithoutSolarYear1": 1361.25,
+        "year1": {
+          "selfUsedKwh": 2836.95,
+          "exportedKwh": 1073.05,
+          "selfUsedValue": 360.29,
+          "exportValue": 107.3,
+          "total": 467.6
+        },
+        "paybackYears": 24.43,
+        "lifetimeNetSavings": 435.12,
+        "npv": -5182.53
+      }
+    },
+    {
+      "name": "flat_4kw_battery_10kwh_peak_saver",
+      "why": "Same battery in Peak Saver: battery rebate $5,000 + $500 enrollment incentive (in rebate) + $250/yr winter reward",
+      "apiPanelWatts": 400,
+      "config": {
+        "panelsCount": 10,
+        "yearlyEnergyDcKwh": 4600
+      },
+      "inputs": {
+        "ratePlan": "flat",
+        "battery": {
+          "kWh": 10,
+          "costPerKwh": 1000,
+          "peakSaver": true
+        }
+      },
+      "expected": {
+        "systemKwDc": 4.0,
+        "acKwhYear1": 3910.0,
+        "installCost": 20000.0,
+        "rebate": 9500.0,
+        "netCost": 10500.0,
+        "billWithoutSolarYear1": 1361.25,
+        "year1": {
+          "selfUsedKwh": 2836.95,
+          "exportedKwh": 1073.05,
+          "selfUsedValue": 360.29,
+          "exportValue": 107.3,
+          "total": 717.6
+        },
+        "paybackYears": 13.5,
+        "lifetimeNetSavings": 10685.12,
+        "npv": 2879.21
+      }
+    },
+    {
+      "name": "flat_8kw_battery_20kwh_shift_capped",
+      "why": "20 kWh would shift 4,500 kWh/yr, but the battery's shift is capped at 30% of consumption (3,000)",
+      "apiPanelWatts": 400,
+      "config": {
+        "panelsCount": 20,
+        "yearlyEnergyDcKwh": 9000
+      },
+      "inputs": {
+        "ratePlan": "flat",
+        "battery": {
+          "kWh": 20,
+          "costPerKwh": 900,
+          "peakSaver": true
+        }
+      },
+      "expected": {
+        "systemKwDc": 8.0,
+        "acKwhYear1": 7650.0,
+        "installCost": 38000.0,
+        "rebate": 10500,
+        "netCost": 27500.0,
+        "billWithoutSolarYear1": 1361.25,
+        "year1": {
+          "selfUsedKwh": 4496.53,
+          "exportedKwh": 3153.47,
+          "selfUsedValue": 571.06,
+          "exportValue": 315.35,
+          "total": 1136.41
+        },
+        "paybackYears": 21.17,
+        "lifetimeNetSavings": 5961.43,
+        "npv": -6364.69
+      }
+    },
+    {
+      "name": "flat_4kw_battery_4kwh_below_min",
+      "why": "4 kWh is under BC Hydro's 5 kWh minimum: still shifts energy, but no battery rebate",
+      "apiPanelWatts": 400,
+      "config": {
+        "panelsCount": 10,
+        "yearlyEnergyDcKwh": 4600
+      },
+      "inputs": {
+        "ratePlan": "flat",
+        "battery": {
+          "kWh": 4,
+          "costPerKwh": 1000,
+          "peakSaver": false
+        }
+      },
+      "expected": {
+        "systemKwDc": 4.0,
+        "acKwhYear1": 3910.0,
+        "installCost": 14000.0,
+        "rebate": 4000.0,
+        "netCost": 10000.0,
+        "billWithoutSolarYear1": 1361.25,
+        "year1": {
+          "selfUsedKwh": 2590.65,
+          "exportedKwh": 1319.35,
+          "selfUsedValue": 329.01,
+          "exportValue": 131.94,
+          "total": 460.95
+        },
+        "paybackYears": 18.49,
+        "lifetimeNetSavings": 4468.09,
+        "npv": -951.44
+      }
+    },
+    {
+      "name": "flat_4kw_battery_no_rebate",
+      "why": "rebateEligible=false zeroes the battery rebate too; Peak Saver rewards still apply",
+      "apiPanelWatts": 400,
+      "config": {
+        "panelsCount": 10,
+        "yearlyEnergyDcKwh": 4600
+      },
+      "inputs": {
+        "ratePlan": "flat",
+        "battery": {
+          "kWh": 10,
+          "costPerKwh": 1000,
+          "peakSaver": true
+        },
+        "rebateEligible": false
+      },
+      "expected": {
+        "systemKwDc": 4.0,
+        "acKwhYear1": 3910.0,
+        "installCost": 20000.0,
+        "rebate": 500,
+        "netCost": 19500.0,
+        "billWithoutSolarYear1": 1361.25,
+        "year1": {
+          "selfUsedKwh": 2836.95,
+          "exportedKwh": 1073.05,
+          "selfUsedValue": 360.29,
+          "exportValue": 107.3,
+          "total": 717.6
+        },
+        "paybackYears": 23.32,
+        "lifetimeNetSavings": 1685.12,
+        "npv": -6120.79
       }
     }
   ]
