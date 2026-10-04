@@ -1,14 +1,14 @@
-import { INSTALL, REBATES } from '@/src/config/bc';
+import { BATTERY_MODEL, INSTALL, PEAK_SAVER, REBATES } from '@/src/config/bc';
 import type { ConfigLite, FinanceInputs, ScenarioResult, ScenarioWarning, YearRow } from '@/src/types/app';
 import { monthlyBill } from './bill';
 import { clampInputs } from './clamp';
 
 /**
- * Self-use curve: K × (1 − e^(−prod/K)), K = daytimeLoadShare × consumption.
+ * Self-use curve: K × (1 − e^(−prod/K)), K = daytimeLoadShare × consumption (+ a battery's shift).
  * Small systems are almost all self-used; big ones saturate at K and export the rest.
  */
-export function selfUsed(productionKwh: number, consumptionKwh: number, daytimeLoadShare: number): number {
-  const K = daytimeLoadShare * consumptionKwh;
+export function selfUsed(productionKwh: number, consumptionKwh: number, daytimeLoadShare: number, batteryShiftKwh = 0): number {
+  const K = daytimeLoadShare * consumptionKwh + batteryShiftKwh;
   if (K <= 0) return 0;
   return K * (1 - Math.exp(-productionKwh / K));
 }
@@ -18,6 +18,20 @@ export function solarRebate(systemKwDc: number, installCost: number, eligible: b
   if (!eligible) return 0;
   const r = REBATES.solar;
   return Math.max(0, Math.min(r.perKwDc * systemKwDc, r.maxFractionOfCost * installCost, r.maxResidential));
+}
+
+/** kWh a year a battery moves from export to self-use: the extra self-use cap (ASSUMPTION, BATTERY_MODEL). */
+export function batteryShift(batteryKwh: number, consumptionKwh: number): number {
+  const m = BATTERY_MODEL;
+  return Math.min(m.roundTripEfficiency * batteryKwh * m.cyclesPerYear, m.maxShareOfUse * consumptionKwh);
+}
+
+/** BC Hydro residential battery rebate (T&C §8): the lesser of $/kWh, 50% of cost and the cap; none under the minimum size. */
+export function batteryRebate(batteryKwh: number, batteryCost: number, peakSaver: boolean, eligible: boolean): number {
+  const r = REBATES.battery;
+  if (!eligible || batteryKwh < r.minKwh) return 0;
+  const cap = peakSaver ? r.maxResidentialPeakSaver : r.maxResidential;
+  return Math.max(0, Math.min(r.perKwh * batteryKwh, r.maxFractionOfCost * batteryCost, cap));
 }
 
 /** System size (kW DC) where the rebate hits its cap: below $2/W the 50%-of-cost limit sets the per-kW rate. */
@@ -41,8 +55,23 @@ export function evaluate(
   const scale = inputs.panelWatts / apiPanelWatts;
   const systemKwDc = (config.panelsCount * inputs.panelWatts) / 1000;
   const acKwhYear1 = config.yearlyEnergyDcKwh * scale * inputs.dcToAcDerate;
-  const installCost = systemKwDc * 1000 * inputs.costPerWatt;
-  const rebate = solarRebate(systemKwDc, installCost, inputs.rebateEligible);
+  const solarCost = systemKwDc * 1000 * inputs.costPerWatt;
+
+  // Battery only when the caller passes one; it's folded into installCost and rebate.
+  const battery = inputs.battery;
+  const batteryKwh = battery && Number.isFinite(battery.kWh) ? Math.max(0, battery.kWh) : 0;
+  const batteryCost = battery && Number.isFinite(battery.costPerKwh) ? batteryKwh * Math.max(0, battery.costPerKwh) : 0;
+  const shift = batteryShift(batteryKwh, C);
+  // Peak Saver: the one-time enrollment incentive counts as upfront money (in `rebate`), the winter reward as yearly savings.
+  const peakSaver = batteryKwh > 0 && (battery?.peakSaver ?? false);
+  const enrollmentIncentive = peakSaver ? PEAK_SAVER.batteryEnrollmentIncentive : 0;
+  const peakSaverReward = peakSaver ? PEAK_SAVER.batterySeasonalReward : 0;
+
+  const installCost = solarCost + batteryCost;
+  const rebate =
+    solarRebate(systemKwDc, solarCost, inputs.rebateEligible) +
+    batteryRebate(batteryKwh, batteryCost, peakSaver, inputs.rebateEligible) +
+    enrollmentIncentive;
   const netCost = installCost - rebate;
   const billNoSolar = annualBill(C);
 
@@ -54,11 +83,11 @@ export function evaluate(
 
   for (let t = 0; t < inputs.lifetimeYears; t++) {
     const prod = acKwhYear1 * inputs.degradation ** t;
-    const self = selfUsed(prod, C, inputs.daytimeLoadShare);
+    const self = selfUsed(prod, C, inputs.daytimeLoadShare, shift);
     const exported = prod - self;
     const selfUsedValue = billNoSolar - annualBill(C - self);
     const exportValue = exported * inputs.exportRate;
-    const savings = selfUsedValue * inputs.costIncrease ** t + exportValue;
+    const savings = selfUsedValue * inputs.costIncrease ** t + exportValue + peakSaverReward;
 
     const before = cumulative;
     cumulative += savings;

@@ -88,3 +88,18 @@ describe("recommend", () => {
     else expectClose(s.paybackYears!, e.paybackYears, "paybackYears");
   });
 });
+
+describe("evaluate (battery, P1)", () => {
+  it.each(golden.battery)("$name", (c) => {
+    const r: ScenarioResult = finance.evaluate(c.config, 0, c.apiPanelWatts, withDefaults(c.inputs as Partial<FinanceInputs>));
+    expectSubset(r, c.expected, c.name);
+    expect(r.netCost).toBeCloseTo(r.installCost - r.rebate, 6);
+  });
+
+  it("no battery and a 0 kWh battery give the same result", () => {
+    const c = golden.scenarios[0];
+    const none = finance.evaluate(c.config, 0, c.apiPanelWatts, withDefaults(c.inputs as Partial<FinanceInputs>));
+    const zero = finance.evaluate(c.config, 0, c.apiPanelWatts, withDefaults({ ...(c.inputs as Partial<FinanceInputs>), battery: { kWh: 0, costPerKwh: 1000, peakSaver: true } }));
+    expect(zero).toEqual(none);
+  });
+});

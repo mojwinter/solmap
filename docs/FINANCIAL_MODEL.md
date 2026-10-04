@@ -122,7 +122,14 @@ and it would make the "export share" reason chip impossible to trigger.
 vs summer-peaking solar). It's the most uncertain number in the model, so it's a slider.
 
 **Battery (P1):** model as raising the cap: `K = (daytimeLoadShare × C) + min(0.9 × kWh × 250, 0.3 × C)`
-(≈250 useful cycles/yr at 90% round-trip). Add battery cost minus its rebate to `netCost`. Mark it ASSUMPTION.
+(≈250 useful cycles/yr at 90% round-trip; `BATTERY_MODEL` in `bc.ts`). Mark it ASSUMPTION. Only applies when
+`inputs.battery` is set; there is no default battery or default `costPerKwh`. Battery cost (`kWh × costPerKwh`) is
+added to `installCost` and its rebate to `rebate`, so `netCost = installCost − rebate` still holds. Battery rebate =
+`min($500 × kWh, 50% of battery cost, $1,500 or $5,000 with Peak Saver)`, 0 under 5 kWh or when `rebateEligible` is false.
+`peakSaver: true` also adds BC Hydro's Peak Saver rewards (`PEAK_SAVER` in `bc.ts`): the one-time $500 enrollment
+incentive goes into `rebate`, and the $250 winter reward is added to every year's savings (not escalated). These don't
+depend on `rebateEligible`. Battery lifetime and replacement are not modelled, so the reward runs for all `lifetimeYears`
+(ASSUMPTION; a battery usually lasts 10–15 years).
 
 Note the tiered subtlety: solar trims the **Step 2** kWh first, so tiered households
 over the threshold save at 14.08¢. The bill-difference formulation handles this for free.
@@ -172,6 +179,7 @@ Then run the normal `recommend`. Show a "Rough estimate, no roof imagery" badge.
 | `bill.monthlyBill` | `monthlyBill` | `{ plan, monthlyKwh, expectedMonthlyBill }` |
 | `bill.annualKwhFromBill` | `annualKwhFromBill` | `{ plan, billAmountInclGst, periodMonths, expectedAnnualKwh }` |
 | `scenarios` | `evaluate` | `{ apiPanelWatts, config, inputs (overrides on top of defaults), expected (ScenarioResult subset) }` |
+| `battery` | `evaluate` with `inputs.battery` (P1) | same as `scenarios`; kept separate because `battery` has no default |
 | `recommend` | `recommend` | `{ configs, inputs, expected: { recommendedIndex, panelsCount, verdict, npv, paybackYears } }` |
 
 `defaults` in the file equals `DEFAULT_INPUTS`; assert that too, so a changed default can't
