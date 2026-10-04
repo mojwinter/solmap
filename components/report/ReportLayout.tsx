@@ -1,32 +1,79 @@
 import type { ReactNode } from 'react';
+import { Wordmark } from '@/components/common/Wordmark';
 
 /**
- * The map is the canvas: full screen on desktop with the results panel floating on the right and
- * the address search floating top-left (Daylight MapScreen). On phones the map is a strip on top
- * with the search over it, and the panel rises over its bottom edge, verdict first. Printed, only the
- * panel remains, as a plain page.
+ * The house is the page: a fixed window on the roof with the report in cards round it, on the sky
+ * ground (no map behind anything). Wide screens, two columns:
+ *
+ *   house     | summary
+ *   analysis  | controls, extras…
+ *
+ * The right column runs on by itself, so its cards never wait for the house row to end. Narrower,
+ * one column in reading order: house, summary, controls, analysis, extras (the right column's
+ * wrapper is `display: contents` there, so its cards take their own place in the order).
+ * Printed, the cards become plain blocks (globals.css) and the map hides.
  */
-export function ReportLayout({ map, search, children }: { map: ReactNode; search?: ReactNode; children: ReactNode }) {
+export function ReportLayout({
+  title,
+  notices,
+  house,
+  summary,
+  controls,
+  analysis,
+  extras,
+  flags,
+}: {
+  /** The address and its badges (and the search dot). */
+  title?: ReactNode;
+  /** Banners that apply to the whole report. */
+  notices?: ReactNode;
+  /** The house window card. */
+  house: ReactNode;
+  /** Top right: the answer. */
+  summary?: ReactNode;
+  /** Right, under the summary: what you can change (system size). */
+  controls?: ReactNode;
+  /** Under the house: the money in detail. */
+  analysis?: ReactNode;
+  /** The rest of the right column. */
+  extras?: ReactNode;
+  /** The P1 flags that are on, space-separated: ops and the E2E smoke test read data-flags. */
+  flags?: string;
+}) {
   return (
-    <div className="relative flex min-h-dvh flex-1 flex-col md:block">
-      {/* The map doesn't print (tiles and overlays are unreliable on paper); the spec sheet lists the roof faces. */}
-      <div className="relative h-[40dvh] md:fixed md:inset-0 md:h-auto print:hidden">
-        {map}
-        {search && (
-          <div className="absolute top-4 right-4 left-4 md:top-6 md:right-auto md:left-6 md:w-[360px]">{search}</div>
-        )}
-      </div>
-      {/* Desktop: the rounded card clips and an inner area scrolls, inset 20px top and bottom (the
-          card's py-5), so the scrollbar never runs into the curved corners. Firefox doesn't clip a
-          scroller's own scrollbar to its border-radius, so it used to poke out at the top. */}
-      <aside
+    <div className="relative flex min-h-dvh flex-col overflow-x-clip bg-linear-to-b from-sky-200 via-sky-100 via-30% to-sky-050 print:bg-none">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -top-40 -right-32 size-[440px] rounded-full bg-[radial-gradient(circle,var(--sun-300)_0%,transparent_68%)] opacity-70 print:hidden"
+      />
+
+      <header className="relative mx-auto w-full max-w-[1320px] px-4 py-4 sm:px-8 print:hidden">
+        <Wordmark href="/" />
+      </header>
+
+      <main
         aria-label="Solar report"
-        className="relative z-10 -mt-6 flex flex-1 flex-col rounded-t-xl glass py-5 md:absolute md:top-6 md:right-6 md:mt-0 md:max-h-[calc(100dvh-3rem)] md:w-[440px] md:flex-none md:overflow-hidden md:rounded-xl print:static print:mt-0 print:max-h-none print:w-auto print:overflow-visible print:rounded-none print:py-0 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-250"
+        data-flags={flags}
+        className="relative mx-auto grid w-full max-w-[1320px] flex-1 content-start gap-5 px-4 pt-2 pb-10 sm:px-8 md:gap-6 print:block print:p-0 motion-safe:animate-in motion-safe:fade-in motion-safe:duration-250"
       >
-        <div className="px-5 md:min-h-0 md:flex-1 md:overflow-y-auto md:[scrollbar-width:thin] print:overflow-visible print:px-0">
-          {children}
+        {title}
+        {notices}
+        <div
+          data-print-stack
+          className="grid items-start gap-5 md:gap-6 xl:grid-cols-[minmax(0,1fr)_400px] xl:grid-rows-[auto_1fr] print:block"
+        >
+          <div className="order-1 min-w-0 xl:col-start-1 xl:row-start-1">{house}</div>
+          <div
+            data-print-stack
+            className="contents xl:col-start-2 xl:row-span-2 xl:row-start-1 xl:grid xl:content-start xl:gap-6 print:block"
+          >
+            {summary && <div className="order-2 min-w-0">{summary}</div>}
+            {controls && <div className="order-3 min-w-0">{controls}</div>}
+            {extras && <div className="order-5 grid min-w-0 gap-5 md:gap-6">{extras}</div>}
+          </div>
+          {analysis && <div className="order-4 min-w-0 xl:col-start-1 xl:row-start-2">{analysis}</div>}
         </div>
-      </aside>
+      </main>
     </div>
   );
 }

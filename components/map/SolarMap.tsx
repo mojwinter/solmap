@@ -22,9 +22,10 @@ const ROOF_ZOOM = 20;
 /**
  * Space to keep clear when fitting the roof. "report" = the MapScreen layout (DESIGN.md §4): on
  * desktop the results card floats on the right (24 + 440 + 24 px) under the search box; on phones
- * the map is a strip above the bottom sheet.
+ * the map is a strip above the bottom sheet. "window" = the map is a small framed window on the
+ * house: an even margin of dimmed neighbourhood round the roof.
  */
-export type FitPadding = "report" | number | google.maps.Padding;
+export type FitPadding = "report" | "window" | number | google.maps.Padding;
 
 /** Gap between an overlay and the fitted roof. */
 const OVERLAY_GAP = 12;
@@ -42,9 +43,10 @@ type Pad = { top: number; right: number; bottom: number; left: number };
 function resolvePadding(padding: FitPadding, div: HTMLElement): Pad {
   const box = div.getBoundingClientRect();
   let p: Pad;
-  if (padding === "report") {
+  if (padding === "report" || padding === "window") {
     const desktop = window.matchMedia("(min-width: 768px)").matches;
-    p = desktop ? { top: 24, right: 488, bottom: 24, left: 24 } : { top: 16, right: 16, bottom: 16, left: 16 };
+    const even = (n: number) => ({ top: n, right: n, bottom: n, left: n });
+    p = padding === "window" ? even(desktop ? 40 : 24) : desktop ? { top: 24, right: 488, bottom: 24, left: 24 } : even(16);
     for (const el of document.querySelectorAll<HTMLElement>("[data-map-inset]")) {
       const r = el.getBoundingClientRect();
       const overlapsMap = r.width > 0 && r.bottom > box.top && r.top < box.bottom && r.right > box.left && r.left < box.right;
@@ -98,6 +100,16 @@ interface Props {
    * "Sun exposure" then stays disabled and Data Layers is never called.
    */
   heatmap?: boolean;
+  /**
+   * A fixed window on the house: no panning, zooming or keyboard moves, and the roof is refitted
+   * whenever the window changes size. Pair with fitPadding="window" and no onMapClick.
+   */
+  locked?: boolean;
+  /**
+   * Leave the camera where it is through resizes: for a size animation that moves the map itself
+   * (the house window opening full screen). When it turns off, the roof is fitted again.
+   */
+  holdCamera?: boolean;
   /** Floating controls drawn over the map, e.g. <MapControls />. They use useSolarMap(). */
   children?: ReactNode;
 }
@@ -144,6 +156,8 @@ export function SolarMap({
   fitPadding = 40,
   captions = true,
   heatmap = false,
+  locked = false,
+  holdCamera = false,
   className,
   children,
 }: Props) {
@@ -240,7 +254,10 @@ export function SolarMap({
           mapTypeId="satellite"
           tilt={0}
           // The map sits in a scrolling page: plain scroll wheel scrolls the page, ctrl+scroll zooms.
-          gestureHandling="cooperative"
+          // Locked: the window stays on the house, so the wheel always scrolls the page.
+          gestureHandling={locked ? "none" : "cooperative"}
+          keyboardShortcuts={!locked}
+          draggableCursor={locked ? "default" : undefined}
           // Our own controls (MapControls) replace Google's; the Google logo and terms stay visible.
           disableDefaultUI
           clickableIcons={false}
@@ -249,7 +266,7 @@ export function SolarMap({
           <FollowLocation location={location} />
           {building ? (
             <>
-              <FitBuilding bounds={building.boundingBox} padding={fitPadding} />
+              <FitBuilding bounds={building.boundingBox} padding={fitPadding} always={locked} hold={holdCamera} />
               {/* Sun exposure crossfades the heatmap in and the panels out (fade.ts); the spotlight stays on top. */}
               {sunReady && <FluxOverlay layers={sunReady} visible={!!sunLayers} />}
               <PanelOverlay building={building} visibleCount={visibleCount} visible={!sunLayers} />
@@ -281,8 +298,13 @@ export function SolarMap({
           </p>
         )}
         {(sunLayers || sunNotice) && (
-          // Above the bottom-left controls (they sit at bottom-9, 40px tall).
-          <div className="absolute bottom-[96px] left-4 md:left-6 motion-safe:animate-in motion-safe:fade-in motion-safe:duration-300">
+          // Above the bottom-left controls (they sit at bottom-9, 40px tall). Locked: the controls are
+          // in the window's top-left corner, so the legend just clears the Google logo.
+          <div
+            className={`absolute motion-safe:animate-in motion-safe:fade-in motion-safe:duration-300 ${
+              locked ? "bottom-8 left-3" : "bottom-[96px] left-4 md:left-6"
+            }`}
+          >
             {sunLayers ? (
               <FluxLegend layers={sunLayers} />
             ) : (
@@ -362,12 +384,26 @@ function FollowLocation({ location }: { location: LatLngLiteral }) {
   return null;
 }
 
-/** Re-fit the camera when the bounds change (a new address keeps the same map instance). */
-function FitBuilding({ bounds, padding }: { bounds: BuildingResponse["boundingBox"]; padding: FitPadding }) {
+/**
+ * Re-fit the camera when the bounds change (a new address keeps the same map instance). `always`:
+ * refit on every resize, for a locked map that the user can't have panned. `hold`: don't touch the
+ * camera at all until it turns off (then fit straight away).
+ */
+function FitBuilding({
+  bounds,
+  padding,
+  always = false,
+  hold = false,
+}: {
+  bounds: BuildingResponse["boundingBox"];
+  padding: FitPadding;
+  always?: boolean;
+  hold?: boolean;
+}) {
   const map = useMap();
   const { sw, ne } = bounds;
   useEffect(() => {
-    if (!map) return;
+    if (!map || hold) return;
     const div = map.getDiv();
     let fitted = { w: 0, h: 0 };
     const fit = () => {
@@ -382,13 +418,13 @@ function FitBuilding({ bounds, padding }: { bounds: BuildingResponse["boundingBo
       const w = div.offsetWidth;
       const h = div.offsetHeight;
       if (w === 0 || h === 0) return;
-      if (fitted.w === 0 || changed(w, fitted.w) || changed(h, fitted.h)) fit();
+      if (fitted.w === 0 || always || changed(w, fitted.w) || changed(h, fitted.h)) fit();
     });
     if (div.offsetWidth > 0 && div.offsetHeight > 0) fit();
     observer.observe(div);
     return () => observer.disconnect();
     // padding objects are usually inline literals, so key on the mode/number only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map, sw.lat, sw.lng, ne.lat, ne.lng, typeof padding === "object" ? JSON.stringify(padding) : padding]);
+  }, [map, sw.lat, sw.lng, ne.lat, ne.lng, always, hold, typeof padding === "object" ? JSON.stringify(padding) : padding]);
   return null;
 }

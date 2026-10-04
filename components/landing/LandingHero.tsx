@@ -1,3 +1,4 @@
+import { Wordmark } from '@/components/common/Wordmark';
 import { Disclaimer } from './Disclaimer';
 import { ExampleChips } from './ExampleChips';
 import { LandingSearch } from './LandingSearch';
@@ -15,10 +16,7 @@ export function LandingHero() {
       />
 
       <header className="relative px-4 py-4 sm:px-8">
-        <span className="inline-flex items-center gap-2 text-headline">
-          <span aria-hidden="true" className="size-[22px] rounded-full bg-sun-500 ring-4 ring-sun-300" />
-          Solmap
-        </span>
+        <Wordmark />
       </header>
 
       <main className="relative mx-auto flex w-full max-w-[760px] flex-1 flex-col px-4 pt-12 pb-8 sm:px-8 sm:pt-[72px] motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-250">

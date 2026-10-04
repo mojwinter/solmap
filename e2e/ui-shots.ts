@@ -62,8 +62,6 @@ const CASES: Case[] = [
 // logs this on every page. It's about the key, not our UI.
 const NO_MAPS_KEY = /Google Maps JavaScript API error: ApiProjectMapError/;
 
-// Desktop: let the results panel grow to its full height so one image shows everything.
-const UNCLIP = 'aside{max-height:none!important;overflow:visible!important}';
 
 async function main() {
   const only = process.argv.find((a) => a.startsWith('--only'))
@@ -116,11 +114,12 @@ async function main() {
       await page.evaluate(() => document.fonts.ready);
       // Next's dev-mode badge isn't part of the UI and covers content on phones.
       await page.addStyleTag({ content: 'nextjs-portal{display:none!important}' });
+      // Without a key Google also covers the map with a "can't load Google Maps correctly" dialog: close it.
+      if (!c.loading) await page.locator('button.dismissButton').click({ timeout: 3_000 }).catch(() => {});
       if (c.act) await c.act(page);
 
       // caret: 'initial' — the default hides the caret with a style that can land before hydration (hydration mismatch).
       await page.screenshot({ path: path.join(OUT, `${c.name}-${vpName}.png`), caret: 'initial' });
-      if (vpName === 'desktop') await page.addStyleTag({ content: UNCLIP });
       await page.screenshot({ path: path.join(OUT, `${c.name}-${vpName}-full.png`), fullPage: true, caret: 'initial' });
       await page.close();
     }
