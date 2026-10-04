@@ -1,12 +1,18 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Circle, Map, Rectangle, useMap, type MapMouseEvent } from "@vis.gl/react-google-maps";
 import { ATTRIBUTION } from "@/src/config/bc";
-import type { BuildingResponse, LatLngLiteral } from "@/src/types/app";
+import type { BuildingResponse, LatLngLiteral, SolarLayersResponse } from "@/src/types/app";
+import { FluxLegend } from "./FluxLegend";
+import { FluxOverlay } from "./FluxOverlay";
 import { MAPS_API_KEY } from "./MapsProvider";
 import { PanelOverlay } from "./PanelOverlay";
 import { token } from "./tokens";
+
+export type MapLayer = "satellite" | "sun";
+/** The sun heatmap for the current roof (#29). "none" = no Data Layers for this roof (404). */
+export type SunStatus = "idle" | "loading" | "ready" | "none" | "error";
 
 const MAP_ID = process.env.NEXT_PUBLIC_MAP_ID || undefined;
 /** Close enough to read a single roof. */
@@ -86,13 +92,34 @@ interface Props {
   captions?: boolean;
   /** Sizes the map (give it a height, or h-full for a full-screen canvas). */
   className?: string;
-  /** Floating controls drawn over the map, e.g. <MapControls />. They can call useSolarMap().recentre(). */
+  /**
+   * The `heatmap` P1 flag (lib/flags.ts; read with getFlags() in the server page). Off by default:
+   * "Sun exposure" then stays disabled and Data Layers is never called.
+   */
+  heatmap?: boolean;
+  /** Floating controls drawn over the map, e.g. <MapControls />. They use useSolarMap(). */
   children?: ReactNode;
 }
 
-const SolarMapContext = createContext<{ recentre: () => void }>({ recentre: () => {} });
+interface SolarMapState {
+  /** Refit the camera to the roof (or the looked-up spot). */
+  recentre: () => void;
+  layer: MapLayer;
+  setLayer: (layer: MapLayer) => void;
+  /** Sun exposure can be chosen: flag on, a roof is shown, and it isn't known to have no sun map. */
+  sunAvailable: boolean;
+  sunStatus: SunStatus;
+}
 
-/** For controls inside <SolarMap>: recentre() refits the camera to the roof (or the looked-up spot). */
+const SolarMapContext = createContext<SolarMapState>({
+  recentre: () => {},
+  layer: "satellite",
+  setLayer: () => {},
+  sunAvailable: false,
+  sunStatus: "idle",
+});
+
+/** For controls inside <SolarMap>: the map layer, the sun map's status and recentre(). */
 export const useSolarMap = () => useContext(SolarMapContext);
 
 /**
@@ -101,7 +128,7 @@ export const useSolarMap = () => useContext(SolarMapContext);
  *
  *   <SolarMap location={{ lat, lng }} building={building} visibleCount={building?.configs[i]?.panelsCount ?? 0}
  *             onMapClick={(p) => router.replace(`/report/${p.lat.toFixed(6)}/${p.lng.toFixed(6)}`)}
- *             fitPadding="report" captions={false} className="h-full">
+ *             fitPadding="report" captions={false} heatmap={flags.heatmap} className="h-full">
  *     <MapControls />
  *   </SolarMap>
  */
@@ -112,11 +139,62 @@ export function SolarMap({
   onMapClick,
   fitPadding = 40,
   captions = true,
+  heatmap = false,
   className,
   children,
 }: Props) {
   const map = useMap();
   const bounds = building?.boundingBox;
+  const roofId = building?.buildingId ?? null;
+
+  // Sun mode belongs to one roof: a new roof drops back to Satellite instead of quietly buying
+  // another Data Layers call ($75 / 1,000). Results are remembered per roof, so toggling is free.
+  const [sunRoof, setSunRoof] = useState<string | null>(null);
+  const [sunResult, setSunResult] = useState<{ roof: string; status: SunStatus; layers?: SolarLayersResponse } | null>(null);
+  const sunCache = useRef(new globalThis.Map<string, { status: "ready" | "none"; layers?: SolarLayersResponse }>());
+  const layer: MapLayer = heatmap && roofId !== null && sunRoof === roofId ? "sun" : "satellite";
+  const sun = sunResult && sunResult.roof === roofId ? sunResult : null;
+  const sunStatus: SunStatus = sun?.status ?? "idle";
+  const sunAvailable = heatmap && building !== null && sunStatus !== "none";
+
+  const setLayer = useCallback(
+    (next: MapLayer) => {
+      if (next === "satellite" || !building || !heatmap) {
+        setSunRoof(null);
+        return;
+      }
+      const roof = building.buildingId;
+      setSunRoof(roof);
+      const cached = sunCache.current.get(roof);
+      if (cached) {
+        setSunResult({ roof, ...cached });
+        if (cached.status === "none") setSunRoof(null);
+        return;
+      }
+      setSunResult({ roof, status: "loading" });
+      const { lat, lng } = building.center;
+      fetch(`/api/solar/layers?lat=${lat.toFixed(7)}&lng=${lng.toFixed(7)}`)
+        .then(async (res) => {
+          if (res.ok) {
+            const layers = (await res.json()) as SolarLayersResponse;
+            sunCache.current.set(roof, { status: "ready", layers });
+            setSunResult({ roof, status: "ready", layers });
+          } else if (res.status === 404) {
+            sunCache.current.set(roof, { status: "none" });
+            setSunResult({ roof, status: "none" });
+            setSunRoof((r) => (r === roof ? null : r));
+          } else {
+            setSunResult({ roof, status: "error" });
+            setSunRoof((r) => (r === roof ? null : r));
+          }
+        })
+        .catch(() => {
+          setSunResult({ roof, status: "error" });
+          setSunRoof((r) => (r === roof ? null : r));
+        });
+    },
+    [building, heatmap],
+  );
 
   const recentre = useCallback(() => {
     if (!map) return;
@@ -129,7 +207,13 @@ export function SolarMap({
       map.moveCamera({ center: location, zoom: ROOF_ZOOM });
     }
   }, [map, bounds, fitPadding, location]);
-  const context = useMemo(() => ({ recentre }), [recentre]);
+  const context = useMemo(
+    () => ({ recentre, layer, setLayer, sunAvailable, sunStatus }),
+    [recentre, layer, setLayer, sunAvailable, sunStatus],
+  );
+  const sunLayers = layer === "sun" && sun?.status === "ready" ? sun.layers : undefined;
+  const sunNotice =
+    sunStatus === "none" ? "No sun map for this roof." : sunStatus === "error" ? "Couldn't load the sun map. Try again." : null;
 
   const handleClick = onMapClick
     ? (event: MapMouseEvent) => {
@@ -159,7 +243,12 @@ export function SolarMap({
           {building ? (
             <>
               <FitBuilding bounds={building.boundingBox} padding={fitPadding} />
-              <PanelOverlay building={building} visibleCount={visibleCount} />
+              {/* In Sun mode the heat replaces the panels; the roof outline stays on top of both. */}
+              {sunLayers ? (
+                <FluxOverlay layers={sunLayers} />
+              ) : (
+                <PanelOverlay building={building} visibleCount={visibleCount} />
+              )}
               <RoofOutline bounds={building.boundingBox} />
             </>
           ) : (
@@ -180,6 +269,18 @@ export function SolarMap({
           <p data-map-inset="bottom" className="pointer-events-none absolute bottom-[88px] left-4 rounded-pill glass-thin px-3 py-1.5 text-footnote text-ink-secondary md:bottom-6 md:left-1/2 md:-translate-x-1/2">
             Not your roof? Click your roof on the map.
           </p>
+        )}
+        {(sunLayers || sunNotice) && (
+          // Above the bottom-left controls (they sit at bottom-9, 40px tall).
+          <div className="absolute bottom-[96px] left-4 md:left-6">
+            {sunLayers ? (
+              <FluxLegend layers={sunLayers} />
+            ) : (
+              <p role="status" className="rounded-pill glass-thin px-3 py-1.5 text-footnote text-ink-secondary">
+                {sunNotice}
+              </p>
+            )}
+          </div>
         )}
         {children}
       </div>

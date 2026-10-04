@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AddressSearch } from "@/components/map/AddressSearch";
-import { MapControls, type MapLayer } from "@/components/map/MapControls";
+import { MapControls } from "@/components/map/MapControls";
 import { MapsProvider } from "@/components/map/MapsProvider";
 import { SolarMap } from "@/components/map/SolarMap";
 import { ATTRIBUTION } from "@/src/config/bc";
@@ -38,7 +38,7 @@ type Result =
  * bottom-left, and a stand-in for D's results card on the right (same layout as ReportLayout).
  * `start` (from ?lat=&lng=) opens it at any spot; otherwise at the first synthetic roof.
  */
-export function DevMap({ start }: { start?: LatLngLiteral }) {
+export function DevMap({ start, heatmap = false }: { start?: LatLngLiteral; heatmap?: boolean }) {
   const [lookup, setLookup] = useState<Lookup>(
     start
       ? { point: start, label: `${start.lat}, ${start.lng}` }
@@ -46,7 +46,6 @@ export function DevMap({ start }: { start?: LatLngLiteral }) {
   );
   const [result, setResult] = useState<Result>({ kind: "loading" });
   const [configIndex, setConfigIndex] = useState(0);
-  const [layer, setLayer] = useState<MapLayer>("satellite");
 
   // Every way of picking a spot comes through here, so loading starts together with the new lookup.
   const lookUp = (next: Lookup) => {
@@ -99,9 +98,10 @@ export function DevMap({ start }: { start?: LatLngLiteral }) {
             onMapClick={(point) => lookUp({ point, label: `${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}` })}
             fitPadding="report"
             captions={false}
+            heatmap={heatmap}
             className="h-full"
           >
-            <MapControls layer={layer} onLayerChange={setLayer} />
+            <MapControls />
           </SolarMap>
           <div className="absolute top-4 right-4 left-4 md:top-6 md:right-auto md:left-6 md:w-[440px]">
             <AddressSearch
