@@ -11,6 +11,7 @@
     "test": "vitest run",
     "solar:warm": "tsx --conditions=react-server scripts/warm-cache.ts",
     "solar:check": "tsx --conditions=react-server scripts/solar-check.ts",
+    "demo:check": "tsx scripts/demo-check.ts",
     "ui:shots": "tsx e2e/ui-shots.ts",
     "test:e2e": "playwright test"
   },

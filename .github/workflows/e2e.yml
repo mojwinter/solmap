@@ -1,13 +1,10 @@
 name: E2E smoke
 # Builds the production server on the synthetic roofs and checks the report pages still render
-# (pnpm test:e2e, playwright.config.ts). Informational: not a required check, and deploy.yml doesn't wait on it.
+# (pnpm test:e2e, playwright.config.ts). PRs run this directly. Pushes to main run it via deploy.yml
+# (workflow_call), which won't build or deploy the image until it passes.
 on:
   pull_request:
-  push:
-    branches: [main]
-    paths-ignore:
-      - "**/*.md"
-      - "docs/**"
+  workflow_call:
 permissions:
   contents: read
 # A newer push to the same PR supersedes the old run.

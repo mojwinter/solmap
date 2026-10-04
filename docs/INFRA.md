@@ -7,8 +7,8 @@ yardstick and deploys exactly the way yardstick does.
 ## Shape
 
 ```
-GitHub ──CI on PRs (typecheck, lint, test, build w/ synthetic fixtures; Docker smoke test)──► main
-   │ push main → deploy.yml: CI → build image → ghcr.io/mojwinter/solmap:{latest, sha-<7>}
+GitHub ──CI on PRs (typecheck, lint, test, build w/ synthetic fixtures; E2E smoke; Docker smoke test)──► main
+   │ push main → deploy.yml: CI + E2E smoke → build image → ghcr.io/mojwinter/solmap:{latest, sha-<7>}
    │                              → SSH deploy@VPS (host key pinned) → ff ~/solmap to the commit
    │                              → compose pull + up -d solmap on sha-<7> (skipped if .env pins SOLMAP_TAG)
    ▼
