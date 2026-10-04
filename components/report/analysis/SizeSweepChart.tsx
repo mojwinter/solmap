@@ -52,6 +52,9 @@ function rowsFor(points: SweepPoint[], key: Money): Row[] {
   return out;
 }
 
+/** A label centred over a point runs off the plot near either end: anchor it inward there. */
+const labelAnchor = (fraction: number) => (fraction < 0.15 ? 'start' : fraction > 0.85 ? 'end' : 'middle');
+
 const LABEL: Record<Metric, string> = { npv: 'Value today', net: 'Total saved', payback: 'Payback' };
 
 /**
@@ -266,7 +269,22 @@ export function SizeSweepChart({
                 fill="var(--sky-600)"
                 stroke="var(--surface)"
                 strokeWidth={2}
-                label={{ value: 'Recommended', position: 'top', fill: 'var(--ink-secondary)', fontSize: 12, fontWeight: 600, offset: 10 }}
+                label={{
+                  // Above the dot; near either end of the plot the text runs inward instead of off it.
+                  content: ({ viewBox }) =>
+                    viewBox && 'x' in viewBox ? (
+                      <text
+                        x={viewBox.x + (viewBox.width ?? 0) / 2}
+                        y={viewBox.y - 8}
+                        textAnchor={labelAnchor((recommended.kw - first.kw) / Math.max(lastShown.kw - first.kw, 1e-9))}
+                        fill="var(--ink-secondary)"
+                        fontSize={12}
+                        fontWeight={600}
+                      >
+                        Recommended
+                      </text>
+                    ) : null,
+                }}
               />
             )}
           </ComposedChart>

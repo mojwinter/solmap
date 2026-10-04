@@ -44,11 +44,14 @@ export function Sensitivity({
 
   const lo = top.ends.reduce((a, e) => (a.payback !== null && (e.payback === null || a.payback <= e.payback) ? a : e));
   const hi = top.ends.find((e) => e !== lo)!;
-  const summary = `${top.label} moves your payback most: ${label(lo.payback)} at ${lo.setting}, ${label(hi.payback)} at ${hi.setting}. ${
-    sorted.every((r) => r.ends.every((e) => e.payback !== null))
-      ? 'Within these ranges it always pays back.'
-      : 'At the bad end of some, it doesn’t pay back within the panels’ life.'
-  }`;
+  const range = `${label(lo.payback)} at ${lo.setting}, ${label(hi.payback)} at ${hi.setting}`;
+  const allPay = sorted.every((r) => r.ends.every((e) => e.payback !== null));
+  const summary =
+    now === null
+      ? `With today’s settings it doesn’t pay back within the panels’ life. ${top.label} matters most: ${range}.`
+      : `${top.label} moves your payback most: ${range}. ${
+          allPay ? 'Within these ranges it always pays back.' : 'At the bad end of some, it doesn’t pay back within the panels’ life.'
+        }`;
 
   return (
     <ChartSection
