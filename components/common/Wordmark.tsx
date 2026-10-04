@@ -17,8 +17,8 @@ function SunscoreMark({ className }: { className?: string }) {
       aria-hidden="true"
       className={className}
     >
-      <path d="M19 29 A13 13 0 0 1 45 29" />
-      <path d="M32 11.5 V6.5 M44.37 16.63 L47.91 13.09 M19.63 16.63 L16.09 13.09 M49.23 25.96 L54.16 25.09 M14.77 25.96 L9.84 25.09" />
+      <path d="M20.5 29 A11.5 11.5 0 0 1 43.5 29" />
+      <path d="M32 11 L32 6.5 M44.73 16.27 L47.91 13.09 M19.27 16.27 L16.09 13.09 M49.73 25.87 L54.16 25.09 M14.27 25.87 L9.84 25.09" />
       <path d="M8 47 L32 29 L56 47" />
       <path d="M16 41 V56 H48 V41" />
       <path d="M32 29 V56" />
