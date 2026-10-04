@@ -129,7 +129,7 @@ export function DevMap({ start, heatmap = false }: { start?: LatLngLiteral; heat
               </p>
               {outsideBC && (
                 <p className="text-fair-ink">
-                  This address looks like it&apos;s outside BC ({lookup.province}). Solmap uses BC Hydro rates.
+                  This address looks like it&apos;s outside BC ({lookup.province}). Sunscore uses BC Hydro rates.
                 </p>
               )}
             </div>

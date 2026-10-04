@@ -46,7 +46,7 @@ describe("getBuilding: status mapping", () => {
   });
 
   it("404 with the outside-BC header → NO_COVERAGE, marked outside BC", async () => {
-    const body = { error: "NO_COVERAGE", message: "That building is outside BC, and Solmap only covers BC." };
+    const body = { error: "NO_COVERAGE", message: "That building is outside BC, and Sunscore only covers BC." };
     mockFetch(async () => json(body, 404, { [REASON_HEADER]: "outside-bc" }));
     expect(await getBuilding(49.25, -123.15)).toEqual({ ok: false, error: "NO_COVERAGE", message: body.message, reason: "outside-bc" });
   });

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Solmap: is solar worth it on your roof?",
+  title: "Sunscore: is solar worth it on your roof?",
   description:
     "Type your BC address and see whether rooftop solar pays off under BC Hydro's 2026 rules.",
 };
