@@ -17,6 +17,7 @@ import type { LatLngBounds, LatLngLiteral } from "@/src/types/app";
 import { DailyBudgetError, getDailyBudget, type DailyBudget } from "./budget";
 import { dirMtime, errText, getDiskQuota, inDir, INDEX_CONCURRENCY, listDir, mapLimit, STALE_TMP_MS, writeFileAtomic, type DiskQuota } from "./disk";
 import { distanceMeters } from "./geo";
+import { RateLimitedError, type Gate } from "./ratelimit";
 import { imageryQualitySchema, buildingInsightsSchema, type SolarBuilding } from "./schema";
 import {
   callFindClosest,
@@ -36,7 +37,11 @@ export type LookupResult =
   | { status: 404; source: Source; layer: Layer; reason?: "outside-bc" };
 
 export interface SolarStore {
-  lookup(lat: number, lng: number): Promise<LookupResult>;
+  /**
+   * `beforeGoogle` runs once, just before the lookup would call Google (never for a memory, disk or
+   * synthetic answer); if it throws RateLimitedError, so does the lookup (#58).
+   */
+  lookup(lat: number, lng: number, beforeGoogle?: Gate): Promise<LookupResult>;
   /** Deletes expired disk entries (and stale temp files). Returns how many files were deleted. */
   prune(): Promise<number>;
 }
@@ -241,9 +246,9 @@ export function createSolarStore(opts: StoreOptions): SolarStore {
         entry.expiresAt = r.fetchedAtMs === undefined ? ttlEnd : Math.min(ttlEnd, r.fetchedAtMs + maxAgeMs);
       },
       (e) => {
-        // Remember failures for a while so retries don't re-bill (H1). Not the daily cap: that's not
-        // about this roof, and it lifts at midnight.
-        if (e instanceof DailyBudgetError) {
+        // Remember failures for a while so retries don't re-bill (H1). Not the daily cap or a caller's
+        // rate limit: neither is about this roof, and both lift on their own.
+        if (e instanceof DailyBudgetError || e instanceof RateLimitedError) {
           if (memory.get(key) === entry) memory.delete(key);
           return;
         }
@@ -359,7 +364,7 @@ export function createSolarStore(opts: StoreOptions): SolarStore {
     return best?.b;
   }
 
-  async function resolve(p: LatLngLiteral): Promise<Resolved> {
+  async function resolve(p: LatLngLiteral, beforeGoogle?: Gate): Promise<Resolved> {
     const steps = findClosestSteps(p.lat, p.lng, opts.expandedCoverage);
     let next = 0;
     let cached404: Resolved | undefined;
@@ -376,6 +381,7 @@ export function createSolarStore(opts: StoreOptions): SolarStore {
       return roof ? { status: 200, building: roof, origin: "synthetic" } : { status: 404, origin: "none" };
     }
 
+    beforeGoogle?.(); // the caller's rate limit, only now that this lookup will cost a Google call (#58)
     let last: Resolved = { status: 404, origin: "google" };
     for (const req of steps.slice(next)) {
       opts.budget?.take("building"); // throws DailyBudgetError past today's cap (C1)
@@ -396,7 +402,7 @@ export function createSolarStore(opts: StoreOptions): SolarStore {
     return last;
   }
 
-  async function lookup(lat: number, lng: number): Promise<LookupResult> {
+  async function lookup(lat: number, lng: number, beforeGoogle?: Gate): Promise<LookupResult> {
     const started = performance.now();
     const p = { lat, lng };
     const line = (source: string, layer: string, quality: string, status: number, extra = "") =>
@@ -405,27 +411,36 @@ export function createSolarStore(opts: StoreOptions): SolarStore {
       );
 
     let fromMemory = true;
-    let pending: Promise<Resolved> | undefined;
-    for (let i = 0; i < 3 && !pending; i++) {
-      const hit = memoryGet(p);
-      if (!hit) break;
-      if (!hit.wait) pending = hit.promise;
-      else await hit.promise.catch(() => {}); // a nearby lookup is in flight: let it land, then ask again
-    }
-    if (!pending) {
-      fromMemory = false;
-      pending = resolve(p);
-      memorySet(p, pending);
-    }
-
     let r: Resolved;
-    try {
-      r = await pending;
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      const status = e instanceof DailyBudgetError ? 503 : 502;
-      line(opts.source === "fixtures" ? "fixture" : "live", fromMemory ? "memory" : "google", "-", status, ` err=${JSON.stringify(msg)}`);
-      throw e instanceof UpstreamError ? e : new UpstreamError(msg);
+    for (let attempt = 0; ; attempt++) {
+      fromMemory = true;
+      let pending: Promise<Resolved> | undefined;
+      for (let i = 0; i < 3 && !pending; i++) {
+        const hit = memoryGet(p);
+        if (!hit) break;
+        if (!hit.wait) pending = hit.promise;
+        else await hit.promise.catch(() => {}); // a nearby lookup is in flight: let it land, then ask again
+      }
+      if (!pending) {
+        fromMemory = false;
+        pending = resolve(p, beforeGoogle);
+        memorySet(p, pending);
+      }
+      try {
+        r = await pending;
+        break;
+      } catch (e) {
+        // Another caller's lookup we joined was refused by *their* rate limit, and its memory entry is
+        // already gone: try once more as ourselves. Our own refusal goes to the route as a 429, unlogged.
+        if (e instanceof RateLimitedError) {
+          if (fromMemory && attempt === 0) continue;
+          throw e;
+        }
+        const msg = e instanceof Error ? e.message : String(e);
+        const status = e instanceof DailyBudgetError ? 503 : 502;
+        line(opts.source === "fixtures" ? "fixture" : "live", fromMemory ? "memory" : "google", "-", status, ` err=${JSON.stringify(msg)}`);
+        throw e instanceof UpstreamError ? e : new UpstreamError(msg);
+      }
     }
 
     const synthetic = r.origin === "synthetic" || r.origin === "none";

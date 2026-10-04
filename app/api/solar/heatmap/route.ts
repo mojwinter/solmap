@@ -5,13 +5,10 @@ import { getLayersStore, HEATMAP_ID_RE } from "@/lib/solar/layers-cache";
 import { getLayersRateLimiter } from "@/lib/solar/ratelimit";
 
 export async function GET(request: Request) {
-  const limited = rateLimited(request);
-  if (limited) return limited;
-
   const id = new URL(request.url).searchParams.get("id") ?? "";
   if (!HEATMAP_ID_RE.test(id)) return reply({ error: "BAD_REQUEST", message: "id must come from /api/solar/layers" }, 400);
 
-  // A memory miss means a disk read + decode + render: charge it to the stricter bucket (C1).
+  // A memory hit is free (#58). A miss means a disk read + decode + render: charge it to the stricter bucket (C1).
   const store = getLayersStore();
   if (!store.heatmapInMemory(id)) {
     const slow = rateLimited(request, getLayersRateLimiter());

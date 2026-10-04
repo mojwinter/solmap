@@ -27,7 +27,7 @@ beforeAll(() => {
   resetSingletons();
   process.env.SOLAR_SOURCE = "fixtures";
   process.env.SOLAR_CACHE_DIR = cacheDir;
-  process.env.RATE_LIMIT_PER_MINUTE = "100";
+  process.env.RATE_LIMIT_PER_MINUTE = "5";
   vi.spyOn(console, "log").mockImplementation(() => {});
 });
 afterAll(() => {
@@ -70,13 +70,38 @@ describe("GET /api/solar/layers + /api/solar/heatmap (SOLAR_SOURCE=fixtures)", (
     expect((await layersGET(req("layers", "lat=47&lng=-122"))).status).toBe(400);
   });
 
-  it("/layers has its own stricter bucket: 3 a minute per IP by default (C1)", async () => {
-    const one = (ip: string) =>
-      layersGET(new Request("http://localhost/api/solar/layers?lat=49.25&lng=-123.15", { headers: { "x-forwarded-for": ip } }));
+  it("a sun map already in memory is free: 40 rapid /layers + heatmap requests from one IP all 200 (#58)", async () => {
+    const one = (route: string, query: string) =>
+      (route === "layers" ? layersGET : heatmapGET)(
+        new Request(`http://localhost/api/solar/${route}?${query}`, { headers: { "x-forwarded-for": "203.0.113.40" } }),
+      );
+    const first = await one("layers", "lat=49.25&lng=-123.15");
+    const heatmap = (await first.json()).heatmapUrl.split("?")[1];
     const statuses = [];
-    for (let i = 0; i < 4; i++) statuses.push((await one("203.0.113.50")).status);
-    expect(statuses).toEqual([200, 200, 200, 429]);
-    expect((await one("203.0.113.51")).status).toBe(200);
+    for (let i = 0; i < 20; i++) statuses.push((await one("layers", "lat=49.25&lng=-123.15")).status, (await one("heatmap", heatmap)).status);
+    expect(statuses).toEqual(Array(40).fill(200));
+  });
+
+  it("memory misses take the stricter bucket: 3 a minute per IP by default (C1)", async () => {
+    resetSingletons();
+    process.env.SOLAR_CACHE_TTL_SECONDS = "0"; // nothing stays in memory, so every request renders
+    try {
+      const one = (ip: string) =>
+        layersGET(new Request("http://localhost/api/solar/layers?lat=49.25&lng=-123.15", { headers: { "x-forwarded-for": ip } }));
+      const statuses = [];
+      for (let i = 0; i < 4; i++) statuses.push((await one("203.0.113.50")).status);
+      expect(statuses).toEqual([200, 200, 200, 429]);
+      expect((await one("203.0.113.51")).status).toBe(200);
+
+      const heatmap = (id: string) =>
+        heatmapGET(new Request(`http://localhost/api/solar/heatmap?id=${id}`, { headers: { "x-forwarded-for": "203.0.113.52" } }));
+      const misses = [];
+      for (let i = 0; i < 4; i++) misses.push((await heatmap(String(i).repeat(32))).status);
+      expect(misses).toEqual([404, 404, 404, 429]);
+    } finally {
+      delete process.env.SOLAR_CACHE_TTL_SECONDS;
+      resetSingletons();
+    }
   });
 
   it("heatmap: 400 for a malformed id, 404 for an unknown one", async () => {

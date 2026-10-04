@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 import { GET } from "@/app/api/solar/building/route";
+import { entryFileName } from "@/lib/solar/cache";
 
 const cacheDir = mkdtempSync(path.join(tmpdir(), "solar-route-"));
 const env = { ...process.env };
@@ -78,15 +79,12 @@ describe("GET /api/solar/building (SOLAR_SOURCE=fixtures)", () => {
     expect(await res.json()).toMatchObject({ error: "BAD_REQUEST", message: expect.any(String) });
   });
 
-  it("429 RATE_LIMITED per first X-Forwarded-For IP", async () => {
+  it("never rate-limits an answer that doesn't call Google: 40 rapid requests from one IP all 200 (#58)", async () => {
+    // RATE_LIMIT_PER_MINUTE is 5 here. A venue puts a whole room behind one IP.
     const statuses = [];
-    for (let i = 0; i < 6; i++) statuses.push((await get("lat=49.25&lng=-123.15", "203.0.113.9")).status);
-    expect(statuses).toEqual([200, 200, 200, 200, 200, 429]);
-    const res = await get("lat=49.25&lng=-123.15", "203.0.113.9");
-    expect(await res.json()).toEqual({ error: "RATE_LIMITED" });
-    expect(res.headers.get("cache-control")).toBe("private, no-store");
-    expect(Number(res.headers.get("retry-after"))).toBeGreaterThan(0);
-    expect((await get("lat=49.25&lng=-123.15", "203.0.113.10")).status).toBe(200);
+    for (let i = 0; i < 40; i++) statuses.push((await get(i % 2 ? "lat=49.25&lng=-123.15" : "lat=53.9171&lng=-122.7497", "203.0.113.9")).status);
+    expect(statuses.filter((st) => st === 429)).toEqual([]);
+    for (let i = 0; i < 10; i++) expect((await get("lat=abc&lng=1", "203.0.113.9")).status).toBe(400); // and nor is a bad request
   });
 
   it("502 UPSTREAM when Google can't be reached (live mode, no key)", async () => {
@@ -107,5 +105,50 @@ describe("GET /api/solar/building (SOLAR_SOURCE=fixtures)", () => {
     expect(res.status).toBe(503);
     expect(res.headers.get("cache-control")).toBe("private, no-store");
     expect(await res.json()).toEqual({ error: "UPSTREAM", message: "daily limit reached" });
+  });
+});
+
+describe("GET /api/solar/building rate limit (SOLAR_SOURCE=cache, #58)", () => {
+  const ROOF = { lat: 49.3, lng: -123.1 };
+  const IP = "203.0.113.20";
+
+  beforeAll(() => {
+    resetSingletons();
+    process.env.SOLAR_SOURCE = "cache";
+    process.env.RATE_LIMIT_PER_MINUTE = "5";
+    delete process.env.SOLAR_DAILY_MAX_BUILDING;
+    delete process.env.SOLAR_API_KEY; // a lookup that gets as far as Google fails (502) without a network call
+    // A cached Google answer on disk, as on the VPS after a demo roof is warmed.
+    const body = JSON.parse(readFileSync(path.join(process.cwd(), "fixtures/synthetic/south-gable.json"), "utf8"));
+    const [dLat, dLng] = [ROOF.lat - body.center.latitude, ROOF.lng - body.center.longitude];
+    body.name = "buildings/TEST-cached";
+    body.center = { latitude: ROOF.lat, longitude: ROOF.lng };
+    for (const c of [body.boundingBox.sw, body.boundingBox.ne]) [c.latitude, c.longitude] = [c.latitude + dLat, c.longitude + dLng];
+    const request = { ...ROOF, requiredQuality: "LOW" as const, experiments: [] };
+    const fetchedAt = new Date().toISOString();
+    mkdirSync(path.join(cacheDir, "building"), { recursive: true });
+    writeFileSync(path.join(cacheDir, "building", entryFileName(Date.parse(fetchedAt), request)), JSON.stringify({ fetchedAt, request, status: 200, body }));
+  });
+
+  it("40 rapid requests to a cached roof from one IP all return 200", async () => {
+    const statuses = [];
+    for (let i = 0; i < 40; i++) statuses.push((await get(`lat=${ROOF.lat}&lng=${ROOF.lng}`, IP)).status);
+    expect(statuses).toEqual(Array(40).fill(200));
+    expect((await (await get(`lat=${ROOF.lat}&lng=${ROOF.lng}`, IP)).json()).source).toBe("cache");
+  });
+
+  it("lookups that reach Google are still limited per IP: 5 a minute, then 429 with Retry-After", async () => {
+    // Roofs ≥ 110 m apart, so no failure is shared through the 30 m negative cache.
+    const uncached = (i: number, ip = IP) => get(`lat=${(49.4 + i * 0.001).toFixed(3)}&lng=-123.2`, ip);
+    const statuses = [];
+    for (let i = 0; i < 6; i++) statuses.push((await uncached(i)).status);
+    expect(statuses).toEqual([502, 502, 502, 502, 502, 429]);
+    const res = await uncached(6);
+    expect(res.status).toBe(429);
+    expect(await res.json()).toEqual({ error: "RATE_LIMITED" });
+    expect(res.headers.get("cache-control")).toBe("private, no-store");
+    expect(Number(res.headers.get("retry-after"))).toBeGreaterThan(0);
+    expect((await uncached(7, "203.0.113.21")).status).toBe(502); // another IP has its own bucket
+    expect((await get(`lat=${ROOF.lat}&lng=${ROOF.lng}`, IP)).status).toBe(200); // the cached roof still loads
   });
 });
