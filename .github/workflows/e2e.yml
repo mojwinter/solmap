@@ -1,0 +1,41 @@
+name: E2E smoke
+# Builds the production server on the synthetic roofs and checks the report pages still render
+# (pnpm test:e2e, playwright.config.ts). Informational: not a required check, and deploy.yml doesn't wait on it.
+on:
+  pull_request:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+permissions:
+  contents: read
+# A newer push to the same PR supersedes the old run.
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # Synthetic fixtures only (fixtures/synthetic/). CI never has a Solar or Maps key and never calls Google.
+      SOLAR_SOURCE: fixtures
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm build
+      - run: pnpm test:e2e
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
