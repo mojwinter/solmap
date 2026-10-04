@@ -125,7 +125,7 @@ export function AddressSearch({ onSelect, placeholder = "Enter your address", va
 
   if (!MAPS_API_KEY) {
     return (
-      <div className={`${width} ${className ?? ""}`}>
+      <div data-map-inset={variant === "map" ? "top" : undefined} className={`${width} ${className ?? ""}`}>
         <div className="rounded-xl glass px-5 py-4">
           <div className="flex items-center gap-3">
             <SearchIcon />
@@ -147,7 +147,7 @@ export function AddressSearch({ onSelect, placeholder = "Enter your address", va
   }
 
   return (
-    <div className={`${width} ${className ?? ""}`}>
+    <div data-map-inset={variant === "map" ? "top" : undefined} className={`${width} ${className ?? ""}`}>
       <div className="overflow-hidden rounded-xl glass">
         {/* Focus shows as a 2px focus-ring underline inside the card (Daylight README). */}
         <div className="mx-5 flex items-center gap-3 border-b-2 border-transparent py-4 focus-within:border-focus-ring">
