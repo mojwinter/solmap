@@ -178,8 +178,8 @@
   /* Corners nest: card xl → tile md → icon tile sm; pills for buttons, badges, tracks. */
   --radius-sm: 8px;
   --radius-md: 14px;
-  --radius-lg: 22px;
-  --radius-xl: 30px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
   --radius-pill: 999px;
 
   /* The phone search button opening into the address field: revealed from the button at the bar's right end, leftwards. */

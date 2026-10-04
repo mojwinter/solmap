@@ -137,7 +137,7 @@ file and in CLAUDE.md still apply.
   `display-xl` once on the landing page; `title` for the address; `headline` / `body` / `callout`
   for text; `footnote` for assumptions only. Numbers use `font-rounded` + `tabular-nums` at
   `metric-xl` (the hero number) or `metric`. Units are small and `ink-secondary`.
-- **Shape:** 4px spacing. Cards `rounded-xl` (30px) padded 20px; tiles `rounded-md`; icon
+- **Shape:** 4px spacing. Cards `rounded-xl` (24px) padded 20px; tiles `rounded-md`; icon
   tiles `rounded-sm`; buttons, badges, segmented controls and tracks are pills.
 - **Layout:** the map is the canvas (full screen); cards float over it, inset 24px on desktop and
   16px on phones, and never split the screen. Below 640px the results panel is a bottom sheet with
