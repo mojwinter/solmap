@@ -5,6 +5,7 @@ import { Circle, Map, Polygon, useMap, type MapMouseEvent } from "@vis.gl/react-
 import { roundedRectPath } from "@/lib/geo/outline";
 import { ATTRIBUTION } from "@/src/config/bc";
 import type { BuildingResponse, LatLngLiteral, SolarLayersResponse } from "@/src/types/app";
+import { MapPlaceholder } from "@/components/report/MapPlaceholder";
 import { FluxLegend } from "./FluxLegend";
 import { FluxOverlay } from "./FluxOverlay";
 import { MAPS_API_KEY } from "./MapsProvider";
@@ -40,19 +41,25 @@ const MAX_PADDING_SHARE = 0.5;
  */
 type Pad = { top: number; right: number; bottom: number; left: number };
 
-function resolvePadding(padding: FitPadding, div: HTMLElement): Pad {
-  const box = div.getBoundingClientRect();
+function resolvePadding(padding: FitPadding, div: HTMLElement | null): Pad {
+  const box = div
+    ? div.getBoundingClientRect()
+    : typeof window !== "undefined"
+    ? { width: window.innerWidth, height: window.innerHeight, top: 0, left: 0, bottom: window.innerHeight, right: window.innerWidth }
+    : { width: 800, height: 600, top: 0, left: 0, bottom: 600, right: 800 };
   let p: Pad;
   if (padding === "report" || padding === "window") {
-    const desktop = window.matchMedia("(min-width: 768px)").matches;
+    const desktop = typeof window !== "undefined" ? window.matchMedia("(min-width: 768px)").matches : true;
     const even = (n: number) => ({ top: n, right: n, bottom: n, left: n });
     p = padding === "window" ? even(desktop ? 40 : 24) : desktop ? { top: 24, right: 488, bottom: 24, left: 24 } : even(16);
-    for (const el of document.querySelectorAll<HTMLElement>("[data-map-inset]")) {
-      const r = el.getBoundingClientRect();
-      const overlapsMap = r.width > 0 && r.bottom > box.top && r.top < box.bottom && r.right > box.left && r.left < box.right;
-      if (!overlapsMap) continue;
-      if (el.dataset.mapInset === "top") p.top = Math.max(p.top, r.bottom - box.top + OVERLAY_GAP);
-      if (el.dataset.mapInset === "bottom") p.bottom = Math.max(p.bottom, box.bottom - r.top + OVERLAY_GAP);
+    if (div && typeof document !== "undefined") {
+      for (const el of document.querySelectorAll<HTMLElement>("[data-map-inset]")) {
+        const r = el.getBoundingClientRect();
+        const overlapsMap = r.width > 0 && r.bottom > box.top && r.top < box.bottom && r.right > box.left && r.left < box.right;
+        if (!overlapsMap) continue;
+        if (el.dataset.mapInset === "top") p.top = Math.max(p.top, r.bottom - box.top + OVERLAY_GAP);
+        if (el.dataset.mapInset === "bottom") p.bottom = Math.max(p.bottom, box.bottom - r.top + OVERLAY_GAP);
+      }
     }
   } else {
     p =
@@ -101,13 +108,19 @@ export function fitCamera(
 }
 
 function fitCameraUpTo(
-  map: google.maps.Map,
+  map: google.maps.Map | null,
   bounds: BuildingResponse["boundingBox"],
   padding: FitPadding,
   limit = Infinity,
 ): { center: LatLngLiteral; zoom: number } {
-  const div = map.getDiv();
-  const { width, height } = div.getBoundingClientRect();
+  const div = map?.getDiv() ?? null;
+  const box = div
+    ? div.getBoundingClientRect()
+    : typeof window !== "undefined"
+    ? { width: window.innerWidth, height: window.innerHeight }
+    : { width: 800, height: 600 };
+  const width = box.width || 800;
+  const height = box.height || 600;
   const p = resolvePadding(padding, div);
   const sw = project(bounds.sw);
   const ne = project(bounds.ne);
@@ -115,10 +128,11 @@ function fitCameraUpTo(
   const boxH = Math.max(height - p.top - p.bottom, 1);
   let zoom = Math.log2(Math.min(boxW / Math.max(ne.x - sw.x, 1e-9), boxH / Math.max(sw.y - ne.y, 1e-9)));
   // Raster maps (and vector maps with fractional zoom off) only stop on whole zoom levels.
-  const fractional = map.get("isFractionalZoomEnabled") ?? map.getRenderingType() === google.maps.RenderingType.VECTOR;
+  const fractional = map ? (map.get("isFractionalZoomEnabled") ?? map.getRenderingType() === google.maps.RenderingType.VECTOR) : true;
   if (!fractional) zoom = Math.floor(zoom);
-  const maxZoom = map.get("maxZoom") ?? map.mapTypes.get(map.getMapTypeId() ?? "")?.maxZoom ?? Infinity;
-  zoom = Math.max(map.get("minZoom") ?? 0, Math.min(zoom, maxZoom, limit));
+  const maxZoom = map ? (map.get("maxZoom") ?? map.mapTypes.get(map.getMapTypeId() ?? "")?.maxZoom ?? Infinity) : 21;
+  const minZoom = map ? (map.get("minZoom") ?? 0) : 0;
+  zoom = Math.max(minZoom, Math.min(zoom, maxZoom, limit));
   // The roof sits in the middle of the padded box; the camera's centre is the middle of the div.
   const scale = 2 ** zoom;
   return {
@@ -238,6 +252,24 @@ export function SolarMap({
   const bounds = building?.boundingBox;
   const roofId = building?.buildingId ?? null;
 
+  const [mapReady, setMapReady] = useState(false);
+
+  const handleIdle = useCallback(() => {
+    setMapReady(true);
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setMapReady(true), 1200);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const initialCamera = useMemo(() => {
+    if (bounds) {
+      return fitCameraUpTo(null, bounds, fitPadding);
+    }
+    return { center: location, zoom: ROOF_ZOOM };
+  }, [bounds, fitPadding, location]);
+
   // Sun mode belongs to one roof: a new roof drops back to Satellite instead of quietly buying
   // another Data Layers call ($75 / 1,000). Results are remembered per roof, so toggling is free.
   const [sunRoof, setSunRoof] = useState<string | null>(null);
@@ -319,12 +351,12 @@ export function SolarMap({
 
   return (
     <SolarMapContext.Provider value={context}>
-      <div className={`relative ${className ?? ""}`}>
+      <div className={`relative overflow-hidden bg-slate-950 ${className ?? ""}`}>
         <Map
           className="h-full w-full"
           mapId={MAP_ID}
-          defaultCenter={location}
-          defaultZoom={ROOF_ZOOM}
+          defaultCenter={initialCamera.center}
+          defaultZoom={initialCamera.zoom}
           mapTypeId="satellite"
           tilt={0}
           // The map sits in a scrolling page: plain scroll wheel scrolls the page, ctrl+scroll zooms.
@@ -336,6 +368,8 @@ export function SolarMap({
           disableDefaultUI
           clickableIcons={false}
           onClick={handleClick}
+          onIdle={handleIdle}
+          onTilesLoaded={handleIdle}
         >
           <FollowLocation location={location} />
           {building ? (
@@ -359,6 +393,14 @@ export function SolarMap({
             />
           )}
         </Map>
+        <div
+          className={`pointer-events-none absolute inset-0 transition-opacity duration-500 ease-out ${
+            mapReady ? "opacity-0" : "opacity-100"
+          }`}
+          aria-hidden="true"
+        >
+          <MapPlaceholder />
+        </div>
         {onMapClick && !captions && (
           // Phones: just above the bottom-left controls, so it gives way to the sun legend, which
           // takes that spot in Sun mode. Desktop: centred at the bottom, clear of both.
