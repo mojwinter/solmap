@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { UsageInputs } from '@/components/inputs/UsageInputs';
 import { AddressSearch } from '@/components/map/AddressSearch';
 import { MapControls } from '@/components/map/MapControls';
@@ -23,6 +23,7 @@ import { ApiErrorState } from './states/ApiErrorState';
 import { NoCoverage } from './states/NoCoverage';
 import { ReportSkeleton } from './states/ReportSkeleton';
 import { useBuilding, type BuildingState } from './useBuilding';
+import { reportSearch, type ReportQuery } from './urlState';
 import { useReportState } from './useReportState';
 import { ConfidenceBadge } from './verdict/ConfidenceBadge';
 import { ReasonChips } from './verdict/ReasonChips';
@@ -38,19 +39,20 @@ interface Place {
 /** 6 decimals ≈ 0.1 m: plenty for a roof, and it keeps the URL short. */
 const round = (n: number) => Math.round(n * 1e6) / 1e6;
 
-function reportPath({ lat, lng, address }: Place) {
-  return `/report/${lat}/${lng}${address ? `?address=${encodeURIComponent(address)}` : ''}`;
+function reportPath({ lat, lng, address }: Place, state: Omit<ReportQuery, 'address'> = {}) {
+  return `/report/${lat}/${lng}${reportSearch({ address, ...state })}`;
 }
 
 /**
  * The report's only container: place → fetch → finance → props. Everything it renders is
  * presentational. One map lives through every state (loading, no coverage, error, ready), so a
  * new lookup doesn't reload it; a search or a click on the map swaps the place in state and
- * rewrites the URL without a navigation, so the report stays shareable.
+ * rewrites the URL without a navigation, so the report stays shareable. The size on screen, annual kWh
+ * and rate plan ride along as `?panels=&kwh=&plan=` (only when they differ from the defaults).
  * `flags` comes from the page (server-read SOLMAP_FLAGS): render each P1 feature only behind its flag,
  * e.g. `{flags.battery && <BatteryToggle … />}`, and add new names to lib/flags.ts first.
  */
-export function ReportView({ lat, lng, address, flags }: Place & { flags: Flags }) {
+export function ReportView({ lat, lng, address, query = {}, flags }: Place & { query?: ReportQuery; flags: Flags }) {
   const [place, setPlace] = useState<Place>({ lat, lng, address });
 
   // A real navigation (e.g. a demo link in NoCoverage) brings new props: follow them.
@@ -62,13 +64,15 @@ export function ReportView({ lat, lng, address, flags }: Place & { flags: Flags 
 
   const building = useBuilding(place.lat, place.lng);
   const roof = building.status === 'ready' ? building.data : null;
-  const report = useReportState(roof);
+  const report = useReportState(roof, query);
 
-  const lookUp = (next: Place) => {
-    const rounded = { lat: round(next.lat), lng: round(next.lng), address: next.address };
-    setPlace(rounded);
-    window.history.replaceState(null, '', reportPath(rounded));
-  };
+  // One writer for the URL: place + the report's shareable state, replaced in place (no history entries).
+  const href = reportPath(place, { panels: report.panelsInUrl, kwh: report.inputs.annualConsumptionKwh, plan: report.inputs.ratePlan });
+  useEffect(() => {
+    if (window.location.pathname + window.location.search !== href) window.history.replaceState(null, '', href);
+  }, [href]);
+
+  const lookUp = (next: Place) => setPlace({ lat: round(next.lat), lng: round(next.lng), address: next.address });
 
   return (
     <MapsProvider>

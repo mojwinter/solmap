@@ -76,6 +76,24 @@ test('moving the size slider re-runs the numbers, and "Use it" goes back', async
   await expect(payback).toHaveText(recommendedPayback!);
 });
 
+test('a shared link restores size, usage and plan, and the URL follows the controls (#20)', async ({ page }) => {
+  await page.goto('/report/49.25/-123.15?panels=30&kwh=16000&plan=flat');
+
+  const slider = page.getByRole('slider', { name: 'System size' });
+  await expect(slider).toHaveAttribute('aria-valuetext', /^30 panels/);
+  await expect(page.getByLabel('Electricity used in a year')).toHaveValue('16000');
+  await expect(page.getByRole('group', { name: 'Rate plan' }).getByRole('button', { name: 'Flat' })).toHaveAttribute('aria-pressed', 'true');
+
+  await page.getByRole('button', { name: 'More panels' }).click();
+  await expect(page).toHaveURL(/[?&]panels=31(&|$)/);
+  await expect(page).toHaveURL(/[?&]kwh=16000(&|$)/);
+  await expect(page).toHaveURL(/[?&]plan=flat(&|$)/);
+
+  // Back on the recommended size, the link stops pinning a size.
+  await page.getByRole('button', { name: 'Use it' }).click();
+  await expect(page).not.toHaveURL(/panels=/);
+});
+
 test('a point with no roof data shows the no-coverage state', async ({ page }) => {
   const none = fixture(53.9171, -122.7497);
   expect(none.expectedVerdict).toBe('NO_COVERAGE');
