@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Sunscore: the wordmark's sun (sun-500 with a sun-300 halo) rising behind a roof, on sky-400 → sky-600. -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5cb8ff"/>
+      <stop offset="1" stop-color="#0a6fd8"/>
+    </linearGradient>
+    <clipPath id="tile"><rect width="64" height="64" rx="14"/></clipPath>
+  </defs>
+  <g clip-path="url(#tile)">
+    <rect width="64" height="64" fill="url(#sky)"/>
+    <circle cx="32" cy="25" r="15.5" fill="#ffe066"/>
+    <circle cx="32" cy="25" r="11" fill="#ffb800"/>
+    <path d="M14 66 V47 L32 33 L50 47 V66 Z" fill="#0b1d33"/>
+    <path d="M7 52 L32 32.5 L57 52" fill="none" stroke="#ffffff" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>
