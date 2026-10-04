@@ -2,6 +2,8 @@
 
 import { useEffect, useState, type ComponentProps, type ReactNode } from 'react';
 import { MapsProvider } from '@/components/map/MapsProvider';
+import { AssumptionsPanel } from '@/components/inputs/AssumptionsPanel';
+import { YourHome } from '@/components/inputs/YourHome';
 import { verdictFor } from '@/lib/finance';
 import { FLAGS, type Flags } from '@/lib/flags';
 import type { BuildingResponse } from '@/src/types/app';
@@ -195,7 +197,7 @@ type Cards = Pick<ComponentProps<typeof ReportLayout>, 'summary' | 'controls' | 
  */
 function reportCards(
   building: BuildingResponse,
-  { inputs, recommendation, selectedIndex, selected, setSelectedIndex }: ReturnType<typeof useReportState>,
+  { inputs, setInputs, recommendation, selectedIndex, selected, setSelectedIndex }: ReturnType<typeof useReportState>,
   flags: Flags,
 ): Cards {
   // No configs: nothing fits, so there's no money to show.
@@ -238,9 +240,14 @@ function reportCards(
       </SolarPotential>
     ),
     controls: (
-      <Card>
-        <SizeSlider steps={steps} value={selectedIndex} recommendedIndex={recommendation.recommendedIndex} onChange={setSelectedIndex} />
-      </Card>
+      <div className="grid gap-5 md:gap-6">
+        <Card>
+          <SizeSlider steps={steps} value={selectedIndex} recommendedIndex={recommendation.recommendedIndex} onChange={setSelectedIndex} />
+        </Card>
+        <Card className="print:hidden">
+          <YourHome inputs={inputs} onChange={setInputs} />
+        </Card>
+      </div>
     ),
     analysis: (
       <div className="grid gap-5 md:gap-6">
@@ -296,6 +303,11 @@ function reportCards(
         <Card>
           <SpecSheet building={building} scenario={selected} inputs={inputs} />
         </Card>
+        {flags.assumptions && (
+          <Card className="lg:col-span-3 print:hidden">
+            <AssumptionsPanel inputs={inputs} onChange={setInputs} />
+          </Card>
+        )}
       </AnalysisGrid>
     ),
   };
@@ -304,7 +316,7 @@ function reportCards(
 /** The dashboard under the house: three columns on wide screens, one on phones. */
 function AnalysisGrid({ children }: { children: ReactNode }) {
   return (
-    <section aria-label="Analysis" className="grid items-start gap-5 md:gap-6 lg:grid-cols-3 print:block">
+    <section aria-label="Analysis" className="grid grid-cols-[minmax(0,1fr)] items-start gap-5 md:gap-6 lg:grid-cols-3 print:block">
       {children}
     </section>
   );

@@ -23,7 +23,7 @@ export function KeyFigures({ scenario }: { scenario: ScenarioResult }) {
       <Figure
         label="Saved in year one"
         value={cad(scenario.year1.total)}
-        note={`About ${cad(scenario.year1.total / 12)} a month`}
+        note={`${cad(scenario.year1.selfUsedValue)} used · ${cad(scenario.year1.exportValue)} sold`}
         info={
           <Rows
             rows={[

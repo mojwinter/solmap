@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useMemo } from 'react';
+import { useId, useMemo, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { BuildingResponse, ScenarioResult } from '@/src/types/app';
 import { nearestYieldTown } from '@/lib/finance/manual';
@@ -26,6 +26,8 @@ export function MonthlyChart({
   annualUseKwh: number;
 }) {
   const id = useId();
+  // Under ~520px wide, three-letter months collide: use initials.
+  const [narrow, setNarrow] = useState(false);
   const town = useMemo(() => nearestYieldTown(building.center), [building.center]);
   const months = useMemo(
     () => monthlyProduction(scenario.acKwhYear1, town, weightedPitch(building, scenario)),
@@ -72,12 +74,12 @@ export function MonthlyChart({
       }
     >
       <div role="img" aria-label={`Solar made each month in the first year. ${summary}`} className="h-[220px]">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" onResize={(w) => setNarrow(w < 520)}>
           <BarChart data={months} margin={{ top: 8, right: 8, bottom: 0, left: 0 }} barCategoryGap="22%" accessibilityLayer={false}>
             <CartesianGrid vertical={false} stroke={GRID} />
             <XAxis
               dataKey="month"
-              tickFormatter={(m: number) => MONTHS[m]}
+              tickFormatter={(m: number) => (narrow ? MONTHS[m][0] : MONTHS[m])}
               tick={AXIS_TEXT}
               tickLine={false}
               axisLine={false}

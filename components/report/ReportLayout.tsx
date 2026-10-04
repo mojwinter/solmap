@@ -65,13 +65,13 @@ export function ReportLayout({
       <main
         aria-label="Solar report"
         data-flags={flags}
-        className="relative mx-auto grid w-full max-w-[1320px] flex-1 content-start gap-5 px-4 pt-2 pb-10 sm:px-8 md:gap-6 print:block print:p-0 motion-safe:animate-in motion-safe:fade-in motion-safe:duration-250"
+        className="relative mx-auto grid w-full max-w-[1320px] flex-1 grid-cols-[minmax(0,1fr)] content-start gap-5 px-4 pt-2 pb-10 sm:px-8 md:gap-6 print:block print:p-0 motion-safe:animate-in motion-safe:fade-in motion-safe:duration-250"
       >
         {title}
         {notices}
         <div
           data-print-stack
-          className="grid items-start gap-5 md:gap-6 xl:grid-cols-[minmax(0,1fr)_400px] xl:grid-rows-[auto_1fr] print:block"
+          className="grid grid-cols-[minmax(0,1fr)] items-start gap-5 md:gap-6 xl:grid-cols-[minmax(0,1fr)_400px] xl:grid-rows-[auto_1fr] print:block"
         >
           <div className="order-1 min-w-0 xl:col-start-1 xl:row-start-1">{house}</div>
           <div

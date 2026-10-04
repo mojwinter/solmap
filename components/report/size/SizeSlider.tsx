@@ -4,7 +4,7 @@ import { useEffect, useRef, type CSSProperties, type MouseEvent } from 'react';
 import { Icon } from '@/components/common/Icon';
 import { kwh, panelsLabel } from '@/lib/format';
 import { cn } from '@/lib/utils';
-import styles from './SizeSlider.module.css';
+import styles from '@/components/common/Range.module.css';
 
 export interface SizeStep {
   panels: number;

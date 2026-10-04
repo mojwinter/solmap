@@ -52,7 +52,7 @@ function rowsFor(points: SweepPoint[], key: Money): Row[] {
   return out;
 }
 
-const LABEL: Record<Metric, string> = { npv: 'Value today', net: 'Total savings', payback: 'Payback' };
+const LABEL: Record<Metric, string> = { npv: 'Value today', net: 'Total saved', payback: 'Payback' };
 
 /**
  * The sweet-spot chart (PLAN.md → P1): how the money changes as the system grows, one point per
