@@ -95,3 +95,21 @@ export function HeaderSearch({ onSelect }: { onSelect: (place: PickedPlace) => v
     </>
   );
 }
+
+/**
+ * The same boxes as HeaderSearch, drawn but inert: for the route's loading screen, which shows
+ * before the Maps library (and the report) arrive, so the top bar doesn't change as they do.
+ */
+export function HeaderSearchPlaceholder() {
+  return (
+    <div aria-hidden="true" className="contents print:hidden">
+      <span className="grid size-11 flex-none place-items-center rounded-pill card text-ink-secondary shadow-control sm:hidden">
+        <Icon name="search" size={20} strokeWidth={2} />
+      </span>
+      <span className="hidden h-11 w-[340px] items-center gap-2.5 rounded-[22px] glass px-4 text-body text-ink-tertiary shadow-control sm:flex lg:w-[400px]">
+        <Icon name="search" size={17} strokeWidth={2} className="text-ink-secondary" />
+        Search another address
+      </span>
+    </div>
+  );
+}
