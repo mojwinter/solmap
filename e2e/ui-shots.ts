@@ -47,6 +47,7 @@ const CASES: Case[] = [
     name: 'bill-2-months',
     path: '/report/49.25/-123.15',
     act: async (page) => {
+      await page.getByRole('tab', { name: 'Your usage' }).click();
       await page.getByLabel('Bill amount').fill('240');
       await page.getByRole('button', { name: '2 months' }).click();
     },
@@ -55,6 +56,7 @@ const CASES: Case[] = [
     name: 'annual-kwh-flat',
     path: '/report/49.25/-123.15',
     act: async (page) => {
+      await page.getByRole('tab', { name: 'Your usage' }).click();
       await page.getByRole('button', { name: 'Annual usage (kWh)' }).click();
       await page.getByLabel('Electricity used in a year').fill('16000');
       await page.getByRole('button', { name: 'Flat' }).click();
@@ -62,6 +64,11 @@ const CASES: Case[] = [
   },
   // Near the border: the API normally 404s these, so fake a 200 to see the fallback banner.
   { name: 'outside-bc-area', path: '/report/49.25/-123.15', api: 'outside-bc-area' },
+  {
+    name: 'roof-tab',
+    path: '/report/49.25/-123.15',
+    act: (page) => page.getByRole('tab', { name: 'Roof' }).click(),
+  },
   { name: 'weak-shaded', path: '/report/49.2615/-123.1702' },
   { name: 'tiny-roof', path: '/report/49.888/-119.496' },
   { name: 'multi-unit', path: '/report/49.1666/-123.1336' },
@@ -89,7 +96,8 @@ async function main() {
   const cases = only ? CASES.filter((c) => only.includes(c.name)) : CASES;
   await mkdir(OUT, { recursive: true });
 
-  const browser = await chromium.launch();
+  // CHROMIUM_PATH: a preinstalled Chromium (Claude Code cloud sessions: /opt/pw-browsers/chromium), as in playwright.config.ts.
+  const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
   const problems: string[] = [];
 
   for (const [vpName, viewport] of Object.entries(VIEWPORTS)) {

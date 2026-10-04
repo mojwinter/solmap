@@ -13,7 +13,7 @@ export function ReportLayout({ map, search, children }: { map: ReactNode; search
       <div className="relative h-[40dvh] md:fixed md:inset-0 md:h-auto print:hidden">
         {map}
         {search && (
-          <div className="absolute top-4 right-4 left-4 md:top-6 md:right-auto md:left-6 md:w-[440px]">{search}</div>
+          <div className="absolute top-4 right-4 left-4 md:top-6 md:right-auto md:left-6 md:w-[360px]">{search}</div>
         )}
       </div>
       <aside
