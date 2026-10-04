@@ -310,8 +310,13 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* Pages start on sky-200 (the landing and report gradients): pulled past the top, the bounce shows
+     the html background, so it matches instead of a light band. No rubber-band where supported, so
+     the bottom (sky-050) never shows a mismatched band either. */
   html {
     @apply font-sans;
+    background-color: var(--sky-200);
+    overscroll-behavior-y: none;
   }
 }
 
