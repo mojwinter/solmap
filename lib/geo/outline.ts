@@ -1,6 +1,6 @@
 /**
- * The selected-roof frame: a rounded rectangle around the building's bounding box, as a polygon
- * path (Google Maps has no rounded Rectangle). Pure, so it runs in Node tests.
+ * The selected-roof spotlight's cut-out: a rounded rectangle around the building's bounding box, as a
+ * counter-clockwise polygon path (Google Maps has no rounded Rectangle). Pure, so it runs in Node tests.
  */
 import type { LatLngLiteral } from "@/src/types/app";
 import { degreesPerMeter } from "./meters";

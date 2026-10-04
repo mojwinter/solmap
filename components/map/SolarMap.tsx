@@ -124,7 +124,7 @@ const SolarMapContext = createContext<SolarMapState>({
 export const useSolarMap = () => useContext(SolarMapContext);
 
 /**
- * Satellite map of one roof with its panels and a rounded white roof outline (DESIGN.md §4). Must sit
+ * Satellite map of one roof with its panels and the rest of the map dimmed around the roof (DESIGN.md §4). Must sit
  * inside <MapsProvider>. Shows `location` right away (with a dot until a roof arrives), then fits to the roof.
  *
  *   <SolarMap location={{ lat, lng }} building={building} visibleCount={building?.configs[i]?.panelsCount ?? 0}
@@ -244,13 +244,13 @@ export function SolarMap({
           {building ? (
             <>
               <FitBuilding bounds={building.boundingBox} padding={fitPadding} />
-              {/* In Sun mode the heat replaces the panels; the roof outline stays on top of both. */}
+              {/* In Sun mode the heat replaces the panels; the spotlight stays on top of both. */}
               {sunLayers ? (
                 <FluxOverlay layers={sunLayers} />
               ) : (
                 <PanelOverlay building={building} visibleCount={visibleCount} />
               )}
-              <RoofOutline bounds={building.boundingBox} />
+              <RoofSpotlight bounds={building.boundingBox} />
             </>
           ) : (
             // Marks the looked-up spot until its roof arrives, or for good when there's no roof data.
@@ -313,21 +313,33 @@ const SOURCE_NOTE: Record<BuildingResponse["source"], string> = {
   manual: "Estimate from your inputs (no solar data for this roof).",
 };
 
+/** Everything outside the roof is dimmed by this much, so the house stands out (Photos-style spotlight). */
+const SPOTLIGHT_DIM = 0.4;
 /**
- * The selected roof, Apple Maps style: a rounded frame with a thin white line over a soft dark
- * shadow, so it reads on bright and dark roofs alike without hiding the imagery.
+ * A clockwise ring round the whole world (just short of ±180° so Google doesn't fold it onto one
+ * meridian). The roof path runs the other way, so Google cuts it out as a hole.
  */
-function RoofOutline({ bounds }: { bounds: BuildingResponse["boundingBox"] }) {
+const WORLD_RING = [
+  { lat: 85, lng: -179.99 },
+  { lat: 85, lng: 0 },
+  { lat: 85, lng: 179.99 },
+  { lat: -85, lng: 179.99 },
+  { lat: -85, lng: 0 },
+  { lat: -85, lng: -179.99 },
+];
+
+/**
+ * The selected roof: no line, just the rest of the map dimmed around a rounded cut-out of the
+ * building's box, so the house is lit up and the imagery on it is untouched.
+ */
+function RoofSpotlight({ bounds }: { bounds: BuildingResponse["boundingBox"] }) {
   const { sw, ne } = bounds;
-  const path = useMemo(
-    () => roundedRectPath({ sw: { lat: sw.lat, lng: sw.lng }, ne: { lat: ne.lat, lng: ne.lng } }),
+  const paths = useMemo(
+    () => [WORLD_RING, roundedRectPath({ sw: { lat: sw.lat, lng: sw.lng }, ne: { lat: ne.lat, lng: ne.lng } })],
     [sw.lat, sw.lng, ne.lat, ne.lng],
   );
   return (
-    <>
-      <Polygon paths={path} strokeColor="#000000" strokeOpacity={0.22} strokeWeight={6} fillOpacity={0} clickable={false} />
-      <Polygon paths={path} strokeColor="#ffffff" strokeOpacity={0.95} strokeWeight={2} fillColor="#ffffff" fillOpacity={0.06} clickable={false} />
-    </>
+    <Polygon paths={paths} fillColor="#000000" fillOpacity={SPOTLIGHT_DIM} strokeWeight={0} clickable={false} />
   );
 }
 

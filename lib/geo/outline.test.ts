@@ -39,4 +39,15 @@ describe("roundedRectPath", () => {
     const mid = roundedRectPath(big)[4];
     expect(metersBetween(mid, big.ne)).toBeCloseTo(2.5 * (Math.SQRT2 - 1), 2);
   });
+
+  it("winds counter-clockwise, so it cuts a hole in the clockwise spotlight ring", () => {
+    // Shoelace with x = lng, y = lat: positive area = counter-clockwise.
+    let twiceArea = 0;
+    for (let i = 0; i < path.length; i++) {
+      const a = path[i];
+      const b = path[(i + 1) % path.length];
+      twiceArea += a.lng * b.lat - b.lng * a.lat;
+    }
+    expect(twiceArea).toBeGreaterThan(0);
+  });
 });
