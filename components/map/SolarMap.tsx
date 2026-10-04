@@ -52,6 +52,8 @@ function resolvePadding(padding: FitPadding, div: HTMLElement): Pad {
       if (!overlapsMap) continue;
       if (el.dataset.mapInset === "top") p.top = Math.max(p.top, r.bottom - box.top + OVERLAY_GAP);
       if (el.dataset.mapInset === "bottom") p.bottom = Math.max(p.bottom, box.bottom - r.top + OVERLAY_GAP);
+      // e.g. the panel legend beside the results card
+      if (el.dataset.mapInset === "right") p.right = Math.max(p.right, box.right - r.left + OVERLAY_GAP);
     }
     // The sun-hours callout sits on the spotlit roof's top edge: keep room for it under the search box.
     p.top += roofCalloutSpace();

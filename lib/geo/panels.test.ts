@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { LatLngLiteral, PanelLite, SegmentLite } from "@/src/types/app";
-import { panelColors, panelPolygon, type OffsetFn } from "./panels";
+import { PANEL_LEAST, PANEL_MOST, panelColors, panelEnergyRange, panelGradient, panelPolygon, type OffsetFn } from "./panels";
 
 // Fixture panel size (synthetic roofs / Google's default 400 W panel).
 const DIMS = { widthMeters: 1.045, heightMeters: 1.879 };
@@ -157,5 +157,26 @@ describe("panelColors", () => {
 
   it("returns no colours for a roof with no panels", () => {
     expect(panelColors([])).toEqual([]);
+  });
+});
+
+describe("panel legend helpers", () => {
+  const roof = (...kwh: number[]) => kwh.map((yearlyEnergyDcKwh) => ({ yearlyEnergyDcKwh }));
+
+  it("uses exactly the colours panelColors() paints at its ends", () => {
+    const colors = panelColors(roof(300, 500));
+    expect(PANEL_LEAST).toBe(colors[0]);
+    expect(PANEL_MOST).toBe(colors[1]);
+  });
+
+  it("builds the gradient from least to most, so 'to top' puts the darkest at the top", () => {
+    expect(panelGradient("to top")).toBe(`linear-gradient(to top, ${PANEL_LEAST}, ${PANEL_MOST})`);
+    expect(panelGradient("to right")).toBe(`linear-gradient(to right, ${PANEL_LEAST}, ${PANEL_MOST})`);
+  });
+
+  it("reports the roof's lowest and highest panel output", () => {
+    expect(panelEnergyRange(roof(410, 512, 380, 450))).toEqual({ min: 380, max: 512 });
+    expect(panelEnergyRange(roof(400, 400))).toEqual({ min: 400, max: 400 });
+    expect(panelEnergyRange([])).toBeNull();
   });
 });
