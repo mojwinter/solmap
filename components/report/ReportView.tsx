@@ -5,6 +5,7 @@ import { MapsProvider } from '@/components/map/MapsProvider';
 import { AssumptionsPanel } from '@/components/inputs/AssumptionsPanel';
 import { YourHome } from '@/components/inputs/YourHome';
 import { verdictFor } from '@/lib/finance';
+import { clampInputs } from '@/lib/finance/clamp';
 import { FLAGS, type Flags } from '@/lib/flags';
 import type { BuildingResponse } from '@/src/types/app';
 import { KeyFigures } from './analysis/KeyFigures';
@@ -221,6 +222,8 @@ function reportCards(
   // Install year for PaybackHero and the chart, read once so they agree. The roof is fetched after
   // mount, so this only ever runs in the browser (the user's clock), never in server HTML.
   const startYear = new Date().getFullYear();
+  // The usage the engine actually ran (clamped to INPUT_RANGES), so charts drawn from inputs agree with the scenario.
+  const modelled = clampInputs(inputs).inputs;
   const firstYear = (
     <Card>
       <FirstYear scenario={selected} />
@@ -302,8 +305,8 @@ function reportCards(
             <MonthlyChart
               building={building}
               scenario={selected}
-              annualUseKwh={inputs.annualConsumptionKwh}
-              selfUseCapKwh={inputs.daytimeLoadShare * inputs.annualConsumptionKwh}
+              annualUseKwh={modelled.annualConsumptionKwh}
+              selfUseCapKwh={modelled.daytimeLoadShare * modelled.annualConsumptionKwh}
             />
           </Card>
         )}
