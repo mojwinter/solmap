@@ -30,7 +30,8 @@
   /* Glass and fills. */
   --glass: rgba(255, 255, 255, 0.86);
   --glass-thin: rgba(255, 255, 255, 0.76);
-  --glass-edge: rgba(255, 255, 255, 0.72);
+  /* No light edge round frosted surfaces (removed on request: it read as a white outline). */
+  --glass-edge: transparent;
   --fill-quiet: rgba(11, 29, 51, 0.05);
   --fill-selected: rgba(10, 111, 216, 0.13);
   --separator: rgba(11, 29, 51, 0.1);
@@ -49,7 +50,7 @@
   /* Depth. Prefixed so they don't clash with Tailwind's --shadow-* theme names. */
   --elev-float: 0 24px 60px rgba(10, 42, 74, 0.22), 0 2px 8px rgba(10, 42, 74, 0.1);
   --elev-control: 0 6px 18px rgba(10, 42, 74, 0.16);
-  --elev-sheen: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --elev-sheen: 0 0 #0000; /* no inset white top highlight */
   --backdrop-glass: blur(40px) saturate(180%);
   --backdrop-soft: blur(20px) saturate(160%);
 
@@ -104,7 +105,7 @@
   --ink-tertiary: #9eadc0;
   --glass: rgba(20, 28, 40, 0.84);
   --glass-thin: rgba(20, 28, 40, 0.78);
-  --glass-edge: rgba(255, 255, 255, 0.14);
+  --glass-edge: transparent;
   --fill-quiet: rgba(255, 255, 255, 0.07);
   --fill-selected: rgba(61, 155, 255, 0.22);
   --separator: rgba(255, 255, 255, 0.12);
@@ -121,7 +122,7 @@
   --poor-soft: rgba(255, 107, 110, 0.18);
   --elev-float: 0 24px 60px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
   --elev-control: 0 6px 18px rgba(0, 0, 0, 0.4);
-  --elev-sheen: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  --elev-sheen: 0 0 #0000;
 
   --popover: #141c28;
 }
