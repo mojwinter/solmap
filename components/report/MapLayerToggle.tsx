@@ -1,14 +1,12 @@
 'use client';
 
 import { SegmentedControl } from '@/components/map/MapControls';
+import { PanelLegend } from '@/components/map/PanelLegend';
 import { useSolarMap, type MapLayer } from '@/components/map/SolarMap';
-import { panelGradient } from '@/lib/geo/panels';
-
-const LEGEND_LABEL = 'Panel colours: darker panels make more energy';
 
 /**
  * The house window's map controls, top-left: A's icon-only Satellite / Sun exposure toggle and, while
- * panels are drawn, the panel-shade legend beside it (as MapControls shows them on the full map, minus
+ * panels are drawn, the Panel strength ⓘ beside it (as MapControls shows them on the full map, minus
  * Recentre: the window never leaves the roof). Render as a child of SolarMap; it's marked as a top
  * inset, so the roof is fitted below it.
  */
@@ -33,15 +31,7 @@ export function MapLayerToggle() {
           },
         ]}
       />
-      {panelsShown && (
-        <span
-          role="img"
-          aria-label={LEGEND_LABEL}
-          title="Darker panels make more energy"
-          className="h-3 w-20 rounded-pill shadow-control motion-safe:animate-in motion-safe:fade-in motion-safe:duration-300"
-          style={{ backgroundImage: panelGradient('to right') }}
-        />
-      )}
+      {panelsShown && <PanelLegend side="bottom" />}
     </div>
   );
 }

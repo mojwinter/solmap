@@ -248,7 +248,7 @@ export function HouseWindow({
                 <span className="hidden md:inline">Back to report</span>
               </button>
               {panel && exploring && (
-                // A's card spot (right-6, 440px), bottom-aligned: MapControls' panel-shade legend sits beside its bottom.
+                // A's card spot (right-6, 440px), bottom-aligned.
                 <aside
                   aria-label="Solar summary"
                   className="absolute right-6 bottom-6 hidden max-h-[calc(100%-110px)] w-[440px] overflow-y-auto rounded-xl glass p-5 md:block motion-safe:animate-in motion-safe:slide-in-from-right-4"
