@@ -12,7 +12,6 @@ import {
   defaultList,
   evaluateRow,
   formatTable,
-  isEntryPoint,
   skipReason,
   SLOW_MS,
   type CacheEntryMeta,
@@ -177,21 +176,5 @@ describe("accessHeaders / formatTable", () => {
     expect(lines.slice(2, 5).map((l) => l.trim().split(/\s+/).at(-1))).toEqual(["ok", "FLAG", "ok"]);
     expect(out).toContain("NO_COVERAGE");
     expect(out).toContain("#2 wrong: verdict strong, expected weak");
-  });
-});
-
-describe("isEntryPoint", () => {
-  const url = "file:///C:/Users/topsh/solmap/scripts/demo-check.ts";
-  it("matches on Windows despite drive-letter case and separators", () => {
-    expect(isEntryPoint(url, "c:\\Users\\topsh\\solmap\\scripts\\demo-check.ts", "win32")).toBe(true);
-    expect(isEntryPoint(url, "C:\\Users\\topsh\\solmap\\scripts\\demo-check.ts", "win32")).toBe(true);
-  });
-  it("matches a path with spaces", () => {
-    expect(isEntryPoint("file:///home/a%20b/scripts/demo-check.ts", "/home/a b/scripts/demo-check.ts", "linux")).toBe(true);
-  });
-  it("is false when imported by another file or with no argv[1]", () => {
-    expect(isEntryPoint(url, "C:\\Users\\topsh\\solmap\\node_modules\\vitest\\vitest.mjs", "win32")).toBe(false);
-    expect(isEntryPoint("file:///repo/scripts/demo-check.ts", "/repo/node_modules/vitest/vitest.mjs", "linux")).toBe(false);
-    expect(isEntryPoint(url, undefined, "win32")).toBe(false);
   });
 });

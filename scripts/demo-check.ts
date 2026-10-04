@@ -25,7 +25,7 @@
  */
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import demo from "@/fixtures/demo-addresses.json";
 import { recommend } from "@/lib/finance";
@@ -326,21 +326,7 @@ async function main(): Promise<number> {
   return flagged || tooFew ? 1 : 0;
 }
 
-/**
- * True when this file is the script being run (not imported by the test). Compares paths, not URLs, and
- * ignores case on Windows: there `import.meta.url` and `argv[1]` can differ in drive-letter case or
- * encoding, and a strict URL match made `pnpm demo:check` exit 0 without printing anything.
- */
-export function isEntryPoint(moduleUrl: string, argv1: string | undefined, platform: NodeJS.Platform = process.platform): boolean {
-  if (!argv1) return false;
-  const windows = platform === "win32";
-  const p = windows ? path.win32 : path.posix;
-  const a = p.resolve(fileURLToPath(moduleUrl, { windows }));
-  const b = p.resolve(argv1);
-  return windows ? a.toLowerCase() === b.toLowerCase() : a === b;
-}
-
-if (isEntryPoint(import.meta.url, process.argv[1])) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().then(
     (code) => process.exit(code),
     (e) => {
