@@ -176,7 +176,8 @@ export function SolarMap({
           )}
         </Map>
         {onMapClick && !captions && (
-          <p className="pointer-events-none absolute bottom-6 left-1/2 hidden -translate-x-1/2 rounded-pill glass-thin px-3 py-1.5 text-footnote text-ink-secondary md:block">
+          // Phones: just above the bottom-left controls. Desktop: centred at the bottom.
+          <p data-map-inset="bottom" className="pointer-events-none absolute bottom-[88px] left-4 rounded-pill glass-thin px-3 py-1.5 text-footnote text-ink-secondary md:bottom-6 md:left-1/2 md:-translate-x-1/2">
             Not your roof? Click your roof on the map.
           </p>
         )}

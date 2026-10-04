@@ -4,11 +4,17 @@ import { useEffect, useRef } from "react";
 import { useMap, useMapsLibrary } from "@vis.gl/react-google-maps";
 import { panelPolygon, type OffsetFn } from "@/lib/geo/panels";
 import type { BuildingResponse } from "@/src/types/app";
-import { token } from "./tokens";
 
-// DESIGN.md §4: dark blue panels, thin light stroke; opacity encodes yearly energy (brighter = more productive).
-const MIN_OPACITY = 0.45;
-const MAX_OPACITY = 0.95;
+// Styled like Google's reference rendering (js-solar-potential, BuildingInsightsSection.svelte +
+// colors.ts panelsPalette): a light → dark blue ramp by yearly energy, so every panel is visible
+// and the most productive ones are the darkest.
+const LEAST = [0xe8, 0xea, 0xf6]; // #E8EAF6
+const MOST = [0x1a, 0x23, 0x7e]; // #1A237E
+
+function energyColor(t: number): string {
+  const rgb = LEAST.map((lo, i) => Math.round(lo + (MOST[i] - lo) * t));
+  return `rgb(${rgb.join(",")})`;
+}
 
 interface Props {
   /** Polygons are rebuilt when this object changes, so keep it referentially stable (state, not re-parsed per render). */
@@ -41,16 +47,15 @@ export function PanelOverlay({ building, visibleCount }: Props) {
     const min = Math.min(...energies);
     const range = Math.max(...energies) - min || 1;
 
-    // Opacity is normalised over all of the roof's panels, so resizing never changes a panel's shade.
-    const fill = token("--sky-700");
+    // Colours are normalised over all of the roof's panels, so resizing never recolours a panel.
     polygons.current = building.panels.map(
       (panel) =>
         new maps.Polygon({
           paths: panelPolygon(panel, building.segments, dims, computeOffset),
-          fillColor: fill,
-          fillOpacity: MIN_OPACITY + ((panel.yearlyEnergyDcKwh - min) / range) * (MAX_OPACITY - MIN_OPACITY),
-          strokeColor: "#ffffff",
-          strokeOpacity: 0.7,
+          fillColor: energyColor((panel.yearlyEnergyDcKwh - min) / range),
+          fillOpacity: 0.9,
+          strokeColor: "#B0BEC5",
+          strokeOpacity: 0.9,
           strokeWeight: 1,
           clickable: false,
         }),
