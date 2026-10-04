@@ -292,7 +292,7 @@
 
 /*
  * Print / "Save as PDF" (#33): the report panel becomes a plain page. The map, search and every control
- * hide (print:hidden on each, plus the rules below); frost and shadows go; rows and tiles don't split.
+ * hide (print:hidden on each, plus the rules below); frost and shadows go; rows, tiles and charts don't split.
  */
 @media print {
   @page {
@@ -334,7 +334,9 @@
   li,
   tr,
   dl > div,
-  .rounded-md {
+  .rounded-md,
+  [role="img"],
+  .recharts-wrapper {
     break-inside: avoid;
   }
   h2,
