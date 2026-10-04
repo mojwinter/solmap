@@ -2,32 +2,32 @@
 
 import { useSolarMap } from "./SolarMap";
 
-export type MapLayer = "satellite" | "sun";
-
-interface Props {
-  layer?: MapLayer;
-  onLayerChange?: (layer: MapLayer) => void;
-  /** The sun heatmap (#29) isn't in yet, so "Sun exposure" is disabled until this is true. */
-  sunAvailable?: boolean;
-}
+export type { MapLayer } from "./SolarMap";
 
 /**
  * Bottom-left map controls from the Daylight MapScreen: a "Satellite / Sun exposure" segmented
- * control on frost and a glass "Recentre" button. Render inside <SolarMap> (it uses useSolarMap).
+ * control on frost and a glass "Recentre" button. Render inside <SolarMap>: the layer, the sun
+ * map's status and recentre all come from useSolarMap(), so there are no props to wire.
  */
-export function MapControls({ layer = "satellite", onLayerChange, sunAvailable = false }: Props) {
-  const { recentre } = useSolarMap();
+export function MapControls() {
+  const { recentre, layer, setLayer, sunAvailable, sunStatus } = useSolarMap();
   return (
     // Inset 16/24px from the left (Daylight), but lifted clear of the Google logo in the bottom-left
     // corner, which must stay visible (CLAUDE.md rule 3).
     <div data-map-inset="bottom" className="absolute bottom-9 left-4 flex gap-3 md:left-6">
       <SegmentedControl
         label="Map style"
+        // SolarMap already reports "sun" while its map loads, so a click shows at once.
         value={layer}
-        onChange={(v) => onLayerChange?.(v)}
+        onChange={setLayer}
         options={[
           { value: "satellite", label: "Satellite" },
-          { value: "sun", label: "Sun exposure", disabled: !sunAvailable },
+          {
+            value: "sun",
+            label: layer === "sun" && sunStatus === "loading" ? "Loading…" : "Sun exposure",
+            disabled: !sunAvailable,
+            hint: sunStatus === "none" ? "No sun map for this roof" : "Not available",
+          },
         ]}
       />
       <button type="button" onClick={recentre} className={`${PILL} glass-thin gap-1.5 px-4`}>
@@ -45,6 +45,8 @@ interface Option<T extends string> {
   value: T;
   label: string;
   disabled?: boolean;
+  /** Tooltip shown while disabled. */
+  hint?: string;
 }
 
 /**
@@ -73,7 +75,7 @@ export function SegmentedControl<T extends string>({
             role="radio"
             aria-checked={selected}
             disabled={o.disabled}
-            title={o.disabled ? "Coming soon" : undefined}
+            title={o.disabled ? (o.hint ?? "Not available") : undefined}
             onClick={() => onChange(o.value)}
             className={`${PILL} h-8 px-3 disabled:cursor-not-allowed disabled:text-ink-tertiary ${
               selected ? "bg-sky-600 text-on-sky-600 shadow-control" : ""
