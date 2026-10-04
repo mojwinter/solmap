@@ -2,9 +2,9 @@
 
 import { useId, type CSSProperties, type ReactNode } from 'react';
 import type { FinanceInputs } from '@/src/types/app';
-import { cents } from '@/lib/format';
 import { cn } from '@/lib/utils';
-import { DEFAULT_INPUTS, INPUT_RANGES, INSTALL, SELF_GENERATION } from '@/src/config/bc';
+import { DEFAULT_INPUTS, INPUT_RANGES, INSTALL } from '@/src/config/bc';
+import { InfoPopover } from '@/components/common/InfoPopover';
 import styles from '@/components/common/Range.module.css';
 
 type Knob = 'costPerWatt' | 'costIncrease' | 'daytimeLoadShare' | 'discountRate' | 'panelWatts';
@@ -31,13 +31,13 @@ const KNOBS: Record<Knob, { label: string; step: number; format: (v: number) => 
     hint: 'Recent BC Hydro increases were 3.75% a year. Faster rises make solar pay sooner.',
   },
   daytimeLoadShare: {
-    label: 'Power you use while the sun’s up',
+    label: 'Daytime use',
     step: 0.01,
-    format: (v) => `${share(v)} of your use`,
+    format: (v) => share(v),
     hint: 'The most solar you can use as it’s made. Home by day, or run laundry at noon? Go higher.',
   },
   discountRate: {
-    label: 'What your money could earn',
+    label: 'Interest you’d earn instead',
     step: 0.0025,
     format: (v) => `${pct(v)} a year`,
     hint: 'Counts future savings for less in “value today”. Higher favours smaller systems.',
@@ -68,15 +68,10 @@ export function AssumptionsPanel({ inputs, onChange }: { inputs: FinanceInputs; 
 
   return (
     <section aria-labelledby={id} className="grid gap-4 print:hidden">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="grid min-w-0 flex-1 basis-64 gap-1">
-          <h2 id={id} className="text-headline">
-            What we assumed
-          </h2>
-          <p className="text-callout text-pretty text-ink-secondary">
-            Our best guesses for BC today. Move any of them and every number on this page updates.
-          </p>
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 id={id} className="text-headline">
+          What we assumed
+        </h2>
         <button
           type="button"
           onClick={reset}
@@ -92,24 +87,20 @@ export function AssumptionsPanel({ inputs, onChange }: { inputs: FinanceInputs; 
           <KnobControl key={k} knob={k} value={inputs[k]} onChange={(v) => onChange({ ...inputs, [k]: v })} />
         ))}
         <Tile>
-          <label className="flex items-start justify-between gap-3">
-            <span className="grid gap-1">
-              <span className="text-body">BC Hydro rebate</span>
-              <span className="text-callout text-ink-secondary">
-                Needs BC Hydro approval before you buy and an HPCN installer.
-              </span>
+          <div className="flex items-center justify-between gap-3">
+            <span className="flex items-center gap-1">
+              <label htmlFor={`${id}-rebate`} className="text-body">
+                BC Hydro rebate
+              </label>
+              <InfoPopover label="About the BC Hydro rebate">
+                <span className="block max-w-64">Needs BC Hydro approval before you buy, and an HPCN installer.</span>
+              </InfoPopover>
             </span>
-            <Switch checked={inputs.rebateEligible} onChange={(on) => onChange({ ...inputs, rebateEligible: on })} />
-          </label>
+            <Switch id={`${id}-rebate`} checked={inputs.rebateEligible} onChange={(on) => onChange({ ...inputs, rebateEligible: on })} />
+          </div>
         </Tile>
       </div>
 
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-2 rounded-md bg-fill-quiet p-3 text-callout sm:grid-cols-4">
-        <Fact label="Sell-back rate" value={`${cents(SELF_GENERATION.exportRatePerKwh)}/kWh`} note={SELF_GENERATION.schedule} />
-        <Fact label="Panels lose" value={`${(INSTALL.degradationPerYear * 100).toFixed(1)}% a year`} note="BC Hydro" />
-        <Fact label="Panel life" value={`${inputs.lifetimeYears} years`} note="BC Hydro" />
-        <Fact label="Usable after wiring" value={share(inputs.dcToAcDerate)} note="DC to AC" />
-      </dl>
     </section>
   );
 }
@@ -123,13 +114,17 @@ function KnobControl({ knob, value, onChange }: { knob: Knob; value: number; onC
   const k = KNOBS[knob];
   const { min, max } = INPUT_RANGES[knob];
   const at = ((value - min) / (max - min)) * 100;
-  const isDefault = value === DEFAULT_INPUTS[knob];
   return (
     <Tile>
-      <div className="flex items-baseline justify-between gap-2">
-        <label htmlFor={id} className="text-body">
-          {k.label}
-        </label>
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex min-w-0 items-center gap-1">
+          <label htmlFor={id} className="text-body">
+            {k.label}
+          </label>
+          <InfoPopover label={`About “${k.label.toLowerCase()}”`}>
+            <span className="block max-w-64">{k.hint}</span>
+          </InfoPopover>
+        </span>
         <span className="font-rounded text-headline whitespace-nowrap tabular-nums">{k.format(value)}</span>
       </div>
       <input
@@ -144,26 +139,15 @@ function KnobControl({ knob, value, onChange }: { knob: Knob; value: number; onC
         className={styles.range}
         style={{ '--pct': `${at}%` } as CSSProperties}
       />
-      <p className="text-callout text-pretty text-ink-secondary">
-        {k.hint}{' '}
-        {!isDefault && (
-          <button
-            type="button"
-            onClick={() => onChange(DEFAULT_INPUTS[knob])}
-            className="rounded-sm text-sky-700 underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
-          >
-            Back to {k.format(DEFAULT_INPUTS[knob])}
-          </button>
-        )}
-      </p>
     </Tile>
   );
 }
 
-function Switch({ checked, onChange }: { checked: boolean; onChange: (on: boolean) => void }) {
+function Switch({ id, checked, onChange }: { id: string; checked: boolean; onChange: (on: boolean) => void }) {
   return (
     <span className="relative mt-0.5 inline-flex flex-none">
       <input
+        id={id}
         type="checkbox"
         role="switch"
         checked={checked}
@@ -179,17 +163,5 @@ function Switch({ checked, onChange }: { checked: boolean; onChange: (on: boolea
         className="absolute top-[2px] left-[2px] size-6 rounded-full bg-white shadow-control transition-transform peer-checked:translate-x-[18px] motion-reduce:transition-none"
       />
     </span>
-  );
-}
-
-function Fact({ label, value, note }: { label: string; value: string; note: string }) {
-  return (
-    <div className="grid gap-0.5">
-      <dt className="text-ink-secondary">{label}</dt>
-      <dd className="font-rounded text-headline tabular-nums">
-        {value}
-        <small className="ml-1 font-sans text-footnote text-ink-tertiary">{note}</small>
-      </dd>
-    </div>
   );
 }

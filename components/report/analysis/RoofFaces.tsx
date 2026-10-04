@@ -10,9 +10,8 @@ const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /**
  * The roof as Google sees it: a compass showing which way each face points (wedge length = its area,
- * sky when this size puts panels on it), then one row per face with pitch, area, sun and panels.
- * South-ish faces (135–225°) are best in BC; a wide gap between a face's shady and typical sun hours
- * is flagged as shade.
+ * sky when this size puts panels on it; the south-ish arc is BC's best facing), the sunniest spot and
+ * roof area, then one row per face: direction, pitch, a cloud when it's partly shaded, panels used.
  */
 export function RoofFaces({
   building,
@@ -24,38 +23,24 @@ export function RoofFaces({
   const id = useId();
   const faces = roofFaces(building, scenario);
   const shown = faces.slice(0, 6);
-  const usedFaces = faces.filter((f) => f.panelsUsed > 0).length;
   const { roof } = building;
 
   return (
     <section aria-labelledby={id} className="grid content-start gap-3 print:break-inside-avoid">
-      <div className="grid gap-1">
-        <h2 id={id} className="text-headline">
-          Your roof
-        </h2>
-        <p className="text-callout text-pretty text-ink-secondary">
-          {kwh(roof.areaMeters2)} m² over {faces.length} {faces.length === 1 ? 'face' : 'faces'}
-          {roof.maxPanels > 0 ? `, room for up to ${kwh(roof.maxPanels)} panels.` : ': no spot is big and sunny enough for a panel.'}
-          {scenario && usedFaces > 0 && ` This size uses ${usedFaces === 1 ? 'one face' : `${usedFaces} faces`}.`}
-        </p>
-      </div>
+      <h2 id={id} className="text-headline">
+        Your roof
+      </h2>
 
       <div className="flex items-center gap-4">
         <Compass faces={faces} />
         <dl className="grid flex-1 gap-2 text-callout">
-          <div>
-            <dt className="text-ink-secondary">Sunniest spot</dt>
-            <dd className="font-rounded text-headline tabular-nums">
-              {kwh(roof.maxSunshineHoursPerYear)}
-              <small className="ml-1 font-sans text-callout text-ink-secondary">sun-hours a year</small>
-            </dd>
+          <div className="flex flex-col-reverse">
+            <dt className="text-ink-secondary">sun-hours a year</dt>
+            <dd className="font-rounded text-metric tabular-nums">{kwh(roof.maxSunshineHoursPerYear)}</dd>
           </div>
-          <div>
-            <dt className="text-ink-secondary">BC typical</dt>
-            <dd className="font-rounded text-headline tabular-nums">
-              {kwh(TUNING.bcReferenceSunHours)}
-              <small className="ml-1 font-sans text-callout text-ink-secondary">sun-hours</small>
-            </dd>
+          <div className="flex flex-col-reverse">
+            <dt className="text-ink-secondary">m² of roof</dt>
+            <dd className="font-rounded text-metric tabular-nums">{kwh(roof.areaMeters2)}</dd>
           </div>
         </dl>
       </div>
@@ -65,60 +50,37 @@ export function RoofFaces({
           <FaceRow key={f.index} face={f} />
         ))}
       </ul>
-      {faces.length > shown.length && (
-        <p className="text-footnote text-ink-tertiary">
-          {faces.length - shown.length} smaller {faces.length - shown.length === 1 ? 'face' : 'faces'} not listed.
-        </p>
-      )}
     </section>
   );
 }
 
 function FaceRow({ face }: { face: RoofFace }) {
   const shaded = face.shadeSpread > TUNING.shadingSpread;
-  const south = isSouthish(face.azimuth);
   const flat = face.pitch < 5;
   return (
-    <li className="grid gap-0.5 border-separator py-2.5 not-first:border-t">
-      <div className="flex items-center justify-between gap-2">
-        <span className="flex items-center gap-2 text-body">
-          <span
-            aria-hidden="true"
-            className={cn('size-2.5 flex-none rounded-full', face.panelsUsed > 0 ? 'bg-sky-600' : 'bg-chart-muted')}
-          />
-          {flat ? 'Flat' : `${capitalise(compass(face.azimuth))}, ${Math.round(face.pitch)}°`}
-        </span>
-        <span className="font-rounded text-callout tabular-nums text-ink">
-          {face.panelsMax > 0 ? (
-            <>
-              {face.panelsUsed} of {face.panelsMax}
-              <span className="ml-1 font-sans text-ink-secondary">panels</span>
-            </>
-          ) : (
-            <span className="font-sans text-ink-secondary">No room for panels</span>
-          )}
-        </span>
-      </div>
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 pl-[18px] text-callout text-ink-secondary">
-        <span className="tabular-nums">{kwh(face.areaM2)} m²</span>
-        <span className="tabular-nums">{kwh(face.medianSunHours)} sun-hrs typical</span>
-        {shaded && (
-          <span className="inline-flex items-center gap-1 text-fair-ink">
-            <Icon name="cloud" size={14} />
-            Some shade
-          </span>
+    <li className="flex items-center justify-between gap-2 border-separator py-2.5 not-first:border-t">
+      <span className="flex items-center gap-2 text-body">
+        <span
+          aria-hidden="true"
+          className={cn('size-2.5 flex-none rounded-full', face.panelsUsed > 0 ? 'bg-sky-600' : 'bg-chart-muted')}
+        />
+        {flat ? 'Flat' : `${capitalise(compass(face.azimuth))}, ${Math.round(face.pitch)}°`}
+        {shaded && <Icon name="cloud" size={14} label="Some shade" className="text-fair-ink" />}
+      </span>
+      <span className="font-rounded text-callout tabular-nums text-ink">
+        {face.panelsMax > 0 ? (
+          <>
+            {face.panelsUsed}/{face.panelsMax}
+            <span className="ml-1 font-sans text-ink-secondary">panels</span>
+          </>
+        ) : (
+          <span className="font-sans text-ink-secondary">No room</span>
         )}
-        {!flat && !south && !shaded && face.panelsMax > 0 && (
-          <span className="text-ink-tertiary">{isNorthish(face.azimuth) ? 'Faces away from the sun' : 'Off-south'}</span>
-        )}
-      </div>
+      </span>
     </li>
   );
 }
 
-const norm = (a: number) => ((a % 360) + 360) % 360;
-const isSouthish = (az: number) => norm(az) >= 135 && norm(az) <= 225;
-const isNorthish = (az: number) => norm(az) >= 315 || norm(az) <= 45;
 
 /** Each face as a wedge pointing the way it faces (N up), longer for bigger faces; flat faces as a centre disc. */
 function Compass({ faces }: { faces: RoofFace[] }) {

@@ -152,34 +152,6 @@ export function CashFlowChart({
             {payback !== null && (
               <ReferenceDot x={payback} y={0} r={5} fill="var(--good)" stroke="var(--popover)" strokeWidth={2} />
             )}
-            {/* Install day: what you pay after the rebate, labelled just above the start of the line. */}
-            <ReferenceDot
-              x={0}
-              y={-scenario.netCost}
-              r={4}
-              fill="var(--poor)"
-              stroke="var(--popover)"
-              strokeWidth={2}
-              label={{
-                content: ({ viewBox }) =>
-                  viewBox && 'x' in viewBox ? (
-                    <text
-                      x={viewBox.x + 14}
-                      y={viewBox.y - 6}
-                      fill="var(--ink-secondary)"
-                      fontSize={12}
-                      fontWeight={600}
-                      // A surface-coloured halo keeps it readable where the line runs under it.
-                      stroke="var(--surface)"
-                      strokeWidth={4}
-                      strokeLinejoin="round"
-                      paintOrder="stroke"
-                    >
-                      You pay {cad(scenario.netCost)}
-                    </text>
-                  ) : null,
-              }}
-            />
           </AreaChart>
         </ResponsiveContainer>
       </div>

@@ -130,7 +130,8 @@ export function SizeSweepChart({
       metric === 'npv' && recommended && recommended.index !== peak.index
         ? ` We recommend ${kw(recommended.kw)} kW: within ${cad(peak.npv - recommended.npv)} of the peak, for ${recommended.panels < peak.panels ? 'fewer panels' : 'a different size'}.`
         : '';
-    return top + close + after + why;
+    const tail = zoomed ? ` The chart stops at ${kw(lastShown.kw)} kW; a full roof (${kw(biggest.kw)} kW) comes to ${signedCad(biggest[money])}.` : '';
+    return top + close + after + why + tail;
   })();
 
   const valueOf = (p: SweepPoint) => (metric === 'payback' ? p.payback : p[metric]);
@@ -162,25 +163,18 @@ export function SizeSweepChart({
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
           <Legend
             items={[
-              ...(recommended ? [{ label: `Recommended · ${recommended.panels} panels`, color: 'var(--sky-600)' }] : []),
-              ...(showSelected ? [{ label: `On screen · ${selected.panels} panels`, color: 'var(--ink)' }] : []),
+              ...(recommended ? [{ label: 'Recommended', color: 'var(--sky-600)' }] : []),
+              ...(showSelected ? [{ label: 'On screen', color: 'var(--ink)' }] : []),
             ]}
           />
           {end !== null && (
-            <p className="flex flex-wrap items-center gap-x-2 text-callout text-ink-secondary">
-              {zoomed && (
-                <span>
-                  Up to {kw(lastShown.kw)} kW shown; a full roof ({kw(biggest.kw)} kW) comes to {signedCad(biggest[money])}.
-                </span>
-              )}
-              <button
-                type="button"
-                onClick={() => setShowAll((v) => !v)}
-                className="rounded-sm font-semibold text-sky-700 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring print:hidden"
-              >
-                {zoomed ? `Show all ${points.length} sizes` : 'Zoom to the best sizes'}
-              </button>
-            </p>
+            <button
+              type="button"
+              onClick={() => setShowAll((v) => !v)}
+              className="rounded-sm text-callout font-semibold text-sky-700 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring print:hidden"
+            >
+              {zoomed ? 'Show all sizes' : 'Zoom in'}
+            </button>
           )}
         </div>
       }

@@ -137,12 +137,9 @@ export function Sensitivity({
             </div>
           );
         })}
-        <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-footnote text-ink-tertiary">
-          <span>Years to pay back</span>
-          <span className="flex items-center gap-1.5">
-            <span aria-hidden="true" className="inline-block h-3 w-0.5 bg-ink" />
-            Now: {label(now)}, with everything else as it is
-          </span>
+        <p className="flex items-center gap-1.5 text-footnote text-ink-tertiary">
+          <span aria-hidden="true" className="inline-block h-3 w-0.5 bg-ink" />
+          Payback now
         </p>
       </div>
     </ChartSection>

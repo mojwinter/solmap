@@ -40,7 +40,6 @@ import { useAddress } from './useAddress';
 import { useBuilding, type BuildingState } from './useBuilding';
 import { configIndexFor, reportSearch, type ReportQuery } from './urlState';
 import { useReportState } from './useReportState';
-import { ReasonChips } from './verdict/ReasonChips';
 import { VerdictCard } from './verdict/VerdictCard';
 
 /** The spot being reported on: from the URL or an address pick. */
@@ -247,7 +246,6 @@ function reportCards(
           lifetimeYears={inputs.lifetimeYears}
         />
         <MoneyTiles scenario={selected} />
-        <ReasonChips reasons={recommendation.reasons} />
       </SolarPotential>
     ),
     controls: (
@@ -262,10 +260,7 @@ function reportCards(
     ),
     analysis: (
       <div className="grid gap-5 md:gap-6">
-        <KeyFigures
-          scenario={selected}
-          baseline={recommendation.recommendedIndex === null ? null : recommendation.scenarios[recommendation.recommendedIndex]}
-        />
+        <KeyFigures scenario={selected} />
         <Assumptions warnings={selected.warnings} />
         {/* Under the house: the savings chart, or without charts, the first year (so the column isn't short). */}
         {flags.charts ? (

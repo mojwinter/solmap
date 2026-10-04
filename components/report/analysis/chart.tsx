@@ -7,9 +7,9 @@ export const AXIS_TEXT = { fill: 'var(--ink-tertiary)', fontSize: 12 };
 export const GRID = 'var(--separator)';
 
 /**
- * One chart's frame inside a card: heading, a sentence that says what to read from it, the plot, then
- * an optional "See the numbers" table so no value depends on hovering or colour. `aside` sits right of
- * the heading (a toggle or a legend).
+ * One chart's frame inside a card: a heading (with `aside`, e.g. a toggle, on its right), the plot,
+ * its legend, then an optional "See the numbers" table so no value depends on hovering or colour. The
+ * summary sentence is for screen readers only, so the card stays clean.
  */
 export function ChartSection({
   id,
@@ -23,7 +23,7 @@ export function ChartSection({
 }: {
   id: string;
   title: string;
-  /** The takeaway in words (also what a screen reader hears for the plot). */
+  /** The takeaway in words: read to screen readers (visually hidden). */
   summary: ReactNode;
   aside?: ReactNode;
   legend?: ReactNode;
@@ -34,13 +34,12 @@ export function ChartSection({
 }) {
   return (
     <section aria-labelledby={id} className={cn('grid content-start gap-3 print:break-inside-avoid', className)}>
-      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
-        <div className="grid min-w-0 flex-1 basis-56 gap-1">
-          <h2 id={id} className="text-headline">
-            {title}
-          </h2>
-          <p className="text-callout text-pretty text-ink-secondary">{summary}</p>
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <h2 id={id} className="min-w-0 flex-1 basis-40 text-headline">
+          {title}
+        </h2>
+        {/* The takeaway in words, for screen readers; on screen the chart speaks for itself. */}
+        <p className="sr-only">{summary}</p>
         {aside && <div className="w-full flex-none sm:w-auto print:hidden">{aside}</div>}
       </div>
       {children}

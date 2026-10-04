@@ -71,8 +71,8 @@ export function PanelOutputChart({
       legend={
         <Legend
           items={[
-            { label: `In this system · ${scenario.panelsCount}`, color: 'var(--sky-600)', shape: 'bar' },
-            ...(unused.length ? [{ label: `Room for ${unused.length} more`, color: 'var(--chart-muted)', shape: 'bar' as const }] : []),
+            { label: 'In this system', color: 'var(--sky-600)', shape: 'bar' },
+            ...(unused.length ? [{ label: 'Unused', color: 'var(--chart-muted)', shape: 'bar' as const }] : []),
           ]}
         />
       }

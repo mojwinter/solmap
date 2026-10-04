@@ -285,7 +285,7 @@ export function sensitivity(
     },
     {
       key: 'daytime',
-      label: 'Use while the sun’s up',
+      label: 'Daytime use',
       ends: [INPUT_RANGES.daytimeLoadShare.min, INPUT_RANGES.daytimeLoadShare.max].map((d) => ({
         setting: `${Math.round(d * 100)}%`,
         ...run({ daytimeLoadShare: d }),

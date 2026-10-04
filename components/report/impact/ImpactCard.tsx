@@ -51,11 +51,7 @@ export function ImpactCard({ scenario }: { scenario: ScenarioResult }) {
             </div>
           </dl>
         )}
-        <p className="text-callout text-pretty text-ink-secondary">
-          BC’s grid is mostly hydro ({oneDecimal.format(perKwh * 1000)} g CO₂e per kWh in {GRID_EMISSIONS.year}), so
-          solar here avoids much less carbon than it would elsewhere. BC Hydro says solar doesn’t necessarily cut your footprint:
-          the case here is mostly about money.
-        </p>
+        <p className="text-callout text-pretty text-ink-secondary">BC’s grid is mostly hydro, so the climate benefit is small.</p>
       </section>
     </Card>
   );

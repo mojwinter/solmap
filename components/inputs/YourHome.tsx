@@ -50,11 +50,6 @@ export function YourHome({ inputs, onChange }: { inputs: FinanceInputs; onChange
           {open ? 'Done' : 'Change'}
         </button>
       </div>
-      {typical && !open && (
-        <p className="text-callout text-pretty text-ink-secondary">
-          Enter your BC Hydro bill to make every number here yours.
-        </p>
-      )}
       <div id={`${id}-panel`} hidden={!open}>
         <UsageInputs inputs={inputs} onChange={onChange} />
       </div>

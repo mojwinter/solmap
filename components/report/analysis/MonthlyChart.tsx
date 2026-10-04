@@ -58,7 +58,7 @@ export function MonthlyChart({
           soldShare(worst) < 0.05 ? 'nearly all of it' : pct(1 - soldShare(worst))
         }.`
       : 'you use nearly all of it as it’s made, every month.'
-  }`;
+  } Monthly shape from NRCan solar data for ${town.name}; the split assumes even use through the year.`;
 
   return (
     <ChartSection
@@ -66,20 +66,13 @@ export function MonthlyChart({
       title="Month by month"
       summary={summary}
       legend={
-        <div className="grid gap-1">
-          <Legend
-            items={[
-              { label: 'Used at home', color: 'var(--sky-600)', shape: 'bar' },
-              { label: 'Sold to BC Hydro', color: 'var(--chart-sun)', shape: 'bar' },
-              { label: `Your use while the sun’s up · ${kwh(daytime)} kWh a month`, color: 'var(--ink-secondary)', shape: 'line' },
-            ]}
-          />
-          <p className="text-footnote text-ink-tertiary">
-            Monthly shape from NRCan’s solar data for {town.name}. The used / sold split per month is our estimate and adds up
-            to the yearly figures; it assumes even use through the year (real BC homes use more in winter). Change the daytime
-            share under What we assumed.
-          </p>
-        </div>
+        <Legend
+          items={[
+            { label: 'Used at home', color: 'var(--sky-600)', shape: 'bar' },
+            { label: 'Sold', color: 'var(--chart-sun)', shape: 'bar' },
+            { label: 'Daytime use', color: 'var(--ink-secondary)', shape: 'line' },
+          ]}
+        />
       }
       table={
         <NumbersTable

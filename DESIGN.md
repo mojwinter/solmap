@@ -54,8 +54,8 @@ Layout (`components/report/ReportLayout.tsx`): the house window (a locked map; c
 full screen) top left, the answer top right, then a dashboard under both. From 1024px, two columns:
 
 ```
-house window                        | answer (payback year, verdict, money tiles, reasons)
-key figures (4 tiles)               | size slider (with a today's-value curve over the track)
+house window                        | answer (payback year, verdict, install cost, 25-year savings)
+key figures (4 tiles)               | size slider (with a value curve over the track)
 savings over time [charts]          | your home (usage + rate plan, opens in place)
                                     | environmental impact · get real quotes
 ─────────────── analysis grid (3 columns with charts, 2 without) ───────────────
@@ -68,9 +68,12 @@ footer: attribution + every source
 ```
 
 Narrower, one column in reading order (house, answer, slider, your home, figures, charts…). Without
-the `charts` flag, "where your solar goes" moves under the house so that column isn't short. Every chart
-has a one-sentence takeaway above it and its numbers in a "See the numbers" table, so nothing depends
-on hovering or colour. The pure figures behind the dashboard are in `components/report/analysis/derive.ts`.
+the `charts` flag, "where your solar goes" moves under the house so that column isn't short.
+
+**Keep it clean (like the original answer card):** each card is a title, the visual and its key number.
+No explanatory paragraphs or sub-notes on screen: each chart's takeaway sentence is screen-reader only
+(`ChartSection`'s `summary`), how a figure is worked out sits behind an ⓘ, and the numbers behind a
+chart are in a closed "See the numbers" table, so nothing depends on hovering or colour. The pure figures behind the dashboard are in `components/report/analysis/derive.ts`.
 
 **VerdictCard** (the hero element)
 - Badge: **Strong / Moderate / Weak / Not recommended** (colour + glyph + word, never colour alone),
@@ -114,14 +117,14 @@ on hovering or colour. The pure figures behind the dashboard are in `components/
 | Imagery | quality + capture date |
 | Next steps | "Get 3 quotes from Home Performance Contractor Network members; apply for self-generation **before** buying equipment (required for the rebate)." |
 
-**Key figures** (always on): saved in year one (used vs sold), share off the power bill, what your
-solar costs per kWh over its life vs the rate it replaces, and dollars back per $1 paid. Each ⓘ shows the sum.
+**Key figures** (always on): year 1 savings, share off the bill, solar cost per kWh over its life, and
+dollars back per $1 paid. Number and label only; each ⓘ shows the sum.
 
 **Where your solar goes** (always on): year-1 split used at home vs sold at 10¢, and the yearly bill as a
 waterfall (without solar → minus solar used → minus export credit → with solar).
 
 **Your roof** (always on): a compass of the roof faces (wedge = area, sky = used by this size, south-ish arc
-marked), sunniest spot vs BC typical, and a row per face: pitch, area, typical sun hours, panels, shade flag.
+marked), sunniest spot and roof area, and a row per face: direction, pitch, a cloud if shaded, panels used.
 
 **[P1, `charts`] Charts**
 - *Which size pays best (sweet spot):* x = system kW (each config); one measure at a time, never two
