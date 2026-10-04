@@ -1,8 +1,6 @@
 import type { ScenarioResult } from '@/src/types/app';
 import { InfoPopover } from '@/components/common/InfoPopover';
-import { StatList } from '@/components/common/StatList';
-import { cad, kwh, signedCad } from '@/lib/format';
-import { GRID_EMISSIONS } from '@/src/config/bc';
+import { cad, signedCad } from '@/lib/format';
 
 /**
  * The answer card's two money tiles under the payback year: what you pay after the BC Hydro rebate
@@ -30,31 +28,6 @@ export function MoneyTiles({ scenario }: { scenario: ScenarioResult }) {
         <dt className="text-callout text-ink-secondary">over {lifetime} years</dt>
       </div>
     </dl>
-  );
-}
-
-/**
- * A year's sun on the roof's sunniest spot, production, what it saves (bill savings + export credit),
- * how much of average use it covers and the CO₂ it avoids.
- */
-export function YearlyStats({ scenario, sunHours }: { scenario: ScenarioResult; sunHours: number }) {
-  const co2Kg = scenario.acKwhYear1 * GRID_EMISSIONS.kgCo2ePerKwh;
-
-  return (
-    <section aria-labelledby="year1-heading" className="grid gap-2">
-      <h2 id="year1-heading" className="text-headline">
-        Yearly
-      </h2>
-      <StatList
-        items={[
-          { icon: 'sun', label: 'Sun hours', value: kwh(sunHours), tone: 'sun' },
-          { icon: 'bolt', label: 'Energy generated', valueUnit: 'kWh', value: kwh(scenario.acKwhYear1), tone: 'sky' },
-          { icon: 'dollar', label: 'Money saved', value: cad(scenario.year1.total), tone: 'good' },
-          { icon: 'panels', label: 'Share of average use', value: `${Math.round(scenario.offsetPct * 100)}%` },
-          { icon: 'leaf', label: 'CO₂ emissions saved', valueUnit: 'kg', value: Math.round(co2Kg).toLocaleString('en-CA'), tone: 'good' },
-        ]}
-      />
-    </section>
   );
 }
 

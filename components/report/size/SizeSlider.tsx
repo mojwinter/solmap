@@ -1,15 +1,17 @@
 'use client';
 
-import { useEffect, useRef, type CSSProperties, type MouseEvent } from 'react';
+import { useEffect, useId, useRef, type CSSProperties, type MouseEvent } from 'react';
 import { Icon } from '@/components/common/Icon';
 import { kwh, panelsLabel } from '@/lib/format';
 import { cn } from '@/lib/utils';
-import styles from './SizeSlider.module.css';
+import styles from '@/components/common/Range.module.css';
 
 export interface SizeStep {
   panels: number;
   /** First-year AC production: the sum of these panels' own output, so each step adds a different amount. */
   acKwhYear1: number;
+  /** Savings in today's dollars at this size (Recommendation's npv): drawn as a curve over the track when given. */
+  value?: number;
 }
 
 // Hold a stepper to keep stepping: a roof can have 50+ configs, too many to click through one by one.
@@ -18,8 +20,8 @@ const HOLD_REPEAT_MS = 70;
 
 /**
  * System size picker. Moves through the roof's panel configs (not single panels), with −/+ steppers
- * for a precise step (hold to repeat), a caret under the track at the recommended size, and a line under
- * it that says you're on it or takes you back.
+ * for a precise step (hold to repeat), the value curve over the track, a caret under the track at the
+ * recommended size, and a line under it that says you're on it or takes you back.
  */
 export function SizeSlider({
   steps,
@@ -41,24 +43,31 @@ export function SizeSlider({
   // The thumb is 26px wide, so its centre runs from 13px to (100% − 13px) of the track.
   const thumbLeft = (i: number) => `calc(13px + (100% - 26px) * ${at(i) / 100})`;
   const step = (dir: -1 | 1) => (i: number) => Math.min(last, Math.max(0, i + dir));
+  const curve = steps.length > 1 && steps.every((s) => s.value !== undefined) ? steps.map((s) => s.value!) : null;
 
   return (
     <section aria-labelledby="size-heading" className="grid gap-2">
-      <div className="flex items-baseline justify-between gap-2">
-        <h2 id="size-heading" className="text-body text-ink-secondary">
-          System size
-        </h2>
-        <p className="font-rounded text-metric tabular-nums" aria-live="polite">
+      <h2 id="size-heading" className="text-body text-ink-secondary">
+        System size
+      </h2>
+      {/* The size and what it makes a year, side by side: they change as you drag. */}
+      <p className="flex flex-wrap items-baseline gap-x-5 gap-y-1" aria-live="polite">
+        <span className="font-rounded text-[30px] leading-9 font-bold tracking-tight tabular-nums">
           {current.panels}
-          <small className="ml-1 font-sans text-callout text-ink-secondary">
-            {current.panels === 1 ? 'panel' : 'panels'} · {kwh(current.acKwhYear1)} kWh
+          <small className="ml-1.5 font-sans text-callout font-medium tracking-normal text-ink-secondary">
+            {current.panels === 1 ? 'panel' : 'panels'}
           </small>
-        </p>
-      </div>
+        </span>
+        <span className="font-rounded text-[30px] leading-9 font-bold tracking-tight tabular-nums text-sky-700">
+          {kwh(current.acKwhYear1)}
+          <small className="ml-1.5 font-sans text-callout font-medium tracking-normal text-ink-secondary">kWh a year</small>
+        </span>
+      </p>
 
-      <div className="flex items-center gap-3 print:hidden">
+      <div className={cn('flex gap-3 print:hidden', curve ? 'items-end' : 'items-center')}>
         <Stepper icon="minus" label="Fewer panels" value={value} next={step(-1)} disabled={value <= 0} onChange={onChange} />
-        <div className="relative flex-1">
+        <div className={cn('relative flex-1', curve && 'pt-[76px]')}>
+          {curve && <ValueCurve values={curve} at={value} />}
           <input
             type="range"
             min={0}
@@ -179,5 +188,47 @@ function Stepper({
     >
       <Icon name={icon} size={16} strokeWidth={2} />
     </button>
+  );
+}
+
+/**
+ * The money curve over the track: savings in today's dollars at each size, green above zero and red
+ * below, with the current size dotted. Its ends line up with the thumb's centre at either end of the
+ * track (13px in), so a peak sits right above the size that makes it. Decorative: the numbers are in
+ * the answer card and the "Which size pays best" chart.
+ */
+function ValueCurve({ values, at }: { values: number[]; at: number }) {
+  const W = 1000;
+  const H = 72;
+  const lo = Math.min(0, ...values);
+  const hi = Math.max(0, ...values);
+  const y = (v: number) => (hi === lo ? H / 2 : 2 + ((hi - v) / (hi - lo)) * (H - 4));
+  const x = (i: number) => (values.length === 1 ? 0 : (i / (values.length - 1)) * W);
+  const line = values.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join('');
+  const area = `${line}L${W} ${y(0)}L0 ${y(0)}Z`;
+  const zero = y(0);
+  const id = useId();
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox={`0 0 ${W} ${H}`}
+      preserveAspectRatio="none"
+      className="pointer-events-none absolute top-0 left-[13px] h-[72px] w-[calc(100%-26px)] overflow-visible"
+    >
+      <defs>
+        <clipPath id={`${id}-above`}>
+          <rect x="0" y="0" width={W} height={zero} />
+        </clipPath>
+        <clipPath id={`${id}-below`}>
+          <rect x="0" y={zero} width={W} height={H - zero + 4} />
+        </clipPath>
+      </defs>
+      <path d={area} fill="var(--good)" opacity={0.12} clipPath={`url(#${id}-above)`} />
+      <path d={area} fill="var(--poor)" opacity={0.12} clipPath={`url(#${id}-below)`} />
+      <path d={line} fill="none" stroke="var(--good)" strokeWidth={1.5} vectorEffect="non-scaling-stroke" clipPath={`url(#${id}-above)`} />
+      <path d={line} fill="none" stroke="var(--poor)" strokeWidth={1.5} vectorEffect="non-scaling-stroke" clipPath={`url(#${id}-below)`} />
+      <line x1="0" x2={W} y1={zero} y2={zero} stroke="var(--separator)" strokeWidth={1} vectorEffect="non-scaling-stroke" />
+      <line x1={x(at)} x2={x(at)} y1={0} y2={H} stroke="var(--ink-tertiary)" strokeWidth={1} vectorEffect="non-scaling-stroke" />
+    </svg>
   );
 }

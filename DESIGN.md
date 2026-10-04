@@ -50,10 +50,27 @@ Landing ──► type address (PlaceAutocompleteElement → place.location)
 
 ### Report page
 
-Layout (see §4): the map fills the screen. Address search floats top-left; one wide frosted
-results panel (~440px, scrolls) floats on the right, holding the cards below in this order:
-verdict → money → size slider → inputs → spec sheet → attribution. On phones the panel becomes
-a bottom sheet with the verdict visible first.
+Layout (`components/report/ReportLayout.tsx`): from 1024px, two independent stacks (a short card
+never leaves a gap beside a tall one); they needn't end level:
+
+```
+main (wide)                         | side (360–400px)
+house window                        | answer (payback year, verdict, install cost, 25-year savings)
+key figures (4 tiles)               | system size (a large value curve over the slider)
+savings over time [charts]          | panel by panel [charts]
+month by month [charts]             | environmental impact · get real quotes
+footer: attribution + sources
+```
+"Advanced settings" [assumptions] sits in the title row beside "Save as PDF" and opens What we assumed in a
+dialog.
+
+Narrower (and printed), one column in reading order (each block's `order`: house, answer, slider,
+figures and savings, month by month, panels, impact, quotes).
+
+**Keep it clean (like the original answer card):** each card is a title, the visual and its key number.
+No explanatory paragraphs or sub-notes on screen: each chart's takeaway sentence is screen-reader only
+(`ChartSection`'s `summary`), how a figure is worked out sits behind an ⓘ, and the numbers behind a
+chart are in a closed "See the numbers" table, so nothing depends on hovering or colour. The pure figures behind the dashboard are in `components/report/analysis/derive.ts`.
 
 **VerdictCard** (the hero element)
 - Badge: **Strong / Moderate / Weak / Not recommended** (colour + glyph + word, never colour alone),
@@ -83,7 +100,7 @@ a bottom sheet with the verdict visible first.
 - Best input of all: "Annual kWh" from the BC Hydro account's consumption history. Link to where to find it.
 - "Electric heat?" hint text that links to the flat rate explanation.
 
-**SpecSheet** (printable)
+**SpecSheet** (printable; on the report only when nothing fits the roof, with the roof's area, max panels and sun hours. With a system, production and sun hours are key figures)
 | Field | Source |
 |---|---|
 | System size (kW DC) | panelsCount × panel W |
@@ -97,12 +114,20 @@ a bottom sheet with the verdict visible first.
 | Imagery | quality + capture date |
 | Next steps | "Get 3 quotes from Home Performance Contractor Network members; apply for self-generation **before** buying equipment (required for the rebate)." |
 
-**[P1] Charts**
-- *Sweet-spot chart:* x = system kW (each config), y1 = NPV, y2 = payback years. Recommended point highlighted.
-- *Cash-flow chart:* cumulative net savings, years 0–25, break-even marked.
+**Key figures** (always on): kWh a year, sun hours a year (the roof's sunniest spot), yearly savings
+(year one; the ⓘ says it grows with price rises, less panel wear) and share off the bill. Number and
+label only; each ⓘ shows the sum.
 
-**[P1] AssumptionsDrawer**: every knob from `FinanceInputs` with default, unit and source link.
-"Reset to BC defaults".
+**[P1, `charts`] Charts**
+- *Savings over time (cash flow):* cumulative net savings, years 0–25, break-even marked.
+- *Month by month:* year-1 output spread by NRCan's monthly shape for the nearest town, split into used
+  at home and sold, against the household's daytime use.
+- *Panel by panel:* every panel spot's year-1 kWh, best first, the ones in use highlighted.
+
+**[P1, `assumptions`] Advanced settings** (`components/inputs/AdvancedSettings.tsx`): a pill in the title row
+that opens a dialog with install cost, price rises, daytime use share, interest elsewhere (discount rate) and
+panel size as sliders (range from `INPUT_RANGES`, BC default, why behind each ⓘ), the rebate as a switch, and
+Reset. The report updates live behind it; a dot on the pill means something differs from BC's defaults.
 
 ### States
 | State | Behaviour |

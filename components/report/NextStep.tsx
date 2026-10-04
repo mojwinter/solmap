@@ -8,22 +8,30 @@ import { REBATES } from '@/src/config/bc';
  */
 export function NextStep() {
   return (
-    <a
-      href={REBATES.source}
-      target="_blank"
-      rel="noreferrer"
-      className="group flex items-center gap-4 rounded-xl bg-sky-600 p-5 text-on-sky-600 shadow-control transition-transform hover:brightness-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring motion-safe:active:scale-[.99] print:hidden"
-    >
-      <span className="grid size-11 flex-none place-items-center rounded-md bg-white/15">
-        <BcHydroLogo size={26} />
-      </span>
-      <span className="grid flex-1 gap-0.5">
-        <span className="text-headline">Get real quotes</span>
-        <span className="text-callout opacity-90">
-          Apply to BC Hydro before you buy, then use an HPCN installer to get the rebate.
+    <>
+      {/* The card below doesn't print; on paper the steps are spelled out instead. */}
+      <p className="hidden text-body print:block">
+        <strong>Next steps:</strong> get 3 quotes from Home Performance Contractor Network members, and apply to BC
+        Hydro for self-generation <strong>before</strong> buying equipment (required for the rebate; see{' '}
+        <a href={REBATES.source}>BC Hydro’s rebate page</a>).
+      </p>
+      <a
+        href={REBATES.source}
+        target="_blank"
+        rel="noreferrer"
+        className="group flex items-center gap-4 rounded-xl bg-sky-600 p-5 text-on-sky-600 shadow-control transition-transform hover:brightness-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring motion-safe:active:scale-[.99] print:hidden"
+      >
+        <span className="grid size-11 flex-none place-items-center rounded-md bg-white/15">
+          <BcHydroLogo size={26} />
         </span>
-      </span>
-      <Icon name="chevron" size={20} className="flex-none transition-transform group-hover:translate-x-0.5" />
-    </a>
+        <span className="grid flex-1 gap-0.5">
+          <span className="text-headline">Get real quotes</span>
+          <span className="text-callout">
+            Apply to BC Hydro before you buy, then use an HPCN installer to get the rebate.
+          </span>
+        </span>
+        <Icon name="chevron" size={20} className="flex-none transition-transform group-hover:translate-x-0.5" />
+      </a>
+    </>
   );
 }

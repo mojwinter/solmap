@@ -2,21 +2,28 @@
 
 import { useEffect, useState, type ComponentProps } from 'react';
 import { MapsProvider } from '@/components/map/MapsProvider';
+import { AdvancedSettings } from '@/components/inputs/AdvancedSettings';
 import { verdictFor } from '@/lib/finance';
+import { clampInputs } from '@/lib/finance/clamp';
+import { rebateCapKw } from '@/lib/finance/project';
 import { FLAGS, type Flags } from '@/lib/flags';
 import type { BuildingResponse } from '@/src/types/app';
+import { KeyFigures } from './analysis/KeyFigures';
+import { MonthlyChart } from './analysis/MonthlyChart';
+import { PanelOutputChart } from './analysis/PanelOutputChart';
 import { Card } from './Card';
 import { HeaderSearch } from './HeaderSearch';
 import { HouseWindow } from './HouseWindow';
 import { Assumptions } from './money/Assumptions';
 import { CashFlowChart } from './money/CashFlowChart';
-import { MoneyTiles, YearlyStats } from './money/MoneyStats';
+import { MoneyTiles } from './money/MoneyStats';
 import { ImpactCard } from './impact/ImpactCard';
 import { NextStep } from './NextStep';
 import { SolarPotential } from './potential/SolarPotential';
 import { PaybackHero } from './money/PaybackHero';
 import { LargeBuildingNote } from './notices/LargeBuildingNote';
 import { OutsideBcBanner } from './notices/OutsideBcBanner';
+import { ReportFooter } from './ReportFooter';
 import { ReportLayout } from './ReportLayout';
 import { ReportTitle } from './ReportTitle';
 import { SizeSlider } from './size/SizeSlider';
@@ -26,7 +33,7 @@ import { NoCoverage } from './states/NoCoverage';
 import { ReportSkeleton } from './states/ReportSkeleton';
 import { useAddress } from './useAddress';
 import { useBuilding, type BuildingState } from './useBuilding';
-import { reportSearch, type ReportQuery } from './urlState';
+import { configIndexFor, reportSearch, type ReportQuery } from './urlState';
 import { useReportState } from './useReportState';
 import { VerdictCard } from './verdict/VerdictCard';
 
@@ -114,7 +121,15 @@ function ReportPage({
   );
 
   const title = (
-    <ReportTitle address={address} imagery={roof?.imagery} loading={building.status === 'loading'} print={flags.print} />
+    <ReportTitle
+      address={address}
+      imagery={roof?.imagery}
+      loading={building.status === 'loading'}
+      print={flags.print}
+      actions={
+        flags.assumptions && report.selected && <AdvancedSettings inputs={report.inputs} onChange={report.setInputs} />
+      }
+    />
   );
 
   const cards = ((): Cards => {
@@ -131,11 +146,7 @@ function ReportPage({
               <ReportSkeleton variant="slider" />
             </Card>
           ),
-          analysis: (
-            <Card>
-              <ReportSkeleton variant="list" />
-            </Card>
-          ),
+          analysis: <ReportSkeleton variant="figures" />,
         };
       case 'no_coverage':
       case 'outside_bc':
@@ -174,11 +185,12 @@ function ReportPage({
         }
         house={house}
         {...cards}
+        footer={roof && <ReportFooter source={roof.source} />}
       />
   );
 }
 
-type Cards = Pick<ComponentProps<typeof ReportLayout>, 'summary' | 'controls' | 'analysis' | 'extras'>;
+type Cards = Pick<ComponentProps<typeof ReportLayout>, 'summary' | 'controls' | 'analysis' | 'extras' | 'main' | 'side' | 'details'>;
 
 /**
  * The cards round the house once there's a roof: the answer top right with the size slider under it,
@@ -204,10 +216,20 @@ function reportCards(
       ),
     };
   }
-  const steps = recommendation.scenarios.map((s) => ({ panels: s.panelsCount, acKwhYear1: s.acKwhYear1 }));
+  const steps = recommendation.scenarios.map((s) => ({ panels: s.panelsCount, acKwhYear1: s.acKwhYear1, value: s.npv }));
   // Install year for PaybackHero and the chart, read once so they agree. The roof is fetched after
   // mount, so this only ever runs in the browser (the user's clock), never in server HTML.
   const startYear = new Date().getFullYear();
+  // The usage the engine actually ran (clamped to INPUT_RANGES), so charts drawn from inputs agree with the scenario.
+  const modelled = clampInputs(inputs).inputs;
+  const monthly = (
+    <MonthlyChart
+      building={building}
+      scenario={selected}
+      annualUseKwh={modelled.annualConsumptionKwh}
+      selfUseCapKwh={modelled.daytimeLoadShare * modelled.annualConsumptionKwh}
+    />
+  );
 
   return {
     summary: (
@@ -228,16 +250,38 @@ function reportCards(
       </Card>
     ),
     analysis: (
-      <Card className="grid gap-5">
-        <YearlyStats scenario={selected} sunHours={building.roof.maxSunshineHoursPerYear} />
-        {flags.charts && (
-          <div className="border-t border-separator pt-5">
-            <CashFlowChart scenario={selected} startYear={startYear} />
-          </div>
-        )}
+      <div className="grid gap-5 md:gap-6">
+        <KeyFigures scenario={selected} sunHours={building.roof.maxSunshineHoursPerYear} />
         <Assumptions warnings={selected.warnings} />
-      </Card>
+        {flags.charts && (
+          <Card>
+            <CashFlowChart scenario={selected} startYear={startYear} />
+          </Card>
+        )}
+      </div>
     ),
+    // Two stacks. `order` is the phone reading order: house 1, answer 2,
+    // controls 3, figures + savings 4, then these.
+    main: flags.charts ? [{ key: 'monthly', order: 6, node: <Card>{monthly}</Card> }] : [],
+    side: flags.charts
+      ? [
+          {
+            key: 'panels',
+            order: 7,
+            node: (
+              <Card>
+                <PanelOutputChart
+                  building={building}
+                  scenario={selected}
+                  scenarios={recommendation.scenarios}
+                  rebateCapKw={modelled.rebateEligible ? rebateCapKw(modelled.costPerWatt) : undefined}
+                  onPickPanels={(n) => setSelectedIndex(configIndexFor(building.configs, n))}
+                />
+              </Card>
+            ),
+          },
+        ]
+      : [],
     extras: (
       <>
         <ImpactCard scenario={selected} />
@@ -285,7 +329,7 @@ function ExplorePanel({
               <MoneyTiles scenario={selected} />
             </SolarPotential>
             <SizeSlider
-              steps={recommendation.scenarios.map((s) => ({ panels: s.panelsCount, acKwhYear1: s.acKwhYear1 }))}
+              steps={recommendation.scenarios.map((s) => ({ panels: s.panelsCount, acKwhYear1: s.acKwhYear1, value: s.npv }))}
               value={selectedIndex}
               recommendedIndex={recommendation.recommendedIndex}
               onChange={setSelectedIndex}

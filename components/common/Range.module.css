@@ -1,4 +1,4 @@
-/* The design's PanelSlider track: sky-600 filled part, sky-200 rest, white thumb with shadow-control. */
+/* The design's PanelSlider track (SizeSlider, and the assumption knobs): sky-600 filled part, sky-200 rest, white thumb with shadow-control. */
 .range {
   --pct: 50%;
   appearance: none;

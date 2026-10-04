@@ -48,3 +48,4 @@ export function PaybackHero({
     </section>
   );
 }
+
