@@ -11,8 +11,11 @@ interface Props {
   /** Called with the picked address's location (full precision; round it for URLs). */
   onSelect: (place: PickedPlace) => void;
   placeholder?: string;
-  /** "map": compact top-left pill over the map, max 360px. "landing": centred, up to 640px. Position it from the parent. */
-  variant?: "map" | "landing";
+  /** "map": compact top-left pill over the map, max 360px. "landing": centred, up to 640px. "bar": a slim
+   *  pill that fills its parent (the report's top bar). Position it from the parent. */
+  variant?: "map" | "landing" | "bar";
+  /** A key hint shown in the empty, unfocused field (the parent listens for the key). Hidden on touch screens. */
+  shortcut?: string;
   className?: string;
 }
 
@@ -42,7 +45,7 @@ interface Suggestion {
  * fed by Places API (New) autocomplete (docs/SOLAR_API.md, Gotcha 8). Canada only, inside BC's box;
  * distances are from the map's centre, or central Vancouver before there is a map. Must sit inside <MapsProvider>.
  */
-export function AddressSearch({ onSelect, placeholder = "Enter your address", variant = "map", className }: Props) {
+export function AddressSearch({ onSelect, placeholder = "Enter your address", variant = "map", shortcut, className }: Props) {
   const places = useMapsLibrary("places");
   const map = useMap();
   const listId = useId();
@@ -125,18 +128,21 @@ export function AddressSearch({ onSelect, placeholder = "Enter your address", va
     }
   };
 
-  const compact = variant === "map";
-  const width = compact ? "w-full max-w-[360px]" : "mx-auto w-full max-w-[640px]";
-  const field = compact ? "text-headline font-normal" : "text-[26px] leading-8";
-  const row = compact ? "mx-4 gap-2.5 py-2.5" : "mx-5 gap-3 py-4";
+  const compact = variant !== "landing";
+  const bar = variant === "bar";
+  const width = bar ? "w-full" : compact ? "w-full max-w-[360px]" : "mx-auto w-full max-w-[640px]";
+  const field = bar ? "text-body" : compact ? "text-headline font-normal" : "text-[26px] leading-8";
+  const row = bar ? "mx-4 h-11 gap-2.5" : compact ? "mx-4 gap-2.5 py-2.5" : "mx-5 gap-3 py-4";
+  // The bar is a pill (radius = half its 44px height) that keeps its rounding as the list opens below.
+  const shape = bar ? "rounded-[22px] shadow-control" : "rounded-xl";
   const showList = open && suggestions.length > 0;
 
   if (!MAPS_API_KEY) {
     return (
       <div data-map-inset={variant === "map" ? "top" : undefined} className={`${width} ${className ?? ""}`}>
-        <div className={`rounded-xl glass ${compact ? "px-4 py-2.5" : "px-5 py-4"}`}>
+        <div className={`${shape} glass ${bar ? "px-4 py-3" : compact ? "px-4 py-2.5" : "px-5 py-4"}`}>
           <div className={`flex items-center ${compact ? "gap-2.5" : "gap-3"}`}>
-            <SearchIcon size={compact ? 18 : 22} />
+            <SearchIcon size={bar ? 17 : compact ? 18 : 22} />
             <input
               disabled
               placeholder={placeholder}
@@ -158,9 +164,9 @@ export function AddressSearch({ onSelect, placeholder = "Enter your address", va
     <div data-map-inset={variant === "map" ? "top" : undefined} className={`${width} ${className ?? ""}`}>
       {/* Focus brightens the frost and edges the card in a neutral ring, not a blue bar: the caret and the
           open list already say where you are, and the bar read as an error over aerial imagery. */}
-      <div className="overflow-hidden rounded-xl glass ring-1 ring-transparent transition-shadow focus-within:bg-white/95 focus-within:ring-ink/20 dark:focus-within:bg-glass">
+      <div className={`group overflow-hidden ${shape} glass ring-1 ring-transparent transition-shadow focus-within:bg-white/95 focus-within:ring-ink/20 dark:focus-within:bg-glass`}>
         <div className={`flex items-center ${row}`}>
-          <SearchIcon size={compact ? 18 : 22} />
+          <SearchIcon size={bar ? 17 : compact ? 18 : 22} />
           <input
             role="combobox"
             aria-label="Address"
@@ -185,9 +191,17 @@ export function AddressSearch({ onSelect, placeholder = "Enter your address", va
             onKeyDown={onKeyDown}
             className={`w-full bg-transparent ${field} text-ink outline-none placeholder:text-ink-tertiary`}
           />
+          {shortcut && !query && (
+            <kbd
+              aria-hidden="true"
+              className="grid h-6 min-w-6 shrink-0 place-items-center rounded-[7px] border border-separator bg-fill-quiet px-1.5 font-sans text-footnote text-ink-tertiary group-focus-within:hidden pointer-coarse:hidden"
+            >
+              {shortcut}
+            </kbd>
+          )}
         </div>
         {showList && (
-          <ul id={listId} role="listbox" aria-label="Addresses" className="grid gap-0.5 border-t border-separator p-2">
+          <ul id={listId} role="listbox" aria-label="Addresses" className={`grid gap-0.5 border-t border-separator ${bar ? "p-1.5" : "p-2"}`}>
             {suggestions.map((s, i) => {
               const isActive = i === active;
               return (
@@ -202,18 +216,20 @@ export function AddressSearch({ onSelect, placeholder = "Enter your address", va
                     void pick(i);
                   }}
                   onMouseEnter={() => setActive(i)}
-                  className={`flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 ${isActive ? "bg-fill-selected" : ""}`}
+                  className={`flex cursor-pointer items-center gap-3 rounded-md ${bar ? "px-2.5 py-1.5" : "px-3 py-2"} ${isActive ? "bg-fill-selected" : ""}`}
                 >
                   <span
-                    className={`grid size-8 shrink-0 place-items-center rounded-sm ${
+                    className={`grid ${bar ? "size-7" : "size-8"} shrink-0 place-items-center rounded-sm ${
                       isActive ? "bg-sky-600 text-on-sky-600" : "bg-fill-quiet text-ink-secondary"
                     }`}
                   >
                     <PinIcon />
                   </span>
                   <span className="min-w-0">
-                    <span className="block truncate text-headline text-ink">{s.row.title}</span>
-                    {s.row.subtitle && <span className="block truncate text-callout text-ink-secondary">{s.row.subtitle}</span>}
+                    <span className={`block truncate text-ink ${bar ? "text-body font-medium" : "text-headline"}`}>{s.row.title}</span>
+                    {s.row.subtitle && (
+                      <span className={`block truncate text-ink-secondary ${bar ? "text-footnote" : "text-callout"}`}>{s.row.subtitle}</span>
+                    )}
                   </span>
                 </li>
               );

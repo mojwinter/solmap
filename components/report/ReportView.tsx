@@ -5,8 +5,8 @@ import { MapsProvider } from '@/components/map/MapsProvider';
 import { verdictFor } from '@/lib/finance';
 import { FLAGS, type Flags } from '@/lib/flags';
 import type { BuildingResponse } from '@/src/types/app';
-import { Attribution } from './Attribution';
 import { Card } from './Card';
+import { HeaderSearch } from './HeaderSearch';
 import { HouseWindow } from './HouseWindow';
 import { Assumptions } from './money/Assumptions';
 import { CashFlowChart } from './money/CashFlowChart';
@@ -14,7 +14,6 @@ import { CostStats, MoneyTiles, YearlyStats } from './money/MoneyStats';
 import { ImpactCard } from './impact/ImpactCard';
 import { NextStep } from './NextStep';
 import { SolarPotential } from './potential/SolarPotential';
-import { SearchDot } from './SearchDot';
 import { PaybackHero } from './money/PaybackHero';
 import { LargeBuildingNote } from './notices/LargeBuildingNote';
 import { OutsideBcBanner } from './notices/OutsideBcBanner';
@@ -111,13 +110,6 @@ function ReportPage({
       visibleCount={selected?.panelsCount ?? 0}
       heatmap={flags.heatmap}
       onPick={lookUp}
-      footer={
-        roof && (
-          <div className="px-3 pt-2 pb-1">
-            <Attribution source={roof.source} />
-          </div>
-        )
-      }
       panel={<ExplorePanel building={building} report={report} address={address} />}
     />
   );
@@ -125,23 +117,17 @@ function ReportPage({
   const title = (
     <header className="grid gap-1.5">
       {roof && <PrintHeader />}
-      {/* The dot lines up with the address line (display: 44px, title: 32px). */}
-      <div className="flex items-start gap-4 [&>:first-child]:mt-[-7px] md:[&>:first-child]:mt-[-1px]">
-        <SearchDot onSelect={(p) => lookUp({ lat: p.lat, lng: p.lng, address: p.address || undefined })} />
-        <div className="grid min-w-0 flex-1 gap-1.5">
-          <h1 className="font-display text-title text-balance md:text-display">{address}</h1>
-          {roof && (
-            <div className="flex flex-wrap items-center gap-2">
-              <ConfidenceBadge imagery={roof.imagery} />
-              {flags.print && (
-                <span className="ml-auto">
-                  <PrintButton />
-                </span>
-              )}
-            </div>
+      <h1 className="font-display text-title text-balance md:text-display">{address}</h1>
+      {roof && (
+        <div className="flex flex-wrap items-center gap-2">
+          <ConfidenceBadge imagery={roof.imagery} />
+          {flags.print && (
+            <span className="ml-auto">
+              <PrintButton />
+            </span>
           )}
         </div>
-      </div>
+      )}
     </header>
   );
 
@@ -185,6 +171,7 @@ function ReportPage({
   return (
     <ReportLayout
         flags={FLAGS.filter((f) => flags[f]).join(' ')}
+        search={<HeaderSearch onSelect={(p) => lookUp({ lat: p.lat, lng: p.lng, address: p.address || undefined })} />}
         title={title}
         notices={
           roof && (

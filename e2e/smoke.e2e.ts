@@ -24,10 +24,6 @@ function fixture(lat: number, lng: number) {
   return f;
 }
 
-// Shown under synthetic roofs instead of Google's attribution (components/report/Attribution.tsx);
-// real roofs (live/cache) show ATTRIBUTION from src/config/bc.ts.
-const SYNTHETIC_SOURCE = 'Sample roof: synthetic test data, not Google imagery.';
-
 test('home page loads', async ({ page }) => {
   const res = await page.goto('/');
   expect(res?.status()).toBe(200);
@@ -50,7 +46,6 @@ for (const roof of roofsWithMoney) {
     const payback = page.getByRole('region', { name: /pays for itself in|payback/i });
     await expect(payback).toBeVisible();
     await expect(payback).toContainText(VERDICT[roof.expectedVerdict as Verdict].label);
-    await expect(page.getByText(SYNTHETIC_SOURCE)).toBeVisible();
   });
 }
 

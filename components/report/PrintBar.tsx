@@ -26,7 +26,7 @@ export function PrintHeader() {
   const date = new Date().toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' });
   return (
     <div className="hidden border-b border-separator pb-2 text-footnote text-ink-secondary print:block">
-      <p className="font-semibold text-ink">Solmap solar report · {date}</p>
+      <p className="font-semibold text-ink">Sunscore solar report · {date}</p>
       <p className="break-all">{url}</p>
       <p>Estimate, not a quote. Check the numbers with a BC Hydro HPCN installer.</p>
     </div>

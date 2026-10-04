@@ -25,7 +25,7 @@ export const REASON_HEADER = "X-Solmap-Reason";
 
 /** Shown when the server didn't send a message of its own. */
 export const DEFAULT_ERROR_MESSAGES: Record<ApiErrorCode, string> = {
-  BAD_REQUEST: "That location isn't one we can look up. Solmap covers BC addresses only.",
+  BAD_REQUEST: "That location isn't one we can look up. Sunscore covers BC addresses only.",
   NO_COVERAGE: "We can't see this roof yet: there's no solar data for this spot.",
   RATE_LIMITED: "Too many lookups in a minute. Wait a moment and try again.",
   UPSTREAM: "The solar data service didn't answer. Please try again in a minute.",
@@ -56,7 +56,7 @@ export async function getBuilding(lat: number, lng: number, opts: { signal?: Abo
     res = await fetch(`/api/solar/building?${query}`, { signal: opts.signal, headers: { Accept: "application/json" } });
   } catch (e) {
     if (isAbort(e)) throw e;
-    return fail("UPSTREAM", "Couldn't reach Solmap. Check your connection and try again.");
+    return fail("UPSTREAM", "Couldn't reach Sunscore. Check your connection and try again.");
   }
 
   let body: unknown;

@@ -9,7 +9,7 @@ function parseCoord(raw: string, limit: number): number | null {
   return raw.trim() !== '' && Number.isFinite(n) && Math.abs(n) <= limit ? n : null;
 }
 
-export const metadata: Metadata = { title: 'Your solar report · Solmap' };
+export const metadata: Metadata = { title: 'Your solar report · Sunscore' };
 
 /** /report/49.25/-123.15?address=…&panels=&kwh=&plan= The URL is the whole state, so reports are shareable without a DB. */
 export default async function ReportPage({ params, searchParams }: PageProps<'/report/[lat]/[lng]'>) {

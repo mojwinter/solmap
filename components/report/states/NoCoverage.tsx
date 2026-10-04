@@ -14,7 +14,7 @@ const COPY = {
   },
   outside_bc: {
     title: 'This tool covers BC only',
-    body: 'Solmap uses BC Hydro rates and rebates, and this spot looks like it’s outside BC. Try one of these example roofs instead:',
+    body: 'Sunscore uses BC Hydro rates and rebates, and this spot looks like it’s outside BC. Try one of these example roofs instead:',
   },
 };
 

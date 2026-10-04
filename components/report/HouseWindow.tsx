@@ -8,7 +8,7 @@ import { SolarMap } from '@/components/map/SolarMap';
 import { Icon } from '@/components/common/Icon';
 import type { PickedPlace } from '@/lib/geo/place';
 import type { BuildingResponse, LatLngLiteral } from '@/src/types/app';
-import { HOUSE_WINDOW_SIZE, HouseCard } from './HouseCard';
+import { HOUSE_WINDOW_RADIUS, HOUSE_WINDOW_SIZE, HouseCard } from './HouseCard';
 import { MapLayerToggle } from './MapLayerToggle';
 
 /** closed: the locked window in the report. opening/closing: growing to / shrinking from the screen. open: exploring. */
@@ -16,7 +16,8 @@ type Phase = 'closed' | 'opening' | 'open' | 'closing';
 
 const DURATION_MS = 420;
 const EASE = 'cubic-bezier(0.2, 0.8, 0.2, 1)';
-const WINDOW_RADIUS = '22px';
+/** HOUSE_WINDOW_RADIUS in px, for the open / close clip. */
+const WINDOW_RADIUS = '29px';
 
 /**
  * The house window, and the full-screen map it opens into. In the report it's locked on the roof;
@@ -30,7 +31,6 @@ export function HouseWindow({
   building,
   visibleCount,
   heatmap,
-  footer,
   panel,
   onPick,
 }: {
@@ -38,8 +38,6 @@ export function HouseWindow({
   building: BuildingResponse | null;
   visibleCount: number;
   heatmap: boolean;
-  /** Under the window, in the card (the source line). */
-  footer?: ReactNode;
   /** The floating results panel while exploring (desktop). */
   panel?: ReactNode;
   /** A clicked spot or a searched address while exploring. */
@@ -145,7 +143,7 @@ export function HouseWindow({
           aria-label={exploring ? 'Map' : undefined}
           className={
             phase === 'closed'
-              ? 'relative size-full overflow-hidden rounded-lg'
+              ? `relative size-full overflow-hidden ${HOUSE_WINDOW_RADIUS}`
               : 'fixed inset-0 z-50 overflow-hidden bg-sky-100'
           }
         >
@@ -170,7 +168,7 @@ export function HouseWindow({
                   type="button"
                   aria-label="Explore the map"
                   onClick={open}
-                  className="absolute inset-x-0 top-0 bottom-5 cursor-zoom-in rounded-lg focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-focus-ring"
+                  className={`absolute inset-x-0 top-0 bottom-5 cursor-zoom-in ${HOUSE_WINDOW_RADIUS} focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-focus-ring`}
                 />
                 <span
                   data-map-inset="bottom"
@@ -215,7 +213,6 @@ export function HouseWindow({
           )}
         </div>
       </div>
-      {footer}
     </HouseCard>
   );
 }
