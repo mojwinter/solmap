@@ -7,20 +7,23 @@ export interface ReportTab {
   value: string;
   label: string;
   content: ReactNode;
+  /** false: left off the printed report (e.g. the usage form, which is all controls). */
+  print?: boolean;
 }
 
 /**
  * The detail under the payback answer and the size slider, grouped so the panel isn't one long
  * scroll: a pill tab list on a fill-quiet well (white selected tab, unlike the sky-600
  * SegmentedControl, which picks a value rather than a view). Every panel stays mounted, so what
- * you typed on one tab (the bill) survives a look at another.
+ * you typed on one tab (the bill) survives a look at another. Printed, the tab bar goes and every
+ * panel (but those with `print: false`) prints in order, since paper can't switch tabs.
  */
 export function ReportTabs({ tabs, defaultValue }: { tabs: ReportTab[]; defaultValue?: string }) {
   return (
     <Tabs.Root defaultValue={defaultValue ?? tabs[0]?.value} className="grid gap-4">
       <Tabs.List
         aria-label="Report details"
-        className="flex gap-0.5 rounded-pill bg-fill-quiet p-[3px]"
+        className="flex gap-0.5 rounded-pill bg-fill-quiet p-[3px] print:hidden"
       >
         {tabs.map((t) => (
           <Tabs.Tab
@@ -37,7 +40,12 @@ export function ReportTabs({ tabs, defaultValue }: { tabs: ReportTab[]; defaultV
           key={t.value}
           value={t.value}
           keepMounted
-          className="grid gap-6 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-focus-ring motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200 data-[hidden]:hidden"
+          // Hidden by class, not the `hidden` attribute (preflight makes that !important), so print can show
+          // it. On paper the sections lay out as blocks, like globals.css does for the report column (#76).
+          hidden={false}
+          className={`grid gap-6 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-focus-ring motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200 data-[hidden]:hidden ${
+            t.print === false ? "print:hidden!" : "print:block! print:[&>*+*]:mt-6 print:[&>section]:block print:[&>section>*+*]:mt-3"
+          }`}
         >
           {t.content}
         </Tabs.Panel>
