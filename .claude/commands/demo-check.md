@@ -1,7 +1,7 @@
 ---
 description: Smoke-test the demo addresses against a deployed environment
 ---
-Argument: base URL (default: https://solmap.yardstick.football).
+Argument: base URL (default: https://sunscore.tech).
 While the site is behind Cloudflare Access, read `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET` (an Access
 service token) from my shell environment and send them as `CF-Access-Client-Id` / `CF-Access-Client-Secret`
 headers. If they're not set, ask me; never write them to a file.
