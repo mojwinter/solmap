@@ -12,3 +12,5 @@ export const finance = {
 
 export { annualKwhFromBill, evaluate, monthlyBill, recommend };
 export { verdictFor } from './verdict';
+export { manualBuilding } from './manual';
+export type { ManualEstimate, ManualRoof, RoofFacing } from './manual';

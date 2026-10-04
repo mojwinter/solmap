@@ -1,3 +1,4 @@
+import { compass } from '@/lib/format';
 import { TUNING } from '@/src/config/bc';
 import type { BuildingResponse, FinanceInputs, ReasonChip, ScenarioResult, Verdict } from '@/src/types/app';
 import { rebateCapKw } from './project';
@@ -26,8 +27,7 @@ function missedOnNpvFloor(s: ScenarioResult, verdict: Verdict): boolean {
   return verdict === 'weak' && s.paybackYears !== null && s.paybackYears <= moderate.maxPaybackYears && s.npv < moderate.minNpv;
 }
 
-const COMPASS = ['North', 'North-east', 'East', 'South-east', 'South', 'South-west', 'West', 'North-west'];
-const compassWord = (az: number) => COMPASS[Math.round((((az % 360) + 360) % 360) / 45) % 8];
+const capitalized = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const facesNorth = (az: number) => {
   const a = ((az % 360) + 360) % 360;
   return a >= 315 || a <= 45;
@@ -62,6 +62,7 @@ export function reasonChips(
 
   const s = scenarios[index];
   const chips: ReasonChip[] = [];
+  const manual = building.source === 'manual';
 
   const smallSavings = missedOnNpvFloor(s, verdict);
   if (smallSavings) {
@@ -111,7 +112,11 @@ export function reasonChips(
     chips.push({
       kind: 'orientation',
       tone: north ? 'warn' : 'good',
-      text: `${compassWord(seg.azimuthDegrees)} roof, ${Math.round(seg.pitchDegrees)}° pitch`,
+      text: !manual
+        ? `${capitalized(compass(seg.azimuthDegrees))} roof, ${Math.round(seg.pitchDegrees)}° pitch`
+        : seg.pitchDegrees === 0
+          ? 'Flat roof'
+          : `Roof faces ${compass(seg.azimuthDegrees)}`, // the user's input; the pitch is assumed
     });
   }
 
@@ -123,7 +128,9 @@ export function reasonChips(
 
   const age = imageryAgeYears(building.imagery.date, now);
   const lowQuality = building.imagery.quality === 'BASE' || building.imagery.quality === 'LOW';
-  if (lowQuality) {
+  if (manual) {
+    // No imagery at all; D's "Rough estimate" badge says so.
+  } else if (lowQuality) {
     chips.push({ kind: 'imagery', tone: 'neutral', text: 'Satellite imagery, lower confidence' });
   } else if (age !== null && age > TUNING.imageryMaxAgeYears) {
     chips.push({ kind: 'imagery', tone: 'neutral', text: `Roof imagery is ${Math.floor(age)} years old, lower confidence` });

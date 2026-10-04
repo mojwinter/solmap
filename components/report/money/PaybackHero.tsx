@@ -1,5 +1,5 @@
 import type { ScenarioResult, Verdict } from '@/src/types/app';
-import { years } from '@/lib/format';
+import { breakEvenYear, years } from '@/lib/format';
 import { VerdictBadge } from '../verdict/VerdictBadge';
 
 /**
@@ -38,7 +38,7 @@ export function PaybackHero({
         </>
       ) : (
         <p className="font-rounded text-metric-xl tabular-nums">
-          {startYear + Math.round(payback)}
+          {breakEvenYear(startYear, payback)}
           <small className="ml-2 font-sans text-body font-medium tracking-normal text-ink-secondary">
             in {years(payback)} years
           </small>
