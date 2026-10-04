@@ -43,32 +43,8 @@ const CASES: Case[] = [
       for (let i = 0; i < 3; i++) await page.getByRole('button', { name: 'More panels' }).click();
     },
   },
-  {
-    name: 'bill-2-months',
-    path: '/report/49.25/-123.15',
-    act: async (page) => {
-      await page.getByRole('tab', { name: 'Your usage' }).click();
-      await page.getByLabel('Bill amount').fill('240');
-      await page.getByRole('button', { name: '2 months' }).click();
-    },
-  },
-  {
-    name: 'annual-kwh-flat',
-    path: '/report/49.25/-123.15',
-    act: async (page) => {
-      await page.getByRole('tab', { name: 'Your usage' }).click();
-      await page.getByRole('button', { name: 'Annual usage (kWh)' }).click();
-      await page.getByLabel('Electricity used in a year').fill('16000');
-      await page.getByRole('button', { name: 'Flat' }).click();
-    },
-  },
   // Near the border: the API normally 404s these, so fake a 200 to see the fallback banner.
   { name: 'outside-bc-area', path: '/report/49.25/-123.15', api: 'outside-bc-area' },
-  {
-    name: 'roof-tab',
-    path: '/report/49.25/-123.15',
-    act: (page) => page.getByRole('tab', { name: 'Roof' }).click(),
-  },
   { name: 'weak-shaded', path: '/report/49.2615/-123.1702' },
   { name: 'tiny-roof', path: '/report/49.888/-119.496' },
   { name: 'multi-unit', path: '/report/49.1666/-123.1336' },
