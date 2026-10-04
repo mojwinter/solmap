@@ -9,6 +9,7 @@ import {
   largestPayingIndex,
   lifetimeFigures,
   monthlyProduction,
+  monthlySplit,
   niceTicks,
   panelBars,
   peakIndex,
@@ -178,5 +179,37 @@ describe('sensitivity', () => {
     expect(none.payback!).toBeGreaterThan(asNow.payback!);
     const [flat, rising] = row('prices').ends;
     expect(rising.payback!).toBeLessThan(flat.payback!);
+  });
+});
+
+describe('monthlySplit', () => {
+  const vancouver = BC_SOLAR_YIELD.towns.find((t) => t.name === 'Vancouver')!;
+  const months = monthlyProduction(s.acKwhYear1, vancouver, 30);
+  const cap = DEFAULT_INPUTS.daytimeLoadShare * DEFAULT_INPUTS.annualConsumptionKwh;
+  const split = monthlySplit(months, s.year1.selfUsedKwh, cap);
+
+  it('adds up to the year’s used and sold figures', () => {
+    expect(split.reduce((a, m) => a + m.usedKwh, 0)).toBeCloseTo(s.year1.selfUsedKwh, 6);
+    expect(split.reduce((a, m) => a + m.soldKwh, 0)).toBeCloseTo(s.year1.exportedKwh, 6);
+    split.forEach((m) => {
+      expect(m.usedKwh).toBeLessThanOrEqual(m.kwh + 1e-9);
+      expect(m.usedKwh + m.soldKwh).toBeCloseTo(m.kwh, 9);
+    });
+  });
+
+  it('sells a bigger share in summer than in winter', () => {
+    const share = (m: (typeof split)[number]) => m.soldKwh / m.kwh;
+    expect(share(split[6])).toBeGreaterThan(share(split[11]));
+  });
+
+  it('caps a month at what it makes and shares the rest over the others', () => {
+    // Cap 50 a month: the small month's curve value (≈9) scaled up to reach 100 would pass its 10 kWh.
+    const tiny = monthlySplit(
+      [{ month: 0, kwh: 10 }, { month: 1, kwh: 1000 }],
+      100,
+      600,
+    );
+    expect(tiny[0].usedKwh).toBeCloseTo(10);
+    expect(tiny[1].usedKwh).toBeCloseTo(90);
   });
 });

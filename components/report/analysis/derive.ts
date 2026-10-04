@@ -288,3 +288,43 @@ export function sensitivity(
   }
   return rows;
 }
+
+export interface MonthSplit extends MonthBar {
+  /** Of `kwh`, used at home as it's made. */
+  usedKwh: number;
+  /** Of `kwh`, sold to BC Hydro. */
+  soldKwh: number;
+}
+
+/**
+ * Each month's output split into used at home vs sold, consistent with the yearly model: the self-use
+ * curve (lib/finance → selfUsed) applied to each month with a twelfth of the yearly cap gives the
+ * seasonal shape (summer saturates, winter is nearly all used), then the months are scaled so they add
+ * up to the year's `usedKwh` exactly, never using more than a month makes (water-filling: months that
+ * hit their output are capped and the rest is shared over the others).
+ */
+export function monthlySplit(months: readonly MonthBar[], usedKwhYear: number, selfUseCapKwhYear: number): MonthSplit[] {
+  const K = selfUseCapKwhYear / 12;
+  const shape = months.map((m) => (K > 0 ? K * (1 - Math.exp(-m.kwh / K)) : 0));
+  const target = Math.min(usedKwhYear, months.reduce((a, m) => a + m.kwh, 0));
+  const used = new Array<number>(months.length).fill(0);
+  const capped = new Array<boolean>(months.length).fill(false);
+  for (let round = 0; round < months.length; round++) {
+    const fixed = used.reduce((a, u, i) => a + (capped[i] ? u : 0), 0);
+    const free = shape.reduce((a, v, i) => a + (capped[i] ? 0 : v), 0);
+    if (free <= 0) break;
+    const k = (target - fixed) / free;
+    let changed = false;
+    months.forEach((m, i) => {
+      if (capped[i]) return;
+      used[i] = shape[i] * k;
+      if (used[i] > m.kwh) {
+        used[i] = m.kwh;
+        capped[i] = true;
+        changed = true;
+      }
+    });
+    if (!changed) break;
+  }
+  return months.map((m, i) => ({ ...m, usedKwh: used[i], soldKwh: Math.max(0, m.kwh - used[i]) }));
+}

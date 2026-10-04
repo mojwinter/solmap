@@ -299,7 +299,12 @@ function reportCards(
         {flags.charts && specSheet}
         {flags.charts && (
           <Card className="lg:col-span-2">
-            <MonthlyChart building={building} scenario={selected} annualUseKwh={inputs.annualConsumptionKwh} />
+            <MonthlyChart
+              building={building}
+              scenario={selected}
+              annualUseKwh={inputs.annualConsumptionKwh}
+              selfUseCapKwh={inputs.daytimeLoadShare * inputs.annualConsumptionKwh}
+            />
           </Card>
         )}
         <Card>

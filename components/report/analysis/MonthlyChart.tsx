@@ -6,45 +6,58 @@ import type { BuildingResponse, ScenarioResult } from '@/src/types/app';
 import { nearestYieldTown } from '@/lib/finance/manual';
 import { kwh } from '@/lib/format';
 import { AXIS_TEXT, axisWidth, ChartSection, GRID, Legend, NumbersTable, TooltipCard } from './chart';
-import { monthlyProduction, niceTicks, weightedPitch, type MonthBar } from './derive';
+import { monthlyProduction, monthlySplit, niceTicks, weightedPitch, type MonthSplit } from './derive';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 /**
  * The first year month by month: BC's long summer days against its dark winters. The annual estimate is
- * spread by NRCan's monthly shape for the nearest town (derive.ts → monthlyProduction), with your
- * average month's use as the line to beat. Months above it make more than you use; the extra sells at 10¢.
+ * spread by NRCan's monthly shape for the nearest town (derive.ts → monthlyProduction), each month split
+ * into used at home and sold at 10¢ (monthlySplit: the model's self-use curve per month, adding up to the
+ * year's figures), with your daytime use (the self-use cap) as the line the used part runs into.
  */
 export function MonthlyChart({
   building,
   scenario,
   annualUseKwh,
+  selfUseCapKwh,
 }: {
   building: Pick<BuildingResponse, 'center' | 'segments' | 'configs'>;
-  scenario: Pick<ScenarioResult, 'acKwhYear1' | 'configIndex'>;
+  scenario: Pick<ScenarioResult, 'acKwhYear1' | 'configIndex' | 'year1'>;
   annualUseKwh: number;
+  /** daytimeLoadShare × annual use: the most solar a year you could use as it's made. */
+  selfUseCapKwh: number;
 }) {
   const id = useId();
   // Under ~520px wide, three-letter months collide: use initials.
   const [narrow, setNarrow] = useState(false);
   const town = useMemo(() => nearestYieldTown(building.center), [building.center]);
   const months = useMemo(
-    () => monthlyProduction(scenario.acKwhYear1, town, weightedPitch(building, scenario)),
-    [scenario, town, building],
+    () =>
+      monthlySplit(
+        monthlyProduction(scenario.acKwhYear1, town, weightedPitch(building, scenario)),
+        scenario.year1.selfUsedKwh,
+        selfUseCapKwh,
+      ),
+    [scenario, town, building, selfUseCapKwh],
   );
   const perMonth = annualUseKwh / 12;
+  const daytime = selfUseCapKwh / 12;
   const best = months.reduce((a, m) => (m.kwh > a.kwh ? m : a));
   const worst = months.reduce((a, m) => (m.kwh < a.kwh ? m : a));
-  const over = months.filter((m) => m.kwh > perMonth);
-  const ticks = niceTicks(0, Math.max(perMonth, best.kwh), 4);
+  const ticks = niceTicks(0, Math.max(daytime, best.kwh), 4);
 
-  const summary = `${MONTH_NAMES[best.month]} makes about ${kwh(best.kwh)} kWh, ${MONTH_NAMES[worst.month]} only ${kwh(worst.kwh)}${
-    worst.kwh > 0 ? ` (${Math.round(best.kwh / worst.kwh)}× less)` : ''
-  }. ${
-    over.length === 0
-      ? 'Even the sunniest month makes less than you use in an average month, so almost all of it is yours to use.'
-      : `In ${over.length} ${over.length === 1 ? 'month' : 'months'} the panels make more than your average month uses.`
+  const soldShare = (m: MonthSplit) => (m.kwh > 0 ? m.soldKwh / m.kwh : 0);
+  const pct = (n: number) => `${Math.round(n * 100)}%`;
+  const summary = `${MONTH_NAMES[best.month]} makes about ${kwh(best.kwh)} kWh, ${MONTH_NAMES[worst.month]} only ${kwh(worst.kwh)}. Of the ${kwh(
+    perMonth,
+  )} kWh you use in an average month, about ${kwh(daytime)} is while the sun’s up, so ${
+    soldShare(best) > 0.05
+      ? `in ${MONTH_NAMES[best.month]} about ${pct(soldShare(best))} of your solar sells at 10¢, while in ${MONTH_NAMES[worst.month]} you use ${
+          soldShare(worst) < 0.05 ? 'nearly all of it' : pct(1 - soldShare(worst))
+        }.`
+      : 'you use nearly all of it as it’s made, every month.'
   }`;
 
   return (
@@ -56,20 +69,22 @@ export function MonthlyChart({
         <div className="grid gap-1">
           <Legend
             items={[
-              { label: 'Solar made (first year)', color: 'var(--chart-sun)', shape: 'bar' },
-              { label: `Your average month · ${kwh(perMonth)} kWh`, color: 'var(--ink-secondary)', shape: 'line' },
+              { label: 'Used at home', color: 'var(--sky-600)', shape: 'bar' },
+              { label: 'Sold to BC Hydro', color: 'var(--chart-sun)', shape: 'bar' },
+              { label: `Your use while the sun’s up · ${kwh(daytime)} kWh a month`, color: 'var(--ink-secondary)', shape: 'line' },
             ]}
           />
           <p className="text-footnote text-ink-tertiary">
-            Shape from NRCan’s monthly solar data for {town.name}. Real homes use more in winter, so summer surplus is
-            larger and winter cover smaller than an even split suggests.
+            Monthly shape from NRCan’s solar data for {town.name}. The used / sold split per month is our estimate and adds up
+            to the yearly figures; it assumes even use through the year (real BC homes use more in winter). Change the daytime
+            share under What we assumed.
           </p>
         </div>
       }
       table={
         <NumbersTable
-          head={['Month', 'Solar made', 'Share of your average month']}
-          rows={months.map((m) => [MONTH_NAMES[m.month], `${kwh(m.kwh)} kWh`, `${Math.round((m.kwh / perMonth) * 100)}%`])}
+          head={['Month', 'Solar made', 'Used at home', 'Sold']}
+          rows={months.map((m) => [MONTH_NAMES[m.month], `${kwh(m.kwh)} kWh`, `${kwh(m.usedKwh)} kWh`, `${kwh(m.soldKwh)} kWh`])}
         />
       }
     >
@@ -99,19 +114,24 @@ export function MonthlyChart({
               cursor={{ fill: 'var(--fill-quiet)' }}
               isAnimationActive={false}
               content={({ active, payload }) => {
-                const m = payload?.[0]?.payload as MonthBar | undefined;
+                const m = payload?.[0]?.payload as MonthSplit | undefined;
                 if (!active || !m) return null;
                 return (
                   <TooltipCard
                     value={`${kwh(m.kwh)} kWh`}
-                    label={MONTH_NAMES[m.month]}
-                    rows={[{ label: 'Of your average month', value: `${Math.round((m.kwh / perMonth) * 100)}%` }]}
+                    label={`${MONTH_NAMES[m.month]} · solar made`}
+                    rows={[
+                      { label: 'Used at home', value: `${kwh(m.usedKwh)} kWh` },
+                      { label: 'Sold at 10¢', value: `${kwh(m.soldKwh)} kWh` },
+                    ]}
                   />
                 );
               }}
             />
-            <Bar dataKey="kwh" fill="var(--chart-sun)" radius={[4, 4, 0, 0]} maxBarSize={24} isAnimationActive={false} />
-            <ReferenceLine y={perMonth} stroke="var(--ink-secondary)" strokeWidth={1.5} ifOverflow="extendDomain" />
+            {/* Stacked: used at the baseline, sold on top; a 1px surface stroke keeps the two apart. */}
+            <Bar dataKey="usedKwh" stackId="m" fill="var(--sky-600)" stroke="var(--surface)" strokeWidth={1} maxBarSize={24} isAnimationActive={false} />
+            <Bar dataKey="soldKwh" stackId="m" fill="var(--chart-sun)" stroke="var(--surface)" strokeWidth={1} radius={[4, 4, 0, 0]} maxBarSize={24} isAnimationActive={false} />
+            <ReferenceLine y={daytime} stroke="var(--ink-secondary)" strokeWidth={1.5} ifOverflow="extendDomain" />
           </BarChart>
         </ResponsiveContainer>
       </div>
