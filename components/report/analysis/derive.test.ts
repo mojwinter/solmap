@@ -13,6 +13,7 @@ import {
   panelBars,
   peakIndex,
   roofFaces,
+  sensitivity,
   sweep,
   weightedPitch,
 } from './derive';
@@ -156,4 +157,26 @@ describe('niceTicks', () => {
 it('scenario helpers agree with a single evaluate()', () => {
   const one = evaluate(building.configs[0], 0, building.panel.capacityWatts, DEFAULT_INPUTS);
   expect(sweep([one])[0].net).toBeCloseTo(one.lifetimeNetSavings);
+});
+
+describe('sensitivity', () => {
+  const config = building.configs[s.configIndex];
+  const rows = sensitivity(config, s.configIndex, building.panel.capacityWatts, DEFAULT_INPUTS);
+  const row = (k: string) => rows.find((r) => r.key === k)!;
+
+  it('tries both ends of each assumption, and the rebate only while you are eligible', () => {
+    expect(rows.map((r) => r.key)).toEqual(['cost', 'prices', 'daytime', 'rebate']);
+    rows.forEach((r) => expect(r.ends).toHaveLength(2));
+    expect(sensitivity(config, s.configIndex, building.panel.capacityWatts, { ...DEFAULT_INPUTS, rebateEligible: false }).map((r) => r.key)).not.toContain('rebate');
+  });
+
+  it('moves the payback the way the model says', () => {
+    const [dear, cheap] = row('cost').ends;
+    expect(cheap.payback!).toBeLessThan(dear.payback!);
+    const [none, asNow] = row('rebate').ends;
+    expect(asNow.payback).toBeCloseTo(s.paybackYears!);
+    expect(none.payback!).toBeGreaterThan(asNow.payback!);
+    const [flat, rising] = row('prices').ends;
+    expect(rising.payback!).toBeLessThan(flat.payback!);
+  });
 });

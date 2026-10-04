@@ -1,7 +1,9 @@
 // Pure figures for the report's analysis section: ScenarioResult (and the roof) → what the charts and
 // tiles draw. No React, no fetch; every number comes from lib/finance's projection, so the charts can
 // never disagree with the answer card. Tested in derive.test.ts.
-import type { BuildingResponse, ScenarioResult } from '@/src/types/app';
+import { evaluate } from '@/lib/finance/project';
+import { INPUT_RANGES, INSTALL } from '@/src/config/bc';
+import type { BuildingResponse, ConfigLite, FinanceInputs, ScenarioResult } from '@/src/types/app';
 
 /** Sum of a column over the panels' lifetime. */
 const total = (s: Pick<ScenarioResult, 'years'>, key: 'productionKwh' | 'savings' | 'selfUsedKwh' | 'exportedKwh') =>
@@ -223,4 +225,66 @@ export function weightedPitch(
     sum += u.yearlyEnergyDcKwh * seg.pitchDegrees;
   }
   return energy > 0 ? sum / energy : 30;
+}
+
+export interface SensitivityRow {
+  key: 'cost' | 'prices' | 'daytime' | 'rebate';
+  label: string;
+  /** The two ends tried, worse-for-you first where it's clear. */
+  ends: { setting: string; payback: number | null; net: number }[];
+}
+
+/**
+ * What moves the payback for the size on screen: each assumption at both ends of its BC range (install
+ * cost per BC Hydro's $/W band, price rises and daytime use per INPUT_RANGES, the rebate on or off),
+ * everything else as it is now. Re-runs lib/finance's evaluate(), so it's the same model as the answer.
+ */
+export function sensitivity(
+  config: Pick<ConfigLite, 'panelsCount' | 'yearlyEnergyDcKwh'>,
+  configIndex: number,
+  apiPanelWatts: number,
+  inputs: FinanceInputs,
+): SensitivityRow[] {
+  const run = (patch: Partial<FinanceInputs>) => {
+    const s = evaluate(config, configIndex, apiPanelWatts, { ...inputs, ...patch });
+    return { payback: s.paybackYears, net: s.lifetimeNetSavings };
+  };
+  const pct = (m: number) => `${Math.round((m - 1) * 1000) / 10}%`;
+  const rows: SensitivityRow[] = [
+    {
+      key: 'cost',
+      label: 'Install cost',
+      ends: [INSTALL.costPerKwDcHigh, INSTALL.costPerKwDcLow].map((perKw) => ({
+        setting: `$${(perKw / 1000).toFixed(2)}/W`,
+        ...run({ costPerWatt: perKw / 1000 }),
+      })),
+    },
+    {
+      key: 'prices',
+      label: 'Power prices rise',
+      ends: [INPUT_RANGES.costIncrease.min, INPUT_RANGES.costIncrease.max].map((m) => ({
+        setting: m === 1 ? 'not at all' : `${pct(m)} a year`,
+        ...run({ costIncrease: m }),
+      })),
+    },
+    {
+      key: 'daytime',
+      label: 'Use while the sun’s up',
+      ends: [INPUT_RANGES.daytimeLoadShare.min, INPUT_RANGES.daytimeLoadShare.max].map((d) => ({
+        setting: `${Math.round(d * 100)}%`,
+        ...run({ daytimeLoadShare: d }),
+      })),
+    },
+  ];
+  if (inputs.rebateEligible) {
+    rows.push({
+      key: 'rebate',
+      label: 'BC Hydro rebate',
+      ends: [
+        { setting: 'none', ...run({ rebateEligible: false }) },
+        { setting: 'as now', ...run({}) },
+      ],
+    });
+  }
+  return rows;
 }

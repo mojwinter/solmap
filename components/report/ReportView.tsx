@@ -12,6 +12,7 @@ import { FirstYear } from './analysis/FirstYear';
 import { MonthlyChart } from './analysis/MonthlyChart';
 import { PanelOutputChart } from './analysis/PanelOutputChart';
 import { RoofFaces } from './analysis/RoofFaces';
+import { Sensitivity } from './analysis/Sensitivity';
 import { SizeSweepChart } from './analysis/SizeSweepChart';
 import { Card } from './Card';
 import { HeaderSearch } from './HeaderSearch';
@@ -229,6 +230,11 @@ function reportCards(
       <FirstYear scenario={selected} />
     </Card>
   );
+  const specSheet = (
+    <Card>
+      <SpecSheet building={building} scenario={selected} inputs={inputs} />
+    </Card>
+  );
 
   return {
     summary: (
@@ -291,14 +297,21 @@ function reportCards(
         {flags.charts && firstYear}
         {flags.charts && (
           <Card className="lg:col-span-2">
+            <Sensitivity building={building} scenario={selected} inputs={inputs} />
+          </Card>
+        )}
+        {flags.charts && specSheet}
+        {flags.charts && (
+          <Card className="lg:col-span-2">
             <MonthlyChart building={building} scenario={selected} annualUseKwh={inputs.annualConsumptionKwh} />
           </Card>
         )}
         <Card>
           <RoofFaces building={building} scenario={selected} />
         </Card>
+        {!flags.charts && specSheet}
         {flags.charts && (
-          <Card className="lg:col-span-2">
+          <Card className="lg:col-span-full">
             <PanelOutputChart
               building={building}
               scenario={selected}
@@ -306,9 +319,6 @@ function reportCards(
             />
           </Card>
         )}
-        <Card>
-          <SpecSheet building={building} scenario={selected} inputs={inputs} />
-        </Card>
         {flags.assumptions && (
           <Card className="lg:col-span-full print:hidden">
             <AssumptionsPanel inputs={inputs} onChange={setInputs} />
