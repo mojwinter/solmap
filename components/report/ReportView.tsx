@@ -261,7 +261,10 @@ function reportCards(
     ),
     analysis: (
       <div className="grid gap-5 md:gap-6">
-        <KeyFigures scenario={selected} />
+        <KeyFigures
+          scenario={selected}
+          baseline={recommendation.recommendedIndex === null ? null : recommendation.scenarios[recommendation.recommendedIndex]}
+        />
         <Assumptions warnings={selected.warnings} />
         {/* Under the house: the savings chart, or without charts, the first year (so the column isn't short). */}
         {flags.charts ? (

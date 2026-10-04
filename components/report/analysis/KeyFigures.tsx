@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import type { ScenarioResult } from '@/src/types/app';
 import { InfoPopover } from '@/components/common/InfoPopover';
-import { cad, cents } from '@/lib/format';
+import { cad, cents, MINUS } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { billImpact, lifetimeFigures } from './derive';
 
@@ -9,10 +9,14 @@ import { billImpact, lifetimeFigures } from './derive';
  * Four headline figures for the size on screen, each with a small visual so it reads at a glance:
  * what year one saves, how much of the bill it covers, what your own solar costs per kWh next to
  * what it replaces, and what comes back for every dollar paid. The ⓘ on each says how it's worked out.
+ * With a `baseline` (the recommended size, when another is on screen) each tile also says how it
+ * differs from that, in green when it's better for you and red when it's worse.
  */
-export function KeyFigures({ scenario }: { scenario: ScenarioResult }) {
+export function KeyFigures({ scenario, baseline }: { scenario: ScenarioResult; baseline?: ScenarioResult | null }) {
   const bill = billImpact(scenario);
   const life = lifetimeFigures(scenario);
+  const base = baseline && baseline !== scenario ? { s: baseline, bill: billImpact(baseline), life: lifetimeFigures(baseline) } : null;
+  const vs = base ? `vs ${base.s.panelsCount} panels` : '';
   const lifetime = scenario.years.length;
   const cut = Math.max(0, bill.cut);
   const solarCents = life.costPerKwh;
@@ -25,6 +29,7 @@ export function KeyFigures({ scenario }: { scenario: ScenarioResult }) {
         <Figure
           label="Saved in year one"
           value={cad(scenario.year1.total)}
+          delta={base && change(scenario.year1.total - base.s.year1.total, (d) => `${sign(d)}${cad(Math.abs(d))}`, 1, vs)}
           note={`${cad(scenario.year1.selfUsedValue)} used · ${cad(scenario.year1.exportValue)} sold`}
           info={
             <Rows
@@ -42,6 +47,7 @@ export function KeyFigures({ scenario }: { scenario: ScenarioResult }) {
         <Figure
           label="Off your power bill"
           value={`${Math.round(cut * 100)}%`}
+          delta={base && change(Math.round(cut * 100) - Math.round(Math.max(0, base.bill.cut) * 100), (d) => `${sign(d)}${Math.abs(d)} pts`, 1, vs)}
           note={`${cad(bill.before)} → ${cad(Math.max(0, bill.net))} a year`}
           info={
             <Rows
@@ -61,6 +67,12 @@ export function KeyFigures({ scenario }: { scenario: ScenarioResult }) {
         <Figure
           label="Your solar costs"
           value={solarCents === null ? '—' : cents(solarCents)}
+          delta={
+            base &&
+            solarCents !== null &&
+            base.life.costPerKwh !== null &&
+            change(Math.round((solarCents - base.life.costPerKwh) * 1000) / 10, (d) => `${sign(d)}${Math.abs(d).toFixed(1)}¢`, -1, vs)
+          }
           unit="per kWh"
           note={gridCents === null ? 'Over the panels’ life' : `vs ${cents(gridCents)} from BC Hydro`}
           info={
@@ -80,6 +92,17 @@ export function KeyFigures({ scenario }: { scenario: ScenarioResult }) {
         <Figure
           label="Back for every $1"
           value={life.returnPerDollar === null ? '—' : `$${life.returnPerDollar.toFixed(2)}`}
+          delta={
+            base &&
+            life.returnPerDollar !== null &&
+            base.life.returnPerDollar !== null &&
+            change(
+              Math.round((life.returnPerDollar - base.life.returnPerDollar) * 100) / 100,
+              (d) => `${sign(d)}$${Math.abs(d).toFixed(2)}`,
+              1,
+              vs,
+            )
+          }
           tone={life.returnPerDollar === null ? undefined : life.returnPerDollar >= 1 ? 'good' : 'poor'}
           note={`Over ${lifetime} years`}
           info={
@@ -106,6 +129,7 @@ function Figure({
   unit,
   note,
   tone,
+  delta,
   info,
   children,
 }: {
@@ -114,6 +138,8 @@ function Figure({
   unit?: string;
   note: string;
   tone?: 'good' | 'poor';
+  /** How this differs from the recommended size, when another is on screen. */
+  delta?: Delta | null | false;
   info: ReactNode;
   children?: ReactNode;
 }) {
@@ -127,6 +153,16 @@ function Figure({
         {value}
         {unit && <small className="ml-1 font-sans text-callout text-ink-secondary">{unit}</small>}
       </span>
+      {delta && (
+        <span
+          className={cn(
+            'text-footnote font-semibold tabular-nums',
+            delta.better === null ? 'text-ink-tertiary' : delta.better ? 'text-good-ink' : 'text-poor-ink',
+          )}
+        >
+          {delta.text}
+        </span>
+      )}
       <div className="mt-1 mb-1">{children}</div>
       <span className="text-footnote text-ink-tertiary">{note}</span>
       <div className="hidden text-footnote text-ink-secondary print:block">{info}</div>
@@ -174,4 +210,22 @@ function Rows({ rows, total, foot }: { rows: [string, string][]; total: [string,
       {foot && <p className="text-footnote text-ink-secondary">{foot}</p>}
     </div>
   );
+}
+
+interface Delta {
+  text: string;
+  /** null: no change. */
+  better: boolean | null;
+}
+
+/** "+" or a true minus, by the sign of a (rounded) difference. */
+const sign = (d: number) => (d > 0 ? '+' : d < 0 ? MINUS : '±');
+
+/**
+ * A tile's difference from the baseline: `d` already rounded to what the tile shows, `goodWhen` 1 when
+ * more is better for you (savings), −1 when less is (cost per kWh).
+ */
+function change(d: number, format: (d: number) => string, goodWhen: 1 | -1, vs: string): Delta {
+  if (d === 0) return { text: `Same as ${vs.replace(/^vs /, '')}`, better: null };
+  return { text: `${format(d)} ${vs}`, better: Math.sign(d) === goodWhen };
 }
