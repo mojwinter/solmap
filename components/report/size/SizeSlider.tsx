@@ -17,8 +17,8 @@ const HOLD_REPEAT_MS = 70;
 
 /**
  * System size picker. Moves through the roof's panel configs (not single panels), with −/+ steppers
- * for a precise step (hold to repeat), a notch in the track at the recommended size, and a pill that
- * says you're on it or takes you back.
+ * for a precise step (hold to repeat), a notch in the track at the recommended size, and a line under
+ * it that says you're on it or takes you back.
  */
 export function SizeSlider({
   steps,
@@ -42,34 +42,11 @@ export function SizeSlider({
   const step = (dir: -1 | 1) => (i: number) => Math.min(last, Math.max(0, i + dir));
 
   return (
-    <section aria-labelledby="size-heading" className="grid gap-4">
-      <div className="grid gap-1">
-        <div className="flex min-h-7 items-center justify-between gap-3">
-          <h2 id="size-heading" className="text-body text-ink-secondary">
-            System size
-          </h2>
-          {recommended &&
-            (onRecommended ? (
-              <span className="flex h-7 items-center gap-1 rounded-full bg-sky-100 pr-2.5 pl-2 text-callout text-sky-700">
-                <Icon name="check" size={14} strokeWidth={2} className="flex-none" />
-                Recommended
-              </span>
-            ) : (
-              <button
-                type="button"
-                onClick={() => onChange(recommendedIndex!)}
-                className={cn(
-                  'flex h-7 items-center gap-1 rounded-full bg-fill-quiet pr-2.5 pl-2 text-callout text-sky-700',
-                  'transition-[transform,background-color] duration-150 hover:bg-fill-selected active:scale-[.97]',
-                  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring',
-                  'motion-reduce:transition-none print:hidden',
-                )}
-              >
-                <Icon name="refresh" size={14} strokeWidth={2} className="flex-none" />
-                Use recommended
-              </button>
-            ))}
-        </div>
+    <section aria-labelledby="size-heading" className="grid gap-2">
+      <div className="flex items-baseline justify-between gap-2">
+        <h2 id="size-heading" className="text-body text-ink-secondary">
+          System size
+        </h2>
         <p className="font-rounded text-metric tabular-nums" aria-live="polite">
           {current.panels}
           <small className="ml-1 font-sans text-callout text-ink-secondary">
@@ -105,6 +82,26 @@ export function SizeSlider({
         </div>
         <Stepper icon="plus" label="More panels" value={value} next={step(1)} disabled={value >= last} onChange={onChange} />
       </div>
+
+      {recommended &&
+        (onRecommended ? (
+          <p className="flex items-center gap-1 text-callout text-ink-secondary">
+            <Icon name="check" size={14} strokeWidth={2} className="flex-none text-sky-600" />
+            Recommended size
+          </p>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onChange(recommendedIndex!)}
+            className={cn(
+              'flex items-center gap-1 justify-self-start rounded-sm text-callout text-sky-700 hover:underline',
+              'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring print:hidden',
+            )}
+          >
+            <Icon name="refresh" size={14} strokeWidth={2} className="flex-none" />
+            Use recommended ({recommended.panels} panels)
+          </button>
+        ))}
     </section>
   );
 }
