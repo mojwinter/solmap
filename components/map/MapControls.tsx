@@ -11,57 +11,62 @@ const LEGEND_LABEL = "Panel colours: darker panels make more energy";
 /**
  * Bottom-left map controls: icon-only Satellite / Sun exposure toggle and Recentre (names live in
  * tooltips and aria-labels), plus the panel-shade legend while panels are drawn: just the colours,
- * the ramp panelColors() paints (light = less energy, dark = more). Desktop: a slim vertical strip
- * above the controls. Phones: a short horizontal strip to their right, on the map (not in the sheet).
+ * the ramp panelColors() paints (light = less energy, dark = more).
+ * - Desktop: a slim vertical strip hugging the left edge of the results card, in its lower part.
+ *   The offset follows ReportLayout's card (right-6 + w-[440px]) plus a 12px gap; keep them in step.
+ * - Phones: a short horizontal strip at the right edge of the map, level with the controls.
+ * Both sit inside the space the roof fit already keeps clear (the card / the controls row).
  * Render inside <SolarMap>: everything comes from useSolarMap(), so there are no props to wire.
  */
 export function MapControls() {
   const { recentre, layer, setLayer, sunAvailable, sunStatus, panelsShown } = useSolarMap();
   const sunLoading = layer === "sun" && sunStatus === "loading";
   return (
-    // Inset 16/24px from the left (Daylight), but lifted clear of the Google logo in the bottom-left
-    // corner, which must stay visible (CLAUDE.md rule 3).
-    <div data-map-inset="bottom" className="absolute bottom-9 left-4 flex items-center gap-2 md:left-6">
-      {panelsShown && (
-        <span
-          role="img"
-          aria-label={LEGEND_LABEL}
-          title="Darker panels make more energy"
-          data-map-inset="bottom"
-          className="absolute bottom-full left-0 mb-3 hidden h-28 w-2.5 rounded-pill shadow-control ring-1 ring-white/70 md:block"
-          style={{ backgroundImage: panelGradient("to top") }}
+    <>
+      {/* Inset 16/24px from the left (Daylight), but lifted clear of the Google logo in the
+          bottom-left corner, which must stay visible (CLAUDE.md rule 3). */}
+      <div data-map-inset="bottom" className="absolute bottom-9 left-4 flex items-center gap-2 md:left-6">
+        <SegmentedControl
+          label="Map style"
+          // SolarMap already reports "sun" while its map loads, so a click shows at once.
+          value={layer}
+          onChange={setLayer}
+          options={[
+            { value: "satellite", label: "Satellite", icon: "layers" },
+            {
+              value: "sun",
+              label: sunLoading ? "Loading sun exposure…" : "Sun exposure",
+              icon: "sun",
+              busy: sunLoading,
+              disabled: !sunAvailable,
+              hint: sunStatus === "none" ? "No sun map for this roof" : "Sun exposure isn't available",
+            },
+          ]}
         />
-      )}
-      <SegmentedControl
-        label="Map style"
-        // SolarMap already reports "sun" while its map loads, so a click shows at once.
-        value={layer}
-        onChange={setLayer}
-        options={[
-          { value: "satellite", label: "Satellite", icon: "layers" },
-          {
-            value: "sun",
-            label: sunLoading ? "Loading sun exposure…" : "Sun exposure",
-            icon: "sun",
-            busy: sunLoading,
-            disabled: !sunAvailable,
-            hint: sunStatus === "none" ? "No sun map for this roof" : "Sun exposure isn't available",
-          },
-        ]}
-      />
-      <button type="button" onClick={recentre} aria-label="Recentre" title="Recentre" className={`${PILL} glass-thin size-10 justify-center`}>
-        <Icon name="locate" size={18} />
-      </button>
+        <button type="button" onClick={recentre} aria-label="Recentre" title="Recentre" className={`${PILL} glass-thin size-10 justify-center`}>
+          <Icon name="locate" size={18} />
+        </button>
+      </div>
       {panelsShown && (
-        <span
-          role="img"
-          aria-label={LEGEND_LABEL}
-          title="Darker panels make more energy"
-          className="h-2.5 w-14 rounded-pill shadow-control ring-1 ring-white/70 md:hidden"
-          style={{ backgroundImage: panelGradient("to right") }}
-        />
+        <>
+          <span
+            role="img"
+            aria-label={LEGEND_LABEL}
+            title="Darker panels make more energy"
+            className="absolute right-[476px] bottom-14 hidden h-36 w-2.5 rounded-pill shadow-control ring-1 ring-white/70 md:block"
+            style={{ backgroundImage: panelGradient("to top") }}
+          />
+          <span
+            role="img"
+            aria-label={LEGEND_LABEL}
+            title="Darker panels make more energy"
+            // Level with the 40px controls row (bottom-9): 36 + (40 − 10) / 2 = 51px.
+            className="absolute right-4 bottom-[51px] h-2.5 w-14 rounded-pill shadow-control ring-1 ring-white/70 md:hidden"
+            style={{ backgroundImage: panelGradient("to right") }}
+          />
+        </>
       )}
-    </div>
+    </>
   );
 }
 
