@@ -54,6 +54,10 @@ const CASES: Case[] = [
   { name: 'api-error', path: '/report/49.25/-123.15', api: 'upstream', httpError: true },
 ];
 
+// Without NEXT_PUBLIC_MAPS_API_KEY (CI, most laptops) Google runs the map in development mode and
+// logs this on every page. It's about the key, not our UI.
+const NO_MAPS_KEY = /Google Maps JavaScript API error: ApiProjectMapError/;
+
 // Desktop: let the results panel grow to its full height so one image shows everything.
 const UNCLIP = 'aside{max-height:none!important;overflow:visible!important}';
 
@@ -81,6 +85,7 @@ async function main() {
       page.on('console', (m) => {
         if (m.type() !== 'error') return;
         if (c.httpError && m.text().startsWith('Failed to load resource')) return;
+        if (NO_MAPS_KEY.test(m.text())) return;
         problems.push(`${tag} console: ${m.text()}`);
       });
       page.on('pageerror', (e) => problems.push(`${tag} pageerror: ${e.message}`));
