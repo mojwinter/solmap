@@ -5,10 +5,7 @@ import { Card } from '../Card';
 
 const fmt = new Intl.NumberFormat('en-CA');
 
-/**
- * CO₂ the panels avoid over their life (a year's is in the yearly stats), always with BC's caveat (CLAUDE.md rule 6): the
- * grid is mostly hydro, so the number is small and we say so rather than dress it up.
- */
+/** CO₂ the panels avoid over their life (a year's is in the yearly stats). */
 export function ImpactCard({ scenario }: { scenario: ScenarioResult }) {
   const perKwh = GRID_EMISSIONS.kgCo2ePerKwh;
   const lifetimeKg = scenario.years.reduce((sum, y) => sum + y.productionKwh, 0) * perKwh;
@@ -32,10 +29,6 @@ export function ImpactCard({ scenario }: { scenario: ScenarioResult }) {
             </dd>
           </dl>
         )}
-        <p className="text-callout text-ink-secondary">
-          BC&rsquo;s grid is mostly hydro, so solar here cuts little CO₂. BC Hydro says panels don&rsquo;t necessarily
-          shrink your footprint; the case for them is the money.
-        </p>
       </section>
     </Card>
   );

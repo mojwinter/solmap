@@ -35,8 +35,8 @@ describe('energy and size', () => {
   });
 
   it('labels the slider', () => {
-    expect(panelsLabel(12, 4.8)).toBe('12 panels · 4.8 kW');
-    expect(panelsLabel(1, 0.4)).toBe('1 panel · 0.4 kW');
+    expect(panelsLabel(12, 4782.4)).toBe('12 panels · 4,782 kWh');
+    expect(panelsLabel(1, 401.5)).toBe('1 panel · 402 kWh');
   });
 });
 
