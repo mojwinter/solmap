@@ -57,7 +57,7 @@ export function CashFlowChart({
   return (
     <section aria-labelledby={headingId} className="grid gap-2">
       <h2 id={headingId} className="text-headline">
-        Break-even chart
+        Savings chart
       </h2>
 
       {/* role="img" + summary for screen readers; the table below carries every number. Recharts'
