@@ -43,6 +43,15 @@ const CASES: Case[] = [
       for (let i = 0; i < 3; i++) await page.getByRole('button', { name: 'More panels' }).click();
     },
   },
+  {
+    name: 'hero-your-home',
+    path: '/report/49.25/-123.15?address=4127%20Oak%20Street',
+    act: async (page) => {
+      await page.getByRole('button', { name: 'Change' }).click();
+      await page.getByLabel(/Bill amount/).fill('260');
+      await page.getByRole('button', { name: '2 months' }).click();
+    },
+  },
   // Near the border: the API normally 404s these, so fake a 200 to see the fallback banner.
   { name: 'outside-bc-area', path: '/report/49.25/-123.15', api: 'outside-bc-area' },
   { name: 'weak-shaded', path: '/report/49.2615/-123.1702' },

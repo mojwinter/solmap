@@ -83,6 +83,23 @@ test('a shared link restores size, usage and plan, and the URL keeps them (#20)'
   await expect(page).toHaveURL(/[?&]plan=flat(&|$)/);
 });
 
+test('entering a bill re-runs the key figures and puts the usage in the URL', async ({ page }) => {
+  await page.goto('/report/49.25/-123.15');
+
+  const figures = page.getByRole('region', { name: 'Key figures' });
+  await expect(figures).toBeVisible();
+  const typical = await figures.textContent();
+
+  await page.getByRole('button', { name: 'Change' }).click();
+  await page.getByLabel(/Bill amount/).fill('260');
+  await page.getByRole('button', { name: '2 months' }).click();
+
+  await expect(figures).not.toHaveText(typical!);
+  await expect(page).toHaveURL(/[?&]kwh=\d+(&|$)/);
+  // The bill amount itself never goes in the URL (DESIGN.md §2).
+  await expect(page).not.toHaveURL(/260/);
+});
+
 test('a point with no roof data shows the no-coverage state', async ({ page }) => {
   const none = fixture(53.9171, -122.7497);
   expect(none.expectedVerdict).toBe('NO_COVERAGE');

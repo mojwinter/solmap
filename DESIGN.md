@@ -50,10 +50,27 @@ Landing ──► type address (PlaceAutocompleteElement → place.location)
 
 ### Report page
 
-Layout (see §4): the map fills the screen. Address search floats top-left; one wide frosted
-results panel (~440px, scrolls) floats on the right, holding the cards below in this order:
-verdict → money → size slider → inputs → spec sheet → attribution. On phones the panel becomes
-a bottom sheet with the verdict visible first.
+Layout (`components/report/ReportLayout.tsx`): the house window (a locked map; click to explore it
+full screen) top left, the answer top right, then a dashboard under both. From 1024px, two columns:
+
+```
+house window                        | answer (payback year, verdict, money tiles, reasons)
+key figures (4 tiles)               | size slider (with a today's-value curve over the track)
+savings over time [charts]          | your home (usage + rate plan, opens in place)
+                                    | environmental impact · get real quotes
+─────────────── analysis grid (3 columns with charts, 2 without) ───────────────
+which size pays best [charts] (2)   | where your solar goes + yearly bill
+how sure is this? [charts] (2)      | spec sheet
+month by month [charts] (2)         | your roof
+panel by panel [charts] (full width)
+what we assumed [assumptions] (full width)
+footer: attribution + every source
+```
+
+Narrower, one column in reading order (house, answer, slider, your home, figures, charts…). Without
+the `charts` flag, "where your solar goes" moves under the house so that column isn't short. Every chart
+has a one-sentence takeaway above it and its numbers in a "See the numbers" table, so nothing depends
+on hovering or colour. The pure figures behind the dashboard are in `components/report/analysis/derive.ts`.
 
 **VerdictCard** (the hero element)
 - Badge: **Strong / Moderate / Weak / Not recommended** (colour + glyph + word, never colour alone),
@@ -97,12 +114,29 @@ a bottom sheet with the verdict visible first.
 | Imagery | quality + capture date |
 | Next steps | "Get 3 quotes from Home Performance Contractor Network members; apply for self-generation **before** buying equipment (required for the rebate)." |
 
-**[P1] Charts**
-- *Sweet-spot chart:* x = system kW (each config), y1 = NPV, y2 = payback years. Recommended point highlighted.
-- *Cash-flow chart:* cumulative net savings, years 0–25, break-even marked.
+**Key figures** (always on): saved in year one (used vs sold), share off the power bill, what your
+solar costs per kWh over its life vs the rate it replaces, and dollars back per $1 paid. Each ⓘ shows the sum.
 
-**[P1] AssumptionsDrawer**: every knob from `FinanceInputs` with default, unit and source link.
-"Reset to BC defaults".
+**Where your solar goes** (always on): year-1 split used at home vs sold at 10¢, and the yearly bill as a
+waterfall (without solar → minus solar used → minus export credit → with solar).
+
+**Your roof** (always on): a compass of the roof faces (wedge = area, sky = used by this size, south-ish arc
+marked), sunniest spot vs BC typical, and a row per face: pitch, area, typical sun hours, panels, shade flag.
+
+**[P1, `charts`] Charts**
+- *Which size pays best (sweet spot):* x = system kW (each config); one measure at a time, never two
+  y-axes: value today (NPV, the default, what the recommendation maximises), total saved, or payback
+  years. Recommended and on-screen sizes marked; clicking picks a size.
+- *Savings over time (cash flow):* cumulative net savings, years 0–25, break-even marked.
+- *How sure is this?:* payback with each assumption at both ends of its BC range (install cost, price
+  rises, daytime use, rebate), biggest swing first.
+- *Month by month:* year-1 output spread by NRCan's monthly shape for the nearest town, against the
+  household's average month.
+- *Panel by panel:* every panel spot's year-1 kWh, best first, the ones in use highlighted.
+
+**[P1, `assumptions`] What we assumed**: install cost, price rises, daytime use share, discount rate and
+panel size as sliders (range from `INPUT_RANGES`, BC default, why), the rebate as a switch, the fixed BC
+facts beside them, and "Reset to BC defaults".
 
 ### States
 | State | Behaviour |
