@@ -1,6 +1,6 @@
 // The design system's line glyphs: 24px grid, 1.75 stroke, round caps, drawn in currentColor.
 // Paths copied from the Solmap design system's Icon component; `ban`, `cloud`, `star`,
-// `alert` and `refresh` are added in the same style for the report.
+// `alert`, `refresh` and `info` are added in the same style for the report.
 const PATHS = {
   search: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4',
   pin: 'M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11zM12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
@@ -24,6 +24,7 @@ const PATHS = {
   star: 'M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9L12 3.5z',
   alert: 'M12 4 2.8 19.5h18.4L12 4zM12 10v4.5M12 17.2v.1',
   refresh: 'M19.5 12a7.5 7.5 0 1 1-2.2-5.3M19.5 4.5v4h-4',
+  info: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 11v5.5M12 7.8v.1',
 } as const;
 
 export type IconName = keyof typeof PATHS;

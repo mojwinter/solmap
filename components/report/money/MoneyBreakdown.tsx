@@ -1,14 +1,14 @@
 import type { FinanceInputs, ScenarioResult } from '@/src/types/app';
 import { Stat } from '@/components/common/Stat';
 import { StatList } from '@/components/common/StatList';
-import { cad, cents, kwh, signedCad } from '@/lib/format';
+import { cad, kwh, signedCad } from '@/lib/format';
+import { GRID_EMISSIONS } from '@/src/config/bc';
 
-/** Install cost → − rebate → what you pay → lifetime net, then year 1: solar you use vs solar you sell. */
+/** What you pay (ⓘ: install cost − rebate) and the lifetime net, then a year's production, how much of average use it covers and the CO₂ it avoids. */
 export function MoneyBreakdown({ scenario, inputs }: { scenario: ScenarioResult; inputs: FinanceInputs }) {
-  const { year1 } = scenario;
   const lifetime = scenario.years.length || inputs.lifetimeYears;
   const net = scenario.lifetimeNetSavings;
-  const selfRate = year1.selfUsedKwh > 0 ? year1.selfUsedValue / year1.selfUsedKwh : 0;
+  const co2Kg = scenario.acKwhYear1 * GRID_EMISSIONS.kgCo2ePerKwh;
 
   return (
     <>
@@ -17,37 +17,37 @@ export function MoneyBreakdown({ scenario, inputs }: { scenario: ScenarioResult;
           Costs and savings
         </h2>
         <div className="grid grid-cols-2 gap-3">
-          <Stat label="Install cost" value={cad(scenario.installCost)} />
-          <Stat label="BC Hydro rebate" value={scenario.rebate > 0 ? cad(-scenario.rebate) : '$0'} />
-          <Stat label="You pay" value={cad(scenario.netCost)} />
+          <Stat label="Estimated install cost" value={cad(scenario.netCost)} info={<CostMath scenario={scenario} />} />
           <Stat label={`${lifetime}-year net`} value={signedCad(net)} tone={net >= 0 ? 'good' : 'poor'} />
         </div>
       </section>
 
       <section aria-labelledby="year1-heading" className="grid gap-2">
         <h2 id="year1-heading" className="text-headline">
-          Your first year
+          Yearly
         </h2>
         <StatList
           items={[
-            {
-              icon: 'roof',
-              label: 'Used at home',
-              unit: selfRate > 0 ? `worth ${cents(selfRate)}/kWh` : undefined,
-              value: cad(year1.selfUsedValue),
-              tone: 'good',
-            },
-            {
-              icon: 'bolt',
-              label: 'Sold back',
-              unit: `at ${cents(inputs.exportRate)}/kWh`,
-              value: cad(year1.exportValue),
-            },
-            { icon: 'sun', label: 'Energy made', unit: 'kWh', value: kwh(scenario.acKwhYear1), tone: 'sun' },
-            { icon: 'panels', label: 'Share of your use', value: `${Math.round(scenario.offsetPct * 100)}%` },
+            { icon: 'sun', label: 'Energy generated', valueUnit: 'kWh', value: kwh(scenario.acKwhYear1), tone: 'sun' },
+            { icon: 'panels', label: 'Share of average use', value: `${Math.round(scenario.offsetPct * 100)}%` },
+            { icon: 'leaf', label: 'CO₂ saved', valueUnit: 'kg', value: Math.round(co2Kg).toLocaleString('en-CA') },
           ]}
         />
       </section>
     </>
+  );
+}
+
+/** Install cost − rebate = what you pay, as a little sum. */
+function CostMath({ scenario }: { scenario: ScenarioResult }) {
+  return (
+    <dl className="grid grid-cols-[auto_auto] gap-x-4 gap-y-0.5 tabular-nums">
+      <dt>Install cost</dt>
+      <dd className="text-right">{cad(scenario.installCost)}</dd>
+      <dt>BC Hydro rebate</dt>
+      <dd className="text-right">{scenario.rebate > 0 ? cad(-scenario.rebate) : '$0'}</dd>
+      <dt className="border-t border-separator pt-0.5 font-semibold">You pay</dt>
+      <dd className="border-t border-separator pt-0.5 text-right font-semibold">{cad(scenario.netCost)}</dd>
+    </dl>
   );
 }
