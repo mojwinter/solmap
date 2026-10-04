@@ -19,7 +19,7 @@ export function NextStep() {
       </span>
       <span className="grid flex-1 gap-0.5">
         <span className="text-headline">Get real quotes</span>
-        <span className="text-callout opacity-90">
+        <span className="text-callout">
           Apply to BC Hydro before you buy, then use an HPCN installer to get the rebate.
         </span>
       </span>

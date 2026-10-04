@@ -50,7 +50,15 @@ export function ChartSection({
           <summary className="w-fit cursor-pointer rounded-sm select-none hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring">
             See the numbers
           </summary>
-          <div className="mt-2 max-h-72 overflow-y-auto">{table}</div>
+          {/* Scrolls when long, so it takes focus: keyboard users can scroll it too. */}
+          <div
+            tabIndex={0}
+            role="region"
+            aria-label={`${title}: the numbers`}
+            className="mt-2 max-h-72 overflow-y-auto rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
+          >
+            {table}
+          </div>
         </details>
       )}
     </section>
