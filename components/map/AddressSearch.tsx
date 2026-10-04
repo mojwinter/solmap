@@ -163,8 +163,9 @@ export function AddressSearch({ onSelect, placeholder = "Enter your address", va
   return (
     <div data-map-inset={variant === "map" ? "top" : undefined} className={`${width} ${className ?? ""}`}>
       {/* Focus brightens the frost and edges the card in a neutral ring, not a blue bar: the caret and the
-          open list already say where you are, and the bar read as an error over aerial imagery. */}
-      <div className={`group overflow-hidden ${shape} glass ring-1 ring-transparent transition-shadow focus-within:bg-white/95 focus-within:ring-ink/20 dark:focus-within:bg-glass`}>
+          open list already say where you are, and the bar read as an error over aerial imagery. The ring is an
+          outline, not Tailwind's ring-*: that is a box-shadow and would replace glass's float shadow. */}
+      <div className={`group overflow-hidden ${shape} glass outline-1 outline-transparent transition-[background-color,outline-color] focus-within:bg-white/95 focus-within:outline-ink/25 dark:focus-within:bg-glass dark:focus-within:outline-white/25`}>
         <div className={`flex items-center ${row}`}>
           <SearchIcon size={bar ? 17 : compact ? 18 : 22} />
           <input
