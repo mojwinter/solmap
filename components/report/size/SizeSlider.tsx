@@ -17,7 +17,7 @@ const HOLD_REPEAT_MS = 70;
 
 /**
  * System size picker. Moves through the roof's panel configs (not single panels), with −/+ steppers
- * for a precise step (hold to repeat), a notch in the track at the recommended size, and a line under
+ * for a precise step (hold to repeat), a caret under the track at the recommended size, and a line under
  * it that says you're on it or takes you back.
  */
 export function SizeSlider({
@@ -57,7 +57,7 @@ export function SizeSlider({
 
       <div className="flex items-center gap-3 print:hidden">
         <Stepper icon="minus" label="Fewer panels" value={value} next={step(-1)} disabled={value <= 0} onChange={onChange} />
-        <div className="flex-1">
+        <div className="relative flex-1">
           <input
             type="range"
             min={0}
@@ -67,18 +67,20 @@ export function SizeSlider({
             onChange={(e) => onChange(Number(e.target.value))}
             aria-label="System size"
             aria-valuetext={panelsLabel(current.panels, current.systemKwDc) + (onRecommended ? ', recommended' : '')}
-            className={cn(styles.range, recommendedIndex !== null && styles.marked)}
-            style={
-              {
-                '--pct': `${at(value)}%`,
-                ...(recommendedIndex !== null && {
-                  '--rec': thumbLeft(recommendedIndex),
-                  // White cut on the filled track, a sky-600 tick on the pale part ahead of the thumb.
-                  '--notch': recommendedIndex > value ? 'var(--sky-600)' : '#ffffff',
-                }),
-              } as CSSProperties
-            }
+            className={styles.range}
+            style={{ '--pct': `${at(value)}%` } as CSSProperties}
           />
+          {recommendedIndex !== null && (
+            // A caret pointing up at the spot, just under the thumb's reach so the thumb never covers it.
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 10 6"
+              className="pointer-events-none absolute top-full h-1.5 w-2.5 -translate-x-1/2 fill-sky-600"
+              style={{ left: thumbLeft(recommendedIndex) }}
+            >
+              <path d="M5 0.6 9.2 5.4H0.8z" strokeLinejoin="round" className="stroke-sky-600" strokeWidth={1.2} />
+            </svg>
+          )}
         </div>
         <Stepper icon="plus" label="More panels" value={value} next={step(1)} disabled={value >= last} onChange={onChange} />
       </div>
