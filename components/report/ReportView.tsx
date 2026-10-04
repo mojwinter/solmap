@@ -142,11 +142,7 @@ function ReportPage({
               <ReportSkeleton variant="slider" />
             </Card>
           ),
-          analysis: (
-            <Card>
-              <ReportSkeleton variant="list" />
-            </Card>
-          ),
+          analysis: <ReportSkeleton variant="figures" />,
         };
       case 'no_coverage':
       case 'outside_bc':

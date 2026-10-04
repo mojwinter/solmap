@@ -40,11 +40,7 @@ export default function Loading() {
           <ReportSkeleton variant="slider" />
         </Card>
       }
-      analysis={
-        <Card>
-          <ReportSkeleton variant="list" />
-        </Card>
-      }
+      analysis={<ReportSkeleton variant="figures" />}
     />
   );
 }
