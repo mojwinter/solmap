@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { AddressSearch } from "@/components/map/AddressSearch";
+import { MapControls, type MapLayer } from "@/components/map/MapControls";
 import { MapsProvider } from "@/components/map/MapsProvider";
 import { SolarMap } from "@/components/map/SolarMap";
+import { ATTRIBUTION } from "@/src/config/bc";
 import type { ApiError, BuildingResponse, LatLngLiteral } from "@/src/types/app";
 
 // The committed synthetic roofs (fixtures/synthetic/*.json), served by /api/solar/building in fixtures mode.
@@ -31,7 +33,11 @@ type Result =
   | { kind: "empty"; message: string }
   | { kind: "error"; message: string };
 
-/** `start` (from ?lat=&lng=) opens the playground at any spot; otherwise at the first synthetic roof. */
+/**
+ * Dev preview of the Daylight MapScreen: full-screen map, AddressSearch top-left, map controls
+ * bottom-left, and a stand-in for D's results card on the right (same layout as ReportLayout).
+ * `start` (from ?lat=&lng=) opens it at any spot; otherwise at the first synthetic roof.
+ */
 export function DevMap({ start }: { start?: LatLngLiteral }) {
   const [lookup, setLookup] = useState<Lookup>(
     start
@@ -40,6 +46,7 @@ export function DevMap({ start }: { start?: LatLngLiteral }) {
   );
   const [result, setResult] = useState<Result>({ kind: "loading" });
   const [configIndex, setConfigIndex] = useState(0);
+  const [layer, setLayer] = useState<MapLayer>("satellite");
 
   // Every way of picking a spot comes through here, so loading starts together with the new lookup.
   const lookUp = (next: Lookup) => {
@@ -82,67 +89,98 @@ export function DevMap({ start }: { start?: LatLngLiteral }) {
 
   return (
     <MapsProvider>
-      <main className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-4">
-        <h1 className="text-xl font-semibold">Map playground (dev only)</h1>
-
-        <AddressSearch
-          onSelect={(place) =>
-            lookUp({ point: { lat: place.lat, lng: place.lng }, label: place.address || "the picked address", province: place.province })
-          }
-        />
-
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm text-zinc-500">Synthetic roofs:</span>
-          {ROOFS.map((r) => (
-            <button
-              key={r.label}
-              onClick={() => lookUp({ point: { lat: r.lat, lng: r.lng }, label: r.label })}
-              aria-pressed={lookup.label === r.label}
-              className={`rounded-full border px-3 py-1 text-sm ${
-                lookup.label === r.label ? "border-indigo-700 bg-indigo-700 text-white" : "border-zinc-300"
-              }`}
-            >
-              {r.label}
-            </button>
-          ))}
+      <div className="relative flex min-h-dvh flex-1 flex-col md:block">
+        {/* The map is the canvas (ReportLayout): a strip on phones, full screen on desktop. */}
+        <div className="relative h-[40dvh] md:fixed md:inset-0 md:h-auto">
+          <SolarMap
+            location={lookup.point}
+            building={building}
+            visibleCount={count}
+            onMapClick={(point) => lookUp({ point, label: `${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}` })}
+            fitPadding="report"
+            captions={false}
+            className="h-full"
+          >
+            <MapControls layer={layer} onLayerChange={setLayer} />
+          </SolarMap>
+          <div className="absolute top-4 right-4 left-4 md:top-6 md:right-auto md:left-6 md:w-[440px]">
+            <AddressSearch
+              onSelect={(place) =>
+                lookUp({ point: { lat: place.lat, lng: place.lng }, label: place.address || "the picked address", province: place.province })
+              }
+            />
+          </div>
         </div>
 
-        <div role="status" className="text-sm">
-          <p className={result.kind === "error" ? "text-red-600" : result.kind === "empty" ? "text-amber-700" : ""}>
-            {statusText(lookup, result)}
-          </p>
-          {outsideBC && (
-            <p className="text-amber-700">
-              This address looks like it&apos;s outside BC ({lookup.province}). Solmap uses BC Hydro rates.
-            </p>
-          )}
-        </div>
+        {/* Stand-in for D's SolarCard, so the padding and insets can be checked before #49 wires the real one. */}
+        <aside
+          aria-label="Map playground"
+          className="relative z-10 -mt-6 flex-1 rounded-t-xl glass p-5 md:absolute md:top-6 md:right-6 md:mt-0 md:max-h-[calc(100dvh-3rem)] md:w-[440px] md:flex-none md:overflow-y-auto md:rounded-xl"
+        >
+          <div className="grid gap-4">
+            <header className="grid gap-1">
+              <h1 className="text-title">Map playground</h1>
+              <p className="text-callout text-ink-secondary">Dev only. D&apos;s report card goes here.</p>
+            </header>
 
-        <SolarMap
-          location={lookup.point}
-          building={building}
-          visibleCount={count}
-          onMapClick={(point) => lookUp({ point, label: `${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}` })}
-          className="h-[60vh] min-h-80"
-        />
+            <div role="status" className="grid gap-1 rounded-md bg-fill-quiet p-3 text-callout">
+              <p className={result.kind === "error" ? "text-poor-ink" : result.kind === "empty" ? "text-fair-ink" : "text-ink"}>
+                {statusText(lookup, result)}
+              </p>
+              {outsideBC && (
+                <p className="text-fair-ink">
+                  This address looks like it&apos;s outside BC ({lookup.province}). Solmap uses BC Hydro rates.
+                </p>
+              )}
+            </div>
 
-        {building &&
-          (building.configs.length > 0 ? (
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="font-medium">{sizeLabel}</span>
-              <input
-                type="range"
-                min={0}
-                max={building.configs.length - 1}
-                value={configIndex}
-                aria-valuetext={sizeLabel}
-                onChange={(e) => setConfigIndex(Number(e.target.value))}
-              />
-            </label>
-          ) : (
-            <p className="text-sm">This roof is too small for any panel layout.</p>
-          ))}
-      </main>
+            {building &&
+              (building.configs.length > 0 ? (
+                <label className="grid gap-2 rounded-md bg-fill-quiet p-3">
+                  <span className="text-headline">{sizeLabel}</span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={building.configs.length - 1}
+                    value={configIndex}
+                    aria-valuetext={sizeLabel}
+                    onChange={(e) => setConfigIndex(Number(e.target.value))}
+                    className="accent-sky-600"
+                  />
+                </label>
+              ) : (
+                <p className="rounded-md bg-fill-quiet p-3 text-callout">This roof is too small for any panel layout.</p>
+              ))}
+
+            <div className="grid gap-2">
+              <span className="text-callout text-ink-secondary">Synthetic roofs</span>
+              <div className="flex flex-wrap gap-2">
+                {ROOFS.map((r) => (
+                  <button
+                    key={r.label}
+                    type="button"
+                    onClick={() => lookUp({ point: { lat: r.lat, lng: r.lng }, label: r.label })}
+                    aria-pressed={lookup.label === r.label}
+                    className={`h-8 rounded-pill px-3 text-callout focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring ${
+                      lookup.label === r.label ? "bg-sky-600 text-on-sky-600" : "bg-fill-quiet text-ink"
+                    }`}
+                  >
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {building && (
+              <p className="text-footnote text-ink-tertiary">
+                {building.source === "live" || building.source === "cache"
+                  ? ATTRIBUTION
+                  : "Sample roof: synthetic test data, not Google imagery."}
+              </p>
+            )}
+          </div>
+        </aside>
+      </div>
     </MapsProvider>
   );
 }
