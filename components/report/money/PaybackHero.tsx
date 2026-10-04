@@ -24,7 +24,7 @@ export function PaybackHero({
 }) {
   const payback = scenario.paybackYears;
   return (
-    <section aria-labelledby="payback-heading" className="grid gap-1 rounded-[18px] bg-fill-quiet p-4">
+    <section aria-labelledby="payback-heading" className="grid gap-1">
       <div className="flex items-center justify-between gap-2">
         <h2 id="payback-heading" className="text-callout text-ink-secondary">
           {payback === null ? 'Payback' : 'Pays for itself in'}
