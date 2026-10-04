@@ -11,7 +11,7 @@ interface Props {
   /** Called with the picked address's location (full precision; round it for URLs). */
   onSelect: (place: PickedPlace) => void;
   placeholder?: string;
-  /** "map": top-left card over the map, max 440px. "landing": centred, up to 640px. Position it from the parent. */
+  /** "map": compact top-left pill over the map, max 360px. "landing": centred, up to 640px. Position it from the parent. */
   variant?: "map" | "landing";
   className?: string;
 }
@@ -33,7 +33,8 @@ interface Suggestion {
 }
 
 /**
- * Daylight AddressSearch: a Spotlight-style frosted card with a 26px field and our own result list,
+ * Daylight AddressSearch: a Spotlight-style frosted card and our own result list (a compact 17px field
+ * over the map, the 26px field on the landing),
  * fed by Places API (New) autocomplete (docs/SOLAR_API.md, Gotcha 8). Canada only, inside BC's box;
  * distances are from the map's centre when there is a map. Must sit inside <MapsProvider>.
  */
@@ -120,23 +121,26 @@ export function AddressSearch({ onSelect, placeholder = "Enter your address", va
     }
   };
 
-  const width = variant === "map" ? "w-full max-w-[440px]" : "mx-auto w-full max-w-[640px]";
+  const compact = variant === "map";
+  const width = compact ? "w-full max-w-[360px]" : "mx-auto w-full max-w-[640px]";
+  const field = compact ? "text-headline font-normal" : "text-[26px] leading-8";
+  const row = compact ? "mx-4 gap-2.5 py-2.5" : "mx-5 gap-3 py-4";
   const showList = open && suggestions.length > 0;
 
   if (!MAPS_API_KEY) {
     return (
       <div data-map-inset={variant === "map" ? "top" : undefined} className={`${width} ${className ?? ""}`}>
-        <div className="rounded-xl glass px-5 py-4">
-          <div className="flex items-center gap-3">
-            <SearchIcon />
+        <div className={`rounded-xl glass ${compact ? "px-4 py-2.5" : "px-5 py-4"}`}>
+          <div className={`flex items-center ${compact ? "gap-2.5" : "gap-3"}`}>
+            <SearchIcon size={compact ? 18 : 22} />
             <input
               disabled
               placeholder={placeholder}
               aria-label="Address"
-              className="w-full bg-transparent text-[26px] leading-8 text-ink-tertiary outline-none placeholder:text-ink-tertiary"
+              className={`w-full bg-transparent ${field} text-ink-tertiary outline-none placeholder:text-ink-tertiary`}
             />
           </div>
-          <p className="mt-2 text-footnote text-ink-tertiary">
+          <p className="mt-1 text-footnote text-ink-tertiary">
             {process.env.NODE_ENV === "production"
               ? "Address search isn't available right now."
               : "Address search needs NEXT_PUBLIC_MAPS_API_KEY (Maps JavaScript API + Places API (New)) in .env.local."}
@@ -148,10 +152,11 @@ export function AddressSearch({ onSelect, placeholder = "Enter your address", va
 
   return (
     <div data-map-inset={variant === "map" ? "top" : undefined} className={`${width} ${className ?? ""}`}>
-      <div className="overflow-hidden rounded-xl glass">
-        {/* Focus shows as a 2px focus-ring underline inside the card (Daylight README). */}
-        <div className="mx-5 flex items-center gap-3 border-b-2 border-transparent py-4 focus-within:border-focus-ring">
-          <SearchIcon />
+      {/* Focus brightens the frost and edges the card in a neutral ring, not a blue bar: the caret and the
+          open list already say where you are, and the bar read as an error over aerial imagery. */}
+      <div className="overflow-hidden rounded-xl glass ring-1 ring-transparent transition-shadow focus-within:bg-white/95 focus-within:ring-ink/20 dark:focus-within:bg-glass">
+        <div className={`flex items-center ${row}`}>
+          <SearchIcon size={compact ? 18 : 22} />
           <input
             role="combobox"
             aria-label="Address"
@@ -174,11 +179,11 @@ export function AddressSearch({ onSelect, placeholder = "Enter your address", va
             onFocus={() => suggestions.length && setOpen(true)}
             onBlur={() => setOpen(false)}
             onKeyDown={onKeyDown}
-            className="w-full bg-transparent text-[26px] leading-8 text-ink outline-none placeholder:text-ink-tertiary"
+            className={`w-full bg-transparent ${field} text-ink outline-none placeholder:text-ink-tertiary`}
           />
         </div>
         {showList && (
-          <ul id={listId} role="listbox" aria-label="Addresses" className="grid gap-0.5 p-2">
+          <ul id={listId} role="listbox" aria-label="Addresses" className="grid gap-0.5 border-t border-separator p-2">
             {suggestions.map((s, i) => {
               const isActive = i === active;
               return (
@@ -224,9 +229,9 @@ export function AddressSearch({ onSelect, placeholder = "Enter your address", va
   );
 }
 
-function SearchIcon() {
+function SearchIcon({ size }: { size: number }) {
   return (
-    <svg aria-hidden="true" className="shrink-0 text-ink-secondary" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+    <svg aria-hidden="true" className="shrink-0 text-ink-secondary" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
       <circle cx="11" cy="11" r="7" />
       <path d="m20 20-3.5-3.5" />
     </svg>
