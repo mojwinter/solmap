@@ -11,6 +11,7 @@ import { FLAGS, type Flags } from '@/lib/flags';
 import type { BuildingResponse } from '@/src/types/app';
 import { Attribution } from './Attribution';
 import { Assumptions } from './money/Assumptions';
+import { CashFlowChart } from './money/CashFlowChart';
 import { MoneyBreakdown } from './money/MoneyBreakdown';
 import { PaybackHero } from './money/PaybackHero';
 import { LargeBuildingNote } from './notices/LargeBuildingNote';
@@ -134,9 +135,12 @@ function Report({
   if (!recommendation) return null;
   const steps = recommendation.scenarios.map((s) => ({ panels: s.panelsCount, systemKwDc: s.systemKwDc }));
   const onRecommended = selectedIndex === recommendation.recommendedIndex;
+  // Install year for PaybackHero and the chart, read once so they agree. The roof is fetched after
+  // mount, so this only ever runs in the browser (the user's clock), never in server HTML.
+  const startYear = new Date().getFullYear();
 
   return (
-    // P1 UI renders only behind its flag (the print button so far; print CSS always applies).
+    // P1 UI renders only behind its flag (`flags.charts && …`; the print button is `flags.print`, print CSS always applies).
     // data-flags shows which are on, for ops and the E2E smoke test.
     <div className="grid gap-6" data-flags={FLAGS.filter((f) => flags[f]).join(' ')}>
       <PrintHeader />
@@ -158,7 +162,7 @@ function Report({
             scenario={selected}
             verdict={verdictFor(selected)}
             headline={onRecommended ? recommendation.headline : undefined}
-            startYear={new Date().getFullYear()}
+            startYear={startYear}
             lifetimeYears={inputs.lifetimeYears}
           />
           <SizeSlider
@@ -168,6 +172,9 @@ function Report({
             onChange={setSelectedIndex}
           />
           <MoneyBreakdown scenario={selected} inputs={inputs} />
+          {flags.charts && (
+            <CashFlowChart scenario={selected} startYear={startYear} />
+          )}
           <ReasonChips reasons={recommendation.reasons} title="About this roof" />
           <Assumptions warnings={selected.warnings} inputs={inputs} />
           <UsageInputs inputs={inputs} onChange={setInputs} />
