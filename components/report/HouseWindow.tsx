@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 're
 import { useMap } from '@vis.gl/react-google-maps';
 import { AddressSearch } from '@/components/map/AddressSearch';
 import { MapControls } from '@/components/map/MapControls';
-import { SolarMap } from '@/components/map/SolarMap';
+import { SolarMap, fitCamera, pointOnScreen } from '@/components/map/SolarMap';
 import { Icon } from '@/components/common/Icon';
 import type { PickedPlace } from '@/lib/geo/place';
 import type { BuildingResponse, LatLngLiteral } from '@/src/types/app';
@@ -51,20 +51,31 @@ export function HouseWindow({
   const opener = useRef<HTMLButtonElement>(null);
   const closer = useRef<HTMLButtonElement>(null);
   const start = useRef<DOMRect | null>(null);
+  /** The window's camera when it was clicked (the opening effect moves it, and may run twice). */
+  const startCamera = useRef<{ center: LatLngLiteral; zoom: number } | null>(null);
   const returning = useRef(false);
   const exploring = phase === 'open';
+  /** The explore UI is in the page: invisible while opening, so the camera can be fitted round it. */
+  const laidOut = phase === 'opening' || exploring;
 
   const open = () => {
     if (!slot.current) return;
     start.current = slot.current.getBoundingClientRect();
+    const center = map?.getCenter()?.toJSON();
+    const zoom = map?.getZoom();
+    startCamera.current = center && zoom !== undefined ? { center, zoom } : null;
     setPhase('opening');
   };
   const close = () => setPhase('closing');
 
-  // Opening: the map goes full size at once, at the same zoom and shifted so the roof stays exactly
-  // where it was, and the window's edges slide out to the screen's (a clip, so no tiles are stretched
-  // or missing). Closing runs it backwards, after framing the roof as the window will. Before paint,
-  // so nothing flashes. Reduced motion: straight there.
+  // Opening is one motion: the map goes full size at once with the camera already where exploring
+  // wants it (the roof clear of the search box, controls and results card), and a transform puts the
+  // window's view back where it was; the transform eases out while the window's edges slide out to
+  // the screen's (a clip, so the map is never squashed). If the two zooms differ, the map is drawn at
+  // the further-out one and scaled up to stand in for the closer one (only ever up, so no edge shows),
+  // taking the closer zoom for real once it lands. The explore UI is laid out (invisibly) from the first frame so
+  // the camera can make room for it. Closing runs backwards, after framing the roof as the window
+  // will. Before paint, so nothing flashes. Reduced motion: straight there.
   useLayoutEffect(() => {
     const el = frame.current;
     const inner = content.current;
@@ -72,8 +83,7 @@ export function HouseWindow({
     const opening = phase === 'opening';
     const rect = opening ? start.current : slot.current?.getBoundingClientRect();
     if (!rect) return;
-    const W = window.innerWidth;
-    const H = window.innerHeight;
+    const { width: W, height: H } = el.getBoundingClientRect();
     if (!opening && map && building) {
       // The roof as the window will show it (its "window" fit), but on the full-size map.
       const desktop = window.matchMedia('(min-width: 768px)').matches;
@@ -86,18 +96,47 @@ export function HouseWindow({
         { top: y + pad, right: x + pad, bottom: y + pad, left: x + pad },
       );
     }
-    const dx = rect.left + rect.width / 2 - W / 2;
-    const dy = rect.top + rect.height / 2 - H / 2;
     const small = { clipPath: `inset(${rect.top}px ${W - rect.right}px ${H - rect.bottom}px ${rect.left}px round ${WINDOW_RADIUS})` };
     const full = { clipPath: 'inset(0px 0px 0px 0px round 0px)' };
-    const shifted = { transform: `translate(${dx}px, ${dy}px)` };
-    const home = { transform: 'translate(0px, 0px)' };
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const timing: KeyframeAnimationOptions = { duration: reduced ? 0 : DURATION_MS, easing: EASE, fill: 'forwards' };
     const reveal = el.animate(opening ? [small, full] : [full, small], timing);
-    const slide = inner.animate(opening ? [shifted, home] : [home, shifted], timing);
+
+    // The window's centre on screen, and the camera that shows it there before / after.
+    const from = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    let slide: Animation;
+    let land = () => {};
+    const was = startCamera.current;
+    if (opening && map && was) {
+      const to = building ? fitCamera(map, building.boundingBox, 'report') : was;
+      // Draw at the lower of the two zooms, centred where exploring will be: scale 2^(to - drawn) is
+      // then exactly the explore view, and the window's view is that same drawing scaled by
+      // 2^(was - drawn) about the screen's centre and moved so the window's centre lands on `from`.
+      const drawn = { center: to.center, zoom: Math.min(was.zoom, to.zoom) };
+      map.moveCamera(drawn);
+      const at = pointOnScreen(was.center, drawn, { width: W, height: H });
+      const s0 = 2 ** (was.zoom - drawn.zoom);
+      const s1 = 2 ** (to.zoom - drawn.zoom);
+      const tx = from.x - W / 2 - (at.x - W / 2) * s0;
+      const ty = from.y - H / 2 - (at.y - H / 2) * s0;
+      slide = inner.animate(
+        [{ transform: `translate(${tx}px, ${ty}px) scale(${s0})` }, { transform: `translate(0px, 0px) scale(${s1})` }],
+        timing,
+      );
+      land = () => {
+        if (to.zoom !== drawn.zoom) map.moveCamera(to);
+        slide.cancel();
+      };
+    } else {
+      // Closing (or no map yet): the camera stays put and only slides between the screen's centre and the window's.
+      const shifted = { transform: `translate(${from.x - W / 2}px, ${from.y - H / 2}px)` };
+      const home = { transform: 'translate(0px, 0px)' };
+      slide = inner.animate(opening ? [shifted, home] : [home, shifted], timing);
+    }
     reveal.onfinish = () => {
-      if (!opening) returning.current = true;
+      // Swap the scaled drawing for the real camera in the same frame.
+      if (opening) land();
+      else returning.current = true;
       setPhase(opening ? 'open' : 'closed');
     };
     return () => {
@@ -155,12 +194,12 @@ export function HouseWindow({
             location={location}
             building={building}
             visibleCount={visibleCount}
-            fitPadding={exploring ? 'report' : 'window'}
+            fitPadding={laidOut ? 'report' : 'window'}
             captions={false}
             heatmap={heatmap}
             locked={!exploring}
             holdCamera={phase === 'opening' || phase === 'closing'}
-            onMapClick={exploring ? onPick : undefined}
+            onMapClick={laidOut ? onPick : undefined}
             className="size-full"
           >
             {phase === 'closed' && (
@@ -184,12 +223,16 @@ export function HouseWindow({
                 {building && heatmap && <MapLayerToggle />}
               </>
             )}
-            {exploring && <MapControls />}
+            {laidOut && (
+              <div className={exploring ? undefined : 'invisible'}>
+                <MapControls />
+              </div>
+            )}
           </SolarMap>
           </div>
 
-          {exploring && (
-            <div className="motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200">
+          {laidOut && (
+            <div className={exploring ? 'motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200' : 'invisible'}>
               <div className="absolute top-4 right-[76px] left-4 md:top-6 md:right-auto md:left-6 md:w-[360px]">
                 <AddressSearch onSelect={(p: PickedPlace) => onPick({ lat: p.lat, lng: p.lng, address: p.address || undefined })} />
               </div>
@@ -203,7 +246,7 @@ export function HouseWindow({
                 <Icon name="x" size={18} strokeWidth={2} />
                 <span className="hidden md:inline">Back to report</span>
               </button>
-              {panel && (
+              {panel && exploring && (
                 // A's card spot (right-6, 440px), bottom-aligned: MapControls' panel-shade legend sits beside its bottom.
                 <aside
                   aria-label="Solar summary"

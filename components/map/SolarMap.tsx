@@ -71,6 +71,77 @@ function resolvePadding(padding: FitPadding, div: HTMLElement): Pad {
   return p;
 }
 
+/** Web Mercator: a point on the world square at zoom 0 (256 px across). */
+function project({ lat, lng }: LatLngLiteral) {
+  const sin = Math.min(Math.max(Math.sin((lat * Math.PI) / 180), -0.9999), 0.9999);
+  return { x: 256 * (0.5 + lng / 360), y: 256 * (0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI)) };
+}
+
+function unproject({ x, y }: { x: number; y: number }): LatLngLiteral {
+  const lat = ((2 * Math.atan(Math.exp((0.5 - y / 256) * 2 * Math.PI)) - Math.PI / 2) * 180) / Math.PI;
+  return { lat, lng: (x / 256 - 0.5) * 360 };
+}
+
+/**
+ * Where map.fitBounds(bounds, padding) would put the camera, worked out from the map's div as it
+ * is laid out right now (Google only notices a resize a little later). For an animation that has
+ * to know the end camera before it starts, e.g. the house window opening full screen. Google stops
+ * short of the satellite type's maxZoom where its imagery does (21 in parts of Vancouver, though
+ * the type says 22), so this moves the camera there to find out what it really reaches.
+ */
+export function fitCamera(
+  map: google.maps.Map,
+  bounds: BuildingResponse["boundingBox"],
+  padding: FitPadding,
+): { center: LatLngLiteral; zoom: number } {
+  const camera = fitCameraUpTo(map, bounds, padding);
+  map.moveCamera(camera);
+  const reached = map.getZoom() ?? camera.zoom;
+  return reached < camera.zoom ? fitCameraUpTo(map, bounds, padding, reached) : camera;
+}
+
+function fitCameraUpTo(
+  map: google.maps.Map,
+  bounds: BuildingResponse["boundingBox"],
+  padding: FitPadding,
+  limit = Infinity,
+): { center: LatLngLiteral; zoom: number } {
+  const div = map.getDiv();
+  const { width, height } = div.getBoundingClientRect();
+  const p = resolvePadding(padding, div);
+  const sw = project(bounds.sw);
+  const ne = project(bounds.ne);
+  const boxW = Math.max(width - p.left - p.right, 1);
+  const boxH = Math.max(height - p.top - p.bottom, 1);
+  let zoom = Math.log2(Math.min(boxW / Math.max(ne.x - sw.x, 1e-9), boxH / Math.max(sw.y - ne.y, 1e-9)));
+  // Raster maps (and vector maps with fractional zoom off) only stop on whole zoom levels.
+  const fractional = map.get("isFractionalZoomEnabled") ?? map.getRenderingType() === google.maps.RenderingType.VECTOR;
+  if (!fractional) zoom = Math.floor(zoom);
+  const maxZoom = map.get("maxZoom") ?? map.mapTypes.get(map.getMapTypeId() ?? "")?.maxZoom ?? Infinity;
+  zoom = Math.max(map.get("minZoom") ?? 0, Math.min(zoom, maxZoom, limit));
+  // The roof sits in the middle of the padded box; the camera's centre is the middle of the div.
+  const scale = 2 ** zoom;
+  return {
+    center: unproject({
+      x: (sw.x + ne.x) / 2 + (width / 2 - (p.left + boxW / 2)) / scale,
+      y: (sw.y + ne.y) / 2 + (height / 2 - (p.top + boxH / 2)) / scale,
+    }),
+    zoom,
+  };
+}
+
+/** Where `point` is drawn in a div of `size` whose camera is `camera`, in px from the div's top left. */
+export function pointOnScreen(
+  point: LatLngLiteral,
+  camera: { center: LatLngLiteral; zoom: number },
+  size: { width: number; height: number },
+) {
+  const a = project(point);
+  const c = project(camera.center);
+  const scale = 2 ** camera.zoom;
+  return { x: size.width / 2 + (a.x - c.x) * scale, y: size.height / 2 + (a.y - c.y) * scale };
+}
+
 interface Props {
   /** The point being looked up: the picked address or the clicked spot. Shown straight away. */
   location: LatLngLiteral;
@@ -107,7 +178,9 @@ interface Props {
   locked?: boolean;
   /**
    * Leave the camera where it is through resizes: for a size animation that moves the map itself
-   * (the house window opening full screen). When it turns off, the roof is fitted again.
+   * (the house window opening full screen). The hint stays hidden and clicks are ignored meanwhile.
+   * When it turns off, the camera stays where the animation left it (it framed the roof already);
+   * a locked map still refits to its new size.
    */
   holdCamera?: boolean;
   /** Floating controls drawn over the map, e.g. <MapControls />. They use useSolarMap(). */
@@ -239,6 +312,7 @@ export function SolarMap({
   const handleClick = onMapClick
     ? (event: MapMouseEvent) => {
         const point = event.detail.latLng;
+        if (holdCamera) return;
         if (point) onMapClick(point);
       }
     : undefined;
@@ -291,7 +365,7 @@ export function SolarMap({
           <p
             data-map-inset="bottom"
             className={`pointer-events-none absolute bottom-[88px] left-4 rounded-pill glass-thin px-3 py-1.5 text-footnote text-ink-secondary md:bottom-6 md:left-1/2 md:block md:-translate-x-1/2 ${
-              sunLayers || sunNotice ? "hidden" : ""
+              sunLayers || sunNotice ? "hidden" : holdCamera ? "invisible" : ""
             }`}
           >
             Not your roof? Click your roof on the map.
@@ -387,7 +461,8 @@ function FollowLocation({ location }: { location: LatLngLiteral }) {
 /**
  * Re-fit the camera when the bounds change (a new address keeps the same map instance). `always`:
  * refit on every resize, for a locked map that the user can't have panned. `hold`: don't touch the
- * camera at all until it turns off (then fit straight away).
+ * camera at all; when it turns off, take the camera as fitted (the animation that held it framed
+ * the roof), so only a later resize or a locked map refits.
  */
 function FitBuilding({
   bounds,
@@ -402,10 +477,17 @@ function FitBuilding({
 }) {
   const map = useMap();
   const { sw, ne } = bounds;
+  const held = useRef(hold);
   useEffect(() => {
-    if (!map || hold) return;
+    if (!map) return;
+    if (hold) {
+      held.current = true;
+      return;
+    }
+    const resumed = held.current;
+    held.current = false;
     const div = map.getDiv();
-    let fitted = { w: 0, h: 0 };
+    let fitted = resumed ? { w: div.offsetWidth, h: div.offsetHeight } : { w: 0, h: 0 };
     const fit = () => {
       fitted = { w: div.offsetWidth, h: div.offsetHeight };
       map.fitBounds({ south: sw.lat, west: sw.lng, north: ne.lat, east: ne.lng }, resolvePadding(padding, div));
@@ -420,7 +502,7 @@ function FitBuilding({
       if (w === 0 || h === 0) return;
       if (fitted.w === 0 || always || changed(w, fitted.w) || changed(h, fitted.h)) fit();
     });
-    if (div.offsetWidth > 0 && div.offsetHeight > 0) fit();
+    if (!resumed && div.offsetWidth > 0 && div.offsetHeight > 0) fit();
     observer.observe(div);
     return () => observer.disconnect();
     // padding objects are usually inline literals, so key on the mode/number only.
