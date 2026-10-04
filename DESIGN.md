@@ -50,25 +50,25 @@ Landing ──► type address (PlaceAutocompleteElement → place.location)
 
 ### Report page
 
-Layout (`components/report/ReportLayout.tsx`): the house window (a locked map; click to explore it
-full screen) top left, the answer top right, then a dashboard under both. From 1024px, two columns:
+Layout (`components/report/ReportLayout.tsx`): from 1024px, two independent stacks (a short card
+never leaves a gap beside a tall one), with cards assigned so the two end about level:
 
 ```
+main (wide)                         | side (360–400px)
 house window                        | answer (payback year, verdict, install cost, 25-year savings)
 key figures (4 tiles)               | size slider (with a value curve over the track)
 savings over time [charts]          | your home (usage + rate plan, opens in place)
+which size pays best [charts]       | where your solar goes + yearly bill [charts; else under the house]
+how sure is this? [charts]          | spec sheet [charts; else in main]
+month by month [charts]             | your roof
+                                    | panel by panel [charts]
                                     | environmental impact · get real quotes
-─────────────── analysis grid (3 columns with charts, 2 without) ───────────────
-which size pays best [charts] (2)   | where your solar goes + yearly bill
-how sure is this? [charts] (2)      | spec sheet
-month by month [charts] (2)         | your roof
-panel by panel [charts] (full width)
-what we assumed [assumptions] (full width)
-footer: attribution + every source
+─────────────── what we assumed [assumptions] (full width) ───────────────
+footer: attribution + sources
 ```
 
-Narrower, one column in reading order (house, answer, slider, your home, figures, charts…). Without
-the `charts` flag, "where your solar goes" moves under the house so that column isn't short.
+Narrower (and printed), one column in reading order (each block's `order`: house, answer, slider, your
+home, figures and savings, sizes, first year, how sure, spec, month by month, roof, panels, impact, quotes).
 
 **Keep it clean (like the original answer card):** each card is a title, the visual and its key number.
 No explanatory paragraphs or sub-notes on screen: each chart's takeaway sentence is screen-reader only

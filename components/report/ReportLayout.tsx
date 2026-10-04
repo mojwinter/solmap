@@ -1,18 +1,24 @@
 import type { ReactNode } from 'react';
 import { Wordmark } from '@/components/common/Wordmark';
 
+/** A card in one of the two column stacks. `order` is its place in the one-column (phone) reading order. */
+export interface LayoutBlock {
+  key: string;
+  order: number;
+  node: ReactNode;
+}
+
 /**
  * The house is the page: a fixed window on the roof with the report in cards round it, on the sky
- * ground (no map behind anything). Wide screens, two columns:
+ * ground (no map behind anything). From 1024px, two independent stacks, so a short card never leaves
+ * a gap beside a tall one:
  *
- *   house     | summary
- *   analysis  | controls, extras…
+ *   main (wide): house, analysis, then `main` blocks
+ *   side (360–400px): summary, controls, then `side` blocks, then extras
  *
- * The right column runs on by itself, so its cards never wait for the house row to end. Narrower,
- * one column in reading order: house, summary, controls, analysis, extras (the right column's
- * wrapper is `display: contents` there, so its cards take their own place in the order).
- * Under both columns, `details` runs full width (the charts, as a grid of its own), then `footer`.
- * Printed, the cards become plain blocks (globals.css) and the map hides.
+ * Narrower, the stacks dissolve (`display: contents`) into one column sorted by each block's `order`
+ * (house 1, summary 2, controls 3, analysis 4, extras 90). `details` runs full width under both, then
+ * `footer`. Printed, it's one column in that same order, and the map hides.
  */
 export function ReportLayout({
   search,
@@ -23,6 +29,8 @@ export function ReportLayout({
   controls,
   analysis,
   extras,
+  main = [],
+  side = [],
   details,
   footer,
   flags,
@@ -35,21 +43,45 @@ export function ReportLayout({
   notices?: ReactNode;
   /** The house window card. */
   house: ReactNode;
-  /** Top right: the answer. */
+  /** Top of the side column: the answer. */
   summary?: ReactNode;
-  /** Right, under the summary: what you can change (system size). */
+  /** Side, under the summary: what you can change (system size, usage). */
   controls?: ReactNode;
-  /** Under the house: the money in detail. */
+  /** Main, under the house. */
   analysis?: ReactNode;
-  /** The rest of the right column. */
+  /** The end of the side column. */
   extras?: ReactNode;
-  /** Full width under the columns: the analysis dashboard. */
+  /** More cards for the main (wide) stack. */
+  main?: LayoutBlock[];
+  /** More cards for the side stack. */
+  side?: LayoutBlock[];
+  /** Full width under both stacks. */
   details?: ReactNode;
   /** Last line of the page: sources and attribution. */
   footer?: ReactNode;
   /** The P1 flags that are on, space-separated: ops and the E2E smoke test read data-flags. */
   flags?: string;
 }) {
+  const mainBlocks: LayoutBlock[] = [
+    { key: 'house', order: 1, node: house },
+    ...(analysis ? [{ key: 'analysis', order: 4, node: analysis }] : []),
+    ...main,
+  ];
+  const sideBlocks: LayoutBlock[] = [
+    ...(summary ? [{ key: 'summary', order: 2, node: summary }] : []),
+    ...(controls ? [{ key: 'controls', order: 3, node: controls }] : []),
+    ...side,
+    ...(extras ? [{ key: 'extras', order: 90, node: <div className="grid gap-5 md:gap-6">{extras}</div> }] : []),
+  ];
+  const stack = (blocks: LayoutBlock[]) =>
+    [...blocks]
+      .sort((a, b) => a.order - b.order)
+      .map((b) => (
+        <div key={b.key} className="min-w-0" style={{ order: b.order }}>
+          {b.node}
+        </div>
+      ));
+
   return (
     <div className="relative flex min-h-dvh flex-col overflow-x-clip bg-linear-to-b from-sky-200 via-sky-100 via-30% to-sky-050 print:bg-none">
       <div
@@ -69,20 +101,13 @@ export function ReportLayout({
       >
         {title}
         {notices}
+        {/* Printed: one flex column, so the blocks keep their reading order (order needs a flex/grid parent). */}
         <div
           data-print-stack
-          className="grid grid-cols-[minmax(0,1fr)] items-start gap-5 md:gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:grid-rows-[auto_1fr] xl:grid-cols-[minmax(0,1fr)_400px] print:block"
+          className="grid grid-cols-[minmax(0,1fr)] items-start gap-5 md:gap-6 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_400px] print:flex print:flex-col print:items-stretch print:gap-6"
         >
-          <div className="order-1 min-w-0 lg:col-start-1 lg:row-start-1">{house}</div>
-          <div
-            data-print-stack
-            className="contents lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:grid lg:content-start lg:gap-6 print:block"
-          >
-            {summary && <div className="order-2 min-w-0">{summary}</div>}
-            {controls && <div className="order-3 min-w-0">{controls}</div>}
-            {extras && <div className="order-5 grid min-w-0 gap-5 md:gap-6">{extras}</div>}
-          </div>
-          {analysis && <div className="order-4 min-w-0 lg:col-start-1 lg:row-start-2">{analysis}</div>}
+          <div className="contents lg:grid lg:min-w-0 lg:content-start lg:gap-6 print:contents">{stack(mainBlocks)}</div>
+          <div className="contents lg:grid lg:min-w-0 lg:content-start lg:gap-6 print:contents">{stack(sideBlocks)}</div>
         </div>
         {details}
         {footer}

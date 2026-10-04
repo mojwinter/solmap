@@ -43,7 +43,7 @@ export function PanelOutputChart({
   const unused = bars.slice(scenario.panelsCount);
   const unusedAvg = unused.length ? unused.reduce((a, b) => a + b.kwh, 0) / unused.length : null;
   const worst = bars[bars.length - 1];
-  const ticks = niceTicks(0, best.kwh, 4);
+  const ticks = niceTicks(0, best.kwh, 5);
   const drop = (a: number, b: number) => Math.round((1 - b / a) * 100);
 
   const summary =

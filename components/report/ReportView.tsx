@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type ComponentProps, type ReactNode } from 'react';
+import { useEffect, useState, type ComponentProps } from 'react';
 import { MapsProvider } from '@/components/map/MapsProvider';
 import { AssumptionsPanel } from '@/components/inputs/AssumptionsPanel';
 import { YourHome } from '@/components/inputs/YourHome';
@@ -187,7 +187,7 @@ function ReportPage({
   );
 }
 
-type Cards = Pick<ComponentProps<typeof ReportLayout>, 'summary' | 'controls' | 'analysis' | 'extras' | 'details'>;
+type Cards = Pick<ComponentProps<typeof ReportLayout>, 'summary' | 'controls' | 'analysis' | 'extras' | 'main' | 'side' | 'details'>;
 
 /**
  * The cards round the house once there's a roof: the answer top right with the size slider under it,
@@ -234,6 +234,24 @@ function reportCards(
       <SpecSheet building={building} scenario={selected} inputs={inputs} />
     </Card>
   );
+  const sweep = (
+    <SizeSweepChart
+      scenarios={recommendation.scenarios}
+      selectedIndex={selectedIndex}
+      recommendedIndex={recommendation.recommendedIndex}
+      lifetimeYears={inputs.lifetimeYears}
+      discountRate={inputs.discountRate}
+      onSelect={setSelectedIndex}
+    />
+  );
+  const monthly = (
+    <MonthlyChart
+      building={building}
+      scenario={selected}
+      annualUseKwh={modelled.annualConsumptionKwh}
+      selfUseCapKwh={modelled.daytimeLoadShare * modelled.annualConsumptionKwh}
+    />
+  );
 
   return {
     summary: (
@@ -272,78 +290,50 @@ function reportCards(
         )}
       </div>
     ),
+    // Two stacks, balanced by height (charts on: ~2,200px each on the hero roof). `order` is the phone
+    // reading order: house 1, answer 2, controls 3, figures + savings 4, then these.
+    main: flags.charts
+      ? [
+          { key: 'sizes', order: 5, node: <Card>{sweep}</Card> },
+          { key: 'sensitivity', order: 7, node: <Card><Sensitivity building={building} scenario={selected} inputs={inputs} /></Card> },
+          { key: 'monthly', order: 9, node: <Card>{monthly}</Card> },
+        ]
+      : [{ key: 'spec', order: 8, node: specSheet }],
+    side: [
+      ...(flags.charts ? [{ key: 'first-year', order: 6, node: firstYear }, { key: 'spec', order: 8, node: specSheet }] : []),
+      { key: 'roof', order: 10, node: <Card><RoofFaces building={building} scenario={selected} /></Card> },
+      ...(flags.charts
+        ? [
+            {
+              key: 'panels',
+              order: 11,
+              node: (
+                <Card>
+                  <PanelOutputChart
+                    building={building}
+                    scenario={selected}
+                    scenarios={recommendation.scenarios}
+                    rebateCapKw={modelled.rebateEligible ? rebateCapKw(modelled.costPerWatt) : undefined}
+                    onPickPanels={(n) => setSelectedIndex(configIndexFor(building.configs, n))}
+                  />
+                </Card>
+              ),
+            },
+          ]
+        : []),
+    ],
     extras: (
       <>
         <ImpactCard scenario={selected} />
         <NextStep />
       </>
     ),
-    details: (
-      <AnalysisGrid columns={flags.charts ? 3 : 2}>
-        {flags.charts && (
-          <Card className="lg:col-span-2">
-            <SizeSweepChart
-              scenarios={recommendation.scenarios}
-              selectedIndex={selectedIndex}
-              recommendedIndex={recommendation.recommendedIndex}
-              lifetimeYears={inputs.lifetimeYears}
-              discountRate={inputs.discountRate}
-              onSelect={setSelectedIndex}
-            />
-          </Card>
-        )}
-        {flags.charts && firstYear}
-        {flags.charts && (
-          <Card className="lg:col-span-2">
-            <Sensitivity building={building} scenario={selected} inputs={inputs} />
-          </Card>
-        )}
-        {flags.charts && specSheet}
-        {flags.charts && (
-          <Card className="lg:col-span-2">
-            <MonthlyChart
-              building={building}
-              scenario={selected}
-              annualUseKwh={modelled.annualConsumptionKwh}
-              selfUseCapKwh={modelled.daytimeLoadShare * modelled.annualConsumptionKwh}
-            />
-          </Card>
-        )}
-        <Card>
-          <RoofFaces building={building} scenario={selected} />
-        </Card>
-        {!flags.charts && specSheet}
-        {flags.charts && (
-          <Card className="lg:col-span-full">
-            <PanelOutputChart
-              building={building}
-              scenario={selected}
-              scenarios={recommendation.scenarios}
-              rebateCapKw={modelled.rebateEligible ? rebateCapKw(modelled.costPerWatt) : undefined}
-              onPickPanels={(n) => setSelectedIndex(configIndexFor(building.configs, n))}
-            />
-          </Card>
-        )}
-        {flags.assumptions && (
-          <Card className="lg:col-span-full print:hidden">
-            <AssumptionsPanel inputs={inputs} onChange={setInputs} />
-          </Card>
-        )}
-      </AnalysisGrid>
+    details: flags.assumptions && (
+      <Card className="print:hidden">
+        <AssumptionsPanel inputs={inputs} onChange={setInputs} />
+      </Card>
     ),
   };
-}
-
-/** The dashboard under the house: two or three columns on wide screens (charts span two), one on phones. */
-function AnalysisGrid({ columns, children }: { columns: 2 | 3; children: ReactNode }) {
-  return (
-    <section
-      aria-label="Analysis"
-      className={`grid grid-cols-[minmax(0,1fr)] items-start gap-5 md:gap-6 ${columns === 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-2'} print:block`}
-    >
-      {children}
-    </section>
-  );
 }
 
 /**
