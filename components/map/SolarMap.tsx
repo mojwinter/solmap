@@ -1,7 +1,8 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Circle, Map, Rectangle, useMap, type MapMouseEvent } from "@vis.gl/react-google-maps";
+import { Circle, Map, Polygon, useMap, type MapMouseEvent } from "@vis.gl/react-google-maps";
+import { roundedRectPath } from "@/lib/geo/outline";
 import { ATTRIBUTION } from "@/src/config/bc";
 import type { BuildingResponse, LatLngLiteral, SolarLayersResponse } from "@/src/types/app";
 import { FluxLegend } from "./FluxLegend";
@@ -123,7 +124,7 @@ const SolarMapContext = createContext<SolarMapState>({
 export const useSolarMap = () => useContext(SolarMapContext);
 
 /**
- * Satellite map of one roof with its panels and a sun-500 roof outline (DESIGN.md §4). Must sit
+ * Satellite map of one roof with its panels and the rest of the map dimmed around the roof (DESIGN.md §4). Must sit
  * inside <MapsProvider>. Shows `location` right away (with a dot until a roof arrives), then fits to the roof.
  *
  *   <SolarMap location={{ lat, lng }} building={building} visibleCount={building?.configs[i]?.panelsCount ?? 0}
@@ -243,13 +244,13 @@ export function SolarMap({
           {building ? (
             <>
               <FitBuilding bounds={building.boundingBox} padding={fitPadding} />
-              {/* In Sun mode the heat replaces the panels; the roof outline stays on top of both. */}
+              {/* In Sun mode the heat replaces the panels; the spotlight stays on top of both. */}
               {sunLayers ? (
                 <FluxOverlay layers={sunLayers} />
               ) : (
                 <PanelOverlay building={building} visibleCount={visibleCount} />
               )}
-              <RoofOutline bounds={building.boundingBox} />
+              <RoofSpotlight bounds={building.boundingBox} />
             </>
           ) : (
             // Marks the looked-up spot until its roof arrives, or for good when there's no roof data.
@@ -312,18 +313,33 @@ const SOURCE_NOTE: Record<BuildingResponse["source"], string> = {
   manual: "Estimate from your inputs (no solar data for this roof).",
 };
 
-/** The selected roof: 3px sun-500 outline with a soft sun halo (Daylight MapScreen). */
-function RoofOutline({ bounds }: { bounds: BuildingResponse["boundingBox"] }) {
-  const box = useMemo(
-    () => ({ south: bounds.sw.lat, west: bounds.sw.lng, north: bounds.ne.lat, east: bounds.ne.lng }),
-    [bounds.sw.lat, bounds.sw.lng, bounds.ne.lat, bounds.ne.lng],
+/** Everything outside the roof is dimmed by this much, so the house stands out (Photos-style spotlight). */
+const SPOTLIGHT_DIM = 0.4;
+/**
+ * A clockwise ring round the whole world (just short of ±180° so Google doesn't fold it onto one
+ * meridian). The roof path runs the other way, so Google cuts it out as a hole.
+ */
+const WORLD_RING = [
+  { lat: 85, lng: -179.99 },
+  { lat: 85, lng: 0 },
+  { lat: 85, lng: 179.99 },
+  { lat: -85, lng: 179.99 },
+  { lat: -85, lng: 0 },
+  { lat: -85, lng: -179.99 },
+];
+
+/**
+ * The selected roof: no line, just the rest of the map dimmed around a rounded cut-out of the
+ * building's box, so the house is lit up and the imagery on it is untouched.
+ */
+function RoofSpotlight({ bounds }: { bounds: BuildingResponse["boundingBox"] }) {
+  const { sw, ne } = bounds;
+  const paths = useMemo(
+    () => [WORLD_RING, roundedRectPath({ sw: { lat: sw.lat, lng: sw.lng }, ne: { lat: ne.lat, lng: ne.lng } })],
+    [sw.lat, sw.lng, ne.lat, ne.lng],
   );
-  const sun = token("--sun-500");
   return (
-    <>
-      <Rectangle bounds={box} strokeColor={sun} strokeOpacity={0.25} strokeWeight={12} fillOpacity={0} clickable={false} />
-      <Rectangle bounds={box} strokeColor={sun} strokeOpacity={1} strokeWeight={3} fillOpacity={0} clickable={false} />
-    </>
+    <Polygon paths={paths} fillColor="#000000" fillOpacity={SPOTLIGHT_DIM} strokeWeight={0} clickable={false} />
   );
 }
 
