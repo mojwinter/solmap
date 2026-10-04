@@ -53,7 +53,8 @@ export function UsageInputs({ inputs, onChange }: { inputs: FinanceInputs; onCha
   const entered = mode === 'bill' ? billAmount !== null : parseAmount(annual) !== null;
 
   return (
-    <section aria-labelledby={`${ids}-heading`} className="grid gap-3">
+    // Not printed: the assumptions line under the money says which usage and plan the numbers use.
+    <section aria-labelledby={`${ids}-heading`} className="grid gap-3 print:hidden">
       <h2 id={`${ids}-heading`} className="text-headline">
         Your usage
       </h2>
