@@ -20,13 +20,15 @@ export function AdvancedSettings({ inputs, onChange }: { inputs: FinanceInputs; 
   return (
     <Dialog.Root>
       <Dialog.Trigger
+        aria-label="Advanced settings"
+        title="Advanced settings"
         className={cn(
-          'relative inline-flex items-center gap-1.5 rounded-pill bg-fill-quiet px-3 py-1 text-callout font-semibold text-sky-700',
+          'relative inline-flex items-center gap-1.5 rounded-pill bg-fill-quiet px-2.5 py-1 sm:px-3 text-callout font-semibold text-sky-700',
           'hover:bg-fill-selected focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring print:hidden',
         )}
       >
         <Icon name="sliders" size={14} strokeWidth={2} />
-        Advanced settings
+        <span className="hidden sm:inline">Advanced settings</span>
         {changed && (
           <span className="size-1.5 rounded-full bg-sky-600" role="img" aria-label="(changed from BC defaults)" />
         )}
