@@ -113,6 +113,8 @@ interface SolarMapState {
   /** Sun exposure can be chosen: flag on, a roof is shown, and it isn't known to have no sun map. */
   sunAvailable: boolean;
   sunStatus: SunStatus;
+  /** Panels are on the map right now (Satellite, a roof with panels): the panel-shade legend shows. */
+  panelsShown: boolean;
 }
 
 const SolarMapContext = createContext<SolarMapState>({
@@ -121,6 +123,7 @@ const SolarMapContext = createContext<SolarMapState>({
   setLayer: () => {},
   sunAvailable: false,
   sunStatus: "idle",
+  panelsShown: false,
 });
 
 /** For controls inside <SolarMap>: the map layer, the sun map's status and recentre(). */
@@ -211,11 +214,14 @@ export function SolarMap({
       map.moveCamera({ center: location, zoom: ROOF_ZOOM });
     }
   }, [map, bounds, fitPadding, location]);
+  // This roof's sun map once loaded: it stays mounted so Satellite ⇄ Sun exposure can crossfade.
+  const sunReady = sun?.status === "ready" ? sun.layers : undefined;
+  const sunLayers = layer === "sun" ? sunReady : undefined;
+  const panelsShown = !sunLayers && (building?.panels.length ?? 0) > 0;
   const context = useMemo(
-    () => ({ recentre, layer, setLayer, sunAvailable, sunStatus }),
-    [recentre, layer, setLayer, sunAvailable, sunStatus],
+    () => ({ recentre, layer, setLayer, sunAvailable, sunStatus, panelsShown }),
+    [recentre, layer, setLayer, sunAvailable, sunStatus, panelsShown],
   );
-  const sunLayers = layer === "sun" && sun?.status === "ready" ? sun.layers : undefined;
   const sunNotice =
     sunStatus === "none" ? "No sun map for this roof." : sunStatus === "error" ? "Couldn't load the sun map. Try again." : null;
 
@@ -247,12 +253,9 @@ export function SolarMap({
           {building ? (
             <>
               <FitBuilding bounds={building.boundingBox} padding={fitPadding} />
-              {/* In Sun mode the heat replaces the panels; the spotlight stays on top of both. */}
-              {sunLayers ? (
-                <FluxOverlay layers={sunLayers} />
-              ) : (
-                <PanelOverlay building={building} visibleCount={visibleCount} />
-              )}
+              {/* Sun exposure crossfades the heatmap in and the panels out (fade.ts); the spotlight stays on top. */}
+              {sunReady && <FluxOverlay layers={sunReady} visible={!!sunLayers} />}
+              <PanelOverlay building={building} visibleCount={visibleCount} visible={!sunLayers} />
               <RoofSpotlight bounds={building.boundingBox} />
               <RoofCallout building={building} />
             </>
@@ -283,7 +286,7 @@ export function SolarMap({
         )}
         {(sunLayers || sunNotice) && (
           // Above the bottom-left controls (they sit at bottom-9, 40px tall).
-          <div className="absolute bottom-[96px] left-4 md:left-6">
+          <div className="absolute bottom-[96px] left-4 md:left-6 motion-safe:animate-in motion-safe:fade-in motion-safe:duration-300">
             {sunLayers ? (
               <FluxLegend layers={sunLayers} />
             ) : (
