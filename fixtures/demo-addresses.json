@@ -12,10 +12,10 @@
     { "label": "No fixture nearby (error state)", "lat": 53.9171, "lng": -122.7497, "ratePlan": "tiered", "annualKwh": 10000, "expectedVerdict": "NO_COVERAGE" }
   ],
   "live": [
-    { "label": "Sunny south roof (hero)",          "address": "TODO", "lat": 0, "lng": 0, "ratePlan": "tiered", "annualKwh": 10000, "expectedVerdict": "strong" },
-    { "label": "Small system clearly wins",        "address": "TODO", "lat": 0, "lng": 0, "ratePlan": "tiered", "annualKwh": 8000,  "expectedVerdict": "moderate" },
-    { "label": "Electric heat, big usage, flat",   "address": "TODO", "lat": 0, "lng": 0, "ratePlan": "flat",   "annualKwh": 16000, "expectedVerdict": "strong" },
-    { "label": "Really poor roof (contrast)",      "address": "TODO", "lat": 0, "lng": 0, "ratePlan": "tiered", "annualKwh": 10000, "expectedVerdict": "weak" },
-    { "label": "No coverage (error state)",        "address": "TODO", "lat": 0, "lng": 0, "ratePlan": "tiered", "annualKwh": 10000, "expectedVerdict": "NO_COVERAGE" }
+    { "label": "Sunny south roof (hero)",          "address": "Team member's house, Vancouver West", "lat": 49.246847, "lng": -123.117523, "ratePlan": "tiered", "annualKwh": 10000, "expectedVerdict": "strong" },
+    { "label": "Small system clearly wins",        "address": "Hastings Mill Store Museum, 1575 Alma Rd, Vancouver", "lat": 49.272803, "lng": -123.185856, "ratePlan": "tiered", "annualKwh": 8000,  "expectedVerdict": "moderate" },
+    { "label": "Electric heat, big usage, flat",   "address": "Team member's house, Vancouver West", "lat": 49.246847, "lng": -123.117523, "ratePlan": "flat",   "annualKwh": 16000, "expectedVerdict": "strong" },
+    { "label": "Really poor roof (contrast)",      "address": "Roedde House Museum, 1415 Barclay St, Vancouver", "lat": 49.286872, "lng": -123.132148, "ratePlan": "tiered", "annualKwh": 10000, "expectedVerdict": "weak" },
+    { "label": "No coverage (error state)",        "address": "Dease Lake School, Dease Lake", "lat": 58.438994, "lng": -130.012218, "ratePlan": "tiered", "annualKwh": 10000, "expectedVerdict": "NO_COVERAGE" }
   ]
 }
