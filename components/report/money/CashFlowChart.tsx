@@ -14,7 +14,7 @@ import {
 } from 'recharts';
 import type { ScenarioResult } from '@/src/types/app';
 import { breakEvenYear as yearOf, cad, signedCad } from '@/lib/format';
-import { AXIS_TEXT, ChartSection, GRID, NumbersTable, TooltipCard } from '../analysis/chart';
+import { AXIS_TEXT, axisWidth, ChartSection, GRID, NumbersTable, TooltipCard } from '../analysis/chart';
 import { cashFlowPoints, cashFlowTicks, type CashFlowPoint } from './cashflow';
 
 /** Near either end of the x axis a centred label would run off the chart: anchor it inward instead. */
@@ -96,7 +96,7 @@ export function CashFlowChart({
               tick={AXIS_TEXT}
               tickLine={false}
               axisLine={false}
-              width={64}
+              width={axisWidth(ticks, cad)}
             />
             <ReferenceLine y={0} stroke="var(--control-border)" />
             <Tooltip

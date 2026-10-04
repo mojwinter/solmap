@@ -125,3 +125,8 @@ export function NumbersTable({ head, rows }: { head: string[]; rows: (string | n
     </table>
   );
 }
+
+/** A y-axis wide enough for its longest tick label at AXIS_TEXT size (≈7px a character, plus the tick gap). */
+export function axisWidth(ticks: readonly number[], format: (v: number) => string): number {
+  return Math.max(32, Math.ceil(Math.max(...ticks.map((t) => format(t).length)) * 7.2) + 10);
+}

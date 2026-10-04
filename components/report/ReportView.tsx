@@ -7,6 +7,9 @@ import { FLAGS, type Flags } from '@/lib/flags';
 import type { BuildingResponse } from '@/src/types/app';
 import { KeyFigures } from './analysis/KeyFigures';
 import { FirstYear } from './analysis/FirstYear';
+import { MonthlyChart } from './analysis/MonthlyChart';
+import { PanelOutputChart } from './analysis/PanelOutputChart';
+import { RoofFaces } from './analysis/RoofFaces';
 import { SizeSweepChart } from './analysis/SizeSweepChart';
 import { Card } from './Card';
 import { HeaderSearch } from './HeaderSearch';
@@ -30,7 +33,7 @@ import { NoCoverage } from './states/NoCoverage';
 import { ReportSkeleton } from './states/ReportSkeleton';
 import { useAddress } from './useAddress';
 import { useBuilding, type BuildingState } from './useBuilding';
-import { reportSearch, type ReportQuery } from './urlState';
+import { configIndexFor, reportSearch, type ReportQuery } from './urlState';
 import { useReportState } from './useReportState';
 import { ReasonChips } from './verdict/ReasonChips';
 import { VerdictCard } from './verdict/VerdictCard';
@@ -204,9 +207,14 @@ function reportCards(
         </Card>
       ),
       analysis: (
-        <Card>
-          <SpecSheet building={building} scenario={selected} inputs={inputs} />
-        </Card>
+        <div className="grid gap-5 md:grid-cols-2 md:gap-6">
+          <Card>
+            <RoofFaces building={building} scenario={null} />
+          </Card>
+          <Card>
+            <SpecSheet building={building} scenario={selected} inputs={inputs} />
+          </Card>
+        </div>
       ),
     };
   }
@@ -268,7 +276,24 @@ function reportCards(
         <Card>
           <FirstYear scenario={selected} />
         </Card>
-        <Card className="lg:col-span-3">
+        {flags.charts && (
+          <Card className="lg:col-span-2">
+            <MonthlyChart building={building} scenario={selected} annualUseKwh={inputs.annualConsumptionKwh} />
+          </Card>
+        )}
+        <Card>
+          <RoofFaces building={building} scenario={selected} />
+        </Card>
+        {flags.charts && (
+          <Card className="lg:col-span-2">
+            <PanelOutputChart
+              building={building}
+              scenario={selected}
+              onPickPanels={(n) => setSelectedIndex(configIndexFor(building.configs, n))}
+            />
+          </Card>
+        )}
+        <Card>
           <SpecSheet building={building} scenario={selected} inputs={inputs} />
         </Card>
       </AnalysisGrid>

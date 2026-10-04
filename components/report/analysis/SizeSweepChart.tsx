@@ -16,7 +16,7 @@ import {
 import type { ScenarioResult } from '@/src/types/app';
 import { SegmentedControl } from '@/components/common/SegmentedControl';
 import { cad, kw, signedCad, years } from '@/lib/format';
-import { AXIS_TEXT, ChartSection, GRID, Legend, NumbersTable, TooltipCard } from './chart';
+import { AXIS_TEXT, axisWidth, ChartSection, GRID, Legend, NumbersTable, TooltipCard } from './chart';
 import { largestPayingIndex, niceTicks, peakIndex, sweep, type SweepPoint } from './derive';
 
 /** value = savings in today's dollars (what the recommendation maximises); net = plain dollars; payback = years. */
@@ -98,6 +98,7 @@ export function SizeSweepChart({
   const paybacks = points.flatMap((p) => (p.payback === null ? [] : [p.payback]));
   const payTicks = niceTicks(0, Math.max(lifetimeYears, ...paybacks), 5);
   const yTicks = metric === 'payback' ? payTicks : moneyTicks;
+  const yFormat = (v: number) => (metric === 'payback' ? `${v} yrs` : cad(v));
 
   const fallsAfter = biggest[money] < peak[money] - 500;
   const summary = (() => {
@@ -182,11 +183,11 @@ export function SizeSweepChart({
             <YAxis
               domain={[yTicks[0], yTicks[yTicks.length - 1]]}
               ticks={yTicks}
-              tickFormatter={(v: number) => (metric === 'payback' ? `${v} yrs` : cad(v))}
+              tickFormatter={yFormat}
               tick={AXIS_TEXT}
               tickLine={false}
               axisLine={false}
-              width={metric === 'payback' ? 48 : 64}
+              width={axisWidth(yTicks, yFormat)}
             />
             <Tooltip
               content={({ active, payload }) => {
