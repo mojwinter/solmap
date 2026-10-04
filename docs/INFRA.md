@@ -375,8 +375,9 @@ someone in the room already opened can't get a 429. Tokens go only on real work
 
 This needs an image with the #58 change; on an older one, every request counts and these values don't help.
 
-**Values for the event.** Google's per-minute quotas in our Cloud project are 10/min Building Insights,
-3/min Data Layers and 10/min GeoTIFF (2 per sun map, so 5 sun maps a minute), shared by every visitor.
+**Values for the event.** Our Cloud project has only per-minute Solar quotas (no per-day ones): 10/min
+Building Insights, 3/min Data Layers and 10/min GeoTIFF (2 per sun map, so 5 sun maps a minute), shared by
+every visitor. The daily caps below are ours alone.
 Past them Google answers 429, which the app shows as "the solar data service didn't answer" and remembers
 for that roof (±30 m) for 5 minutes. Our own 429 says "wait a moment" and clears in seconds. So the buckets
 match Google's quotas instead of being raised past them:
@@ -386,8 +387,8 @@ match Google's quotas instead of being raised past them:
 | `RATE_LIMIT_PER_MINUTE` | 30 | **10** | Only new roofs count now. 10 = the Building Insights quota, so the room hits our retryable 429 before Google's 5-minute one. |
 | `RATE_LIMIT_LAYERS_PER_MINUTE` | 3 | 3 (leave unset) | = the Data Layers quota. Sun maps already in memory are free. |
 | `SOLAR_CACHE_TTL_SECONDS` | 900 | **14400** | Keeps every roof and sun map someone opened in memory for 4 h instead of 15 min, so re-opens stay free and skip the layers bucket. Memory is still capped (500 roofs, 100 sun maps) and never outlives the 25-day limit. |
-| `SOLAR_DAILY_MAX_BUILDING` | 300 | **600** | Judges type their own addresses, and each new roof is one call. 600 is an hour at the 10/min quota, well inside the free monthly allowance (PLAN.md → Google Cloud). Keep it ≤ the Cloud per-day quota for Building Insights (PLAN.md: 1,000), or Google refuses first. |
-| `SOLAR_DAILY_MAX_LAYERS` | 50 | 50 (leave unset) | Sun maps of judges' own roofs are a nice-to-have, Data Layers is the pricier SKU, and the Cloud per-day quota is 50 too, so a higher cap would only swap our 503 for Google's 429. |
+| `SOLAR_DAILY_MAX_BUILDING` | 300 | **600** | Judges type their own addresses, and each new roof is one call. Our Cloud project has only per-minute Solar quotas, so this in-app cap is the only daily limit on spend. 600 is an hour at the 10/min quota and well inside the free monthly allowance (PLAN.md → Google Cloud). |
+| `SOLAR_DAILY_MAX_LAYERS` | 50 | 50 (leave unset) | The only daily limit on Data Layers (there's no Cloud per-day quota), and it's the pricier SKU. Sun maps of judges' own roofs are a nice-to-have, and at the 3/min quota 50 still covers a busy day. |
 
 The daily counters live in memory, so the recreate below also resets today's count to 0.
 
