@@ -8,7 +8,7 @@ export type { MapLayer } from "./SolarMap";
 
 /**
  * Bottom-left map controls: icon-only Satellite / Sun exposure toggle and Recentre (names live in
- * tooltips and aria-labels), then the panel-shade legend (Less ▬ More) while panels are drawn.
+ * tooltips and aria-labels), then the Panel strength ⓘ (the panel-shade legend) while panels are drawn.
  * The row is a bottom inset, so the roof fit keeps it clear.
  * Render inside <SolarMap>: everything comes from useSolarMap(), so there are no props to wire.
  */

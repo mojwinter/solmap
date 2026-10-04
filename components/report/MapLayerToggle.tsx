@@ -6,7 +6,7 @@ import { useSolarMap, type MapLayer } from '@/components/map/SolarMap';
 
 /**
  * The house window's map controls, top-left: A's icon-only Satellite / Sun exposure toggle and, while
- * panels are drawn, the panel-shade legend beside it (as MapControls shows them on the full map, minus
+ * panels are drawn, the Panel strength ⓘ beside it (as MapControls shows them on the full map, minus
  * Recentre: the window never leaves the roof). Render as a child of SolarMap; it's marked as a top
  * inset, so the roof is fitted below it.
  */
@@ -31,7 +31,7 @@ export function MapLayerToggle() {
           },
         ]}
       />
-      {panelsShown && <PanelLegend />}
+      {panelsShown && <PanelLegend side="bottom" />}
     </div>
   );
 }
