@@ -66,3 +66,24 @@ export function panelPolygon(
     return { lat: point.lat, lng: point.lng };
   });
 }
+
+// Google's reference rendering (js-solar-potential, colors.ts panelsPalette): a light → dark blue
+// ramp by yearly energy, so every panel is visible and the most productive ones are the darkest.
+const LEAST = [0xe8, 0xea, 0xf6]; // #E8EAF6
+const MOST = [0x1a, 0x23, 0x7e]; // #1A237E
+
+/**
+ * One fill colour per panel, same order. Normalised over all of the roof's panels (not just the
+ * visible ones), so resizing the system never recolours a panel. Equal energies → all lightest.
+ */
+export function panelColors(panels: Pick<PanelLite, "yearlyEnergyDcKwh">[]): string[] {
+  if (panels.length === 0) return [];
+  const energies = panels.map((p) => p.yearlyEnergyDcKwh);
+  const min = Math.min(...energies);
+  const range = Math.max(...energies) - min || 1;
+  return energies.map((e) => {
+    const t = (e - min) / range;
+    const rgb = LEAST.map((lo, i) => Math.round(lo + (MOST[i] - lo) * t));
+    return `rgb(${rgb.join(",")})`;
+  });
+}

@@ -2,19 +2,8 @@
 
 import { useEffect, useRef } from "react";
 import { useMap, useMapsLibrary } from "@vis.gl/react-google-maps";
-import { panelPolygon, type OffsetFn } from "@/lib/geo/panels";
+import { panelColors, panelPolygon, type OffsetFn } from "@/lib/geo/panels";
 import type { BuildingResponse } from "@/src/types/app";
-
-// Styled like Google's reference rendering (js-solar-potential, BuildingInsightsSection.svelte +
-// colors.ts panelsPalette): a light → dark blue ramp by yearly energy, so every panel is visible
-// and the most productive ones are the darkest.
-const LEAST = [0xe8, 0xea, 0xf6]; // #E8EAF6
-const MOST = [0x1a, 0x23, 0x7e]; // #1A237E
-
-function energyColor(t: number): string {
-  const rgb = LEAST.map((lo, i) => Math.round(lo + (MOST[i] - lo) * t));
-  return `rgb(${rgb.join(",")})`;
-}
 
 interface Props {
   /** Polygons are rebuilt when this object changes, so keep it referentially stable (state, not re-parsed per render). */
@@ -43,16 +32,13 @@ export function PanelOverlay({ building, visibleCount }: Props) {
       return { lat: p.lat(), lng: p.lng() };
     };
     const dims = { widthMeters: building.panel.widthMeters, heightMeters: building.panel.heightMeters };
-    const energies = building.panels.map((p) => p.yearlyEnergyDcKwh);
-    const min = Math.min(...energies);
-    const range = Math.max(...energies) - min || 1;
-
-    // Colours are normalised over all of the roof's panels, so resizing never recolours a panel.
+    // Styled like Google's js-solar-potential sample (BuildingInsightsSection.svelte): see panelColors.
+    const colors = panelColors(building.panels);
     polygons.current = building.panels.map(
-      (panel) =>
+      (panel, i) =>
         new maps.Polygon({
           paths: panelPolygon(panel, building.segments, dims, computeOffset),
-          fillColor: energyColor((panel.yearlyEnergyDcKwh - min) / range),
+          fillColor: colors[i],
           fillOpacity: 0.9,
           strokeColor: "#B0BEC5",
           strokeOpacity: 0.9,
