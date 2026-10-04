@@ -69,8 +69,8 @@ a bottom sheet with the verdict visible first.
 - Year-1 breakdown: "You use $X of your solar directly (saves ~12.7¢/kWh) and sell $Y back at 10¢/kWh."
 
 **SizeSlider**
-- Snaps to `solarPanelConfigs` steps. Label: "10 panels · 3,989 kWh" (first-year AC, the sum of those panels' own output;
-  kW DC is in the Spec sheet). Looks like the design's
+- Snaps to `solarPanelConfigs` steps. Headline is the size in kW DC ("4.0 kW DC"), then "10 panels · 3,989 kWh"
+  (first-year AC, the sum of those panels' own output). Looks like the design's
   PanelSlider (−/+ steppers, `sky-600` filled track, white thumb).
 - A star marks the **recommended** size. A faint band shows sizes with payback < lifetime.
 - Dragging redraws panels on the map and recomputes everything client-side (<16 ms).

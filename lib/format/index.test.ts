@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { breakEvenYear, cad, cents, compass, imageryLabel, isLowConfidence, kw, kwh, MINUS, monthYear, panelsLabel, signedCad, years } from '.';
+import { breakEvenYear, cad, cents, compass, imageryLabel, isLowConfidence, kw, kwh, MINUS, monthYear, signedCad, sizeLabel, years } from '.';
 
 describe('money', () => {
   it('rounds to whole dollars with thousands separators', () => {
@@ -35,8 +35,8 @@ describe('energy and size', () => {
   });
 
   it('labels the slider', () => {
-    expect(panelsLabel(12, 4782.4)).toBe('12 panels · 4,782 kWh');
-    expect(panelsLabel(1, 401.5)).toBe('1 panel · 402 kWh');
+    expect(sizeLabel(4.8, 12, 4782.4)).toBe('4.8 kW DC · 12 panels · 4,782 kWh');
+    expect(sizeLabel(0.4, 1, 401.5)).toBe('0.4 kW DC · 1 panel · 402 kWh');
   });
 });
 

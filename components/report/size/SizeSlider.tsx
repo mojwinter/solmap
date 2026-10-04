@@ -2,12 +2,14 @@
 
 import { useEffect, useRef, type CSSProperties, type MouseEvent } from 'react';
 import { Icon } from '@/components/common/Icon';
-import { kwh, panelsLabel } from '@/lib/format';
+import { kw, kwh, sizeLabel } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import styles from './SizeSlider.module.css';
 
 export interface SizeStep {
   panels: number;
+  /** Nameplate DC capacity at the user's panel wattage (ScenarioResult.systemKwDc). */
+  kwDc: number;
   /** First-year AC production: the sum of these panels' own output, so each step adds a different amount. */
   acKwhYear1: number;
 }
@@ -17,7 +19,7 @@ const HOLD_DELAY_MS = 400;
 const HOLD_REPEAT_MS = 70;
 
 /**
- * System size picker. Moves through the roof's panel configs (not single panels), with −/+ steppers
+ * System size picker, headlined in kW DC (the size installers quote and the rebate is priced on). Moves through the roof's panel configs (not single panels), with −/+ steppers
  * for a precise step (hold to repeat), a caret under the track at the recommended size, and a line under
  * it that says you're on it or takes you back.
  */
@@ -49,9 +51,9 @@ export function SizeSlider({
           System size
         </h2>
         <p className="font-rounded text-metric tabular-nums" aria-live="polite">
-          {current.panels}
+          {kw(current.kwDc)}
           <small className="ml-1 font-sans text-callout text-ink-secondary">
-            {current.panels === 1 ? 'panel' : 'panels'} · {kwh(current.acKwhYear1)} kWh
+            kW DC · {current.panels} {current.panels === 1 ? 'panel' : 'panels'} · {kwh(current.acKwhYear1)} kWh
           </small>
         </p>
       </div>
@@ -67,7 +69,7 @@ export function SizeSlider({
             value={value}
             onChange={(e) => onChange(Number(e.target.value))}
             aria-label="System size"
-            aria-valuetext={panelsLabel(current.panels, current.acKwhYear1) + (onRecommended ? ', recommended' : '')}
+            aria-valuetext={sizeLabel(current.kwDc, current.panels, current.acKwhYear1) + (onRecommended ? ', recommended' : '')}
             className={styles.range}
             style={{ '--pct': `${at(value)}%` } as CSSProperties}
           />
@@ -102,7 +104,7 @@ export function SizeSlider({
             )}
           >
             <Icon name="refresh" size={14} strokeWidth={2} className="flex-none" />
-            Use recommended ({recommended.panels} panels)
+            Use recommended ({kw(recommended.kwDc)} kW)
           </button>
         ))}
     </section>
