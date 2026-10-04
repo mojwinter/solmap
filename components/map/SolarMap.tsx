@@ -1,7 +1,8 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Circle, Map, Rectangle, useMap, type MapMouseEvent } from "@vis.gl/react-google-maps";
+import { Circle, Map, Polygon, useMap, type MapMouseEvent } from "@vis.gl/react-google-maps";
+import { roundedRectPath } from "@/lib/geo/outline";
 import { ATTRIBUTION } from "@/src/config/bc";
 import type { BuildingResponse, LatLngLiteral, SolarLayersResponse } from "@/src/types/app";
 import { FluxLegend } from "./FluxLegend";
@@ -123,7 +124,7 @@ const SolarMapContext = createContext<SolarMapState>({
 export const useSolarMap = () => useContext(SolarMapContext);
 
 /**
- * Satellite map of one roof with its panels and a sun-500 roof outline (DESIGN.md §4). Must sit
+ * Satellite map of one roof with its panels and a rounded white roof outline (DESIGN.md §4). Must sit
  * inside <MapsProvider>. Shows `location` right away (with a dot until a roof arrives), then fits to the roof.
  *
  *   <SolarMap location={{ lat, lng }} building={building} visibleCount={building?.configs[i]?.panelsCount ?? 0}
@@ -312,17 +313,20 @@ const SOURCE_NOTE: Record<BuildingResponse["source"], string> = {
   manual: "Estimate from your inputs (no solar data for this roof).",
 };
 
-/** The selected roof: 3px sun-500 outline with a soft sun halo (Daylight MapScreen). */
+/**
+ * The selected roof, Apple Maps style: a rounded frame with a thin white line over a soft dark
+ * shadow, so it reads on bright and dark roofs alike without hiding the imagery.
+ */
 function RoofOutline({ bounds }: { bounds: BuildingResponse["boundingBox"] }) {
-  const box = useMemo(
-    () => ({ south: bounds.sw.lat, west: bounds.sw.lng, north: bounds.ne.lat, east: bounds.ne.lng }),
-    [bounds.sw.lat, bounds.sw.lng, bounds.ne.lat, bounds.ne.lng],
+  const { sw, ne } = bounds;
+  const path = useMemo(
+    () => roundedRectPath({ sw: { lat: sw.lat, lng: sw.lng }, ne: { lat: ne.lat, lng: ne.lng } }),
+    [sw.lat, sw.lng, ne.lat, ne.lng],
   );
-  const sun = token("--sun-500");
   return (
     <>
-      <Rectangle bounds={box} strokeColor={sun} strokeOpacity={0.25} strokeWeight={12} fillOpacity={0} clickable={false} />
-      <Rectangle bounds={box} strokeColor={sun} strokeOpacity={1} strokeWeight={3} fillOpacity={0} clickable={false} />
+      <Polygon paths={path} strokeColor="#000000" strokeOpacity={0.22} strokeWeight={6} fillOpacity={0} clickable={false} />
+      <Polygon paths={path} strokeColor="#ffffff" strokeOpacity={0.95} strokeWeight={2} fillColor="#ffffff" fillOpacity={0.06} clickable={false} />
     </>
   );
 }

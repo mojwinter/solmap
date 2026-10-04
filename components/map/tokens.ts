@@ -4,7 +4,6 @@
  */
 const FALLBACK = {
   "--sky-700": "#064e9e",
-  "--sun-500": "#ffb800",
 } as const;
 
 export function token(name: keyof typeof FALLBACK): string {
