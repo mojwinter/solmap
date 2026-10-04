@@ -51,23 +51,21 @@ Landing ──► type address (PlaceAutocompleteElement → place.location)
 ### Report page
 
 Layout (`components/report/ReportLayout.tsx`): from 1024px, two independent stacks (a short card
-never leaves a gap beside a tall one), with cards assigned so the two end about level; the last card
-of the shorter stack stretches so they end exactly level:
+never leaves a gap beside a tall one); they needn't end level:
 
 ```
 main (wide)                         | side (360–400px)
 house window                        | answer (payback year, verdict, install cost, 25-year savings)
-key figures (4 tiles)               | system size: panels and kWh a year, big, over the slider
-savings over time [charts]          | your yearly power bill [charts; else under the house]
-month by month [charts]             | panel by panel [charts]
-                                    | environmental impact · get real quotes
+key figures (4 tiles)               | system size (a large value curve over the slider)
+savings over time [charts]          | panel by panel [charts]
+month by month [charts]             | environmental impact · get real quotes
 footer: attribution + sources
 ```
 "Advanced settings" [assumptions] sits in the title row beside "Save as PDF" and opens What we assumed in a
 dialog.
 
 Narrower (and printed), one column in reading order (each block's `order`: house, answer, slider,
-figures and savings, first year, month by month, panels, impact, quotes).
+figures and savings, month by month, panels, impact, quotes).
 
 **Keep it clean (like the original answer card):** each card is a title, the visual and its key number.
 No explanatory paragraphs or sub-notes on screen: each chart's takeaway sentence is screen-reader only
@@ -119,9 +117,6 @@ chart are in a closed "See the numbers" table, so nothing depends on hovering or
 **Key figures** (always on): kWh a year, sun hours a year (the roof's sunniest spot), yearly savings
 (year one; the ⓘ says it grows with price rises, less panel wear) and share off the bill. Number and
 label only; each ⓘ shows the sum.
-
-**Your yearly power bill** (always on): year one as a waterfall (without solar → minus solar used → minus
-export credit → with solar).
 
 **[P1, `charts`] Charts**
 - *Savings over time (cash flow):* cumulative net savings, years 0–25, break-even marked.

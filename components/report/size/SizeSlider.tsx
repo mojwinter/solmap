@@ -10,8 +10,6 @@ export interface SizeStep {
   panels: number;
   /** First-year AC production: the sum of these panels' own output, so each step adds a different amount. */
   acKwhYear1: number;
-  /** System size in kW DC, shown under the panel count when given. */
-  kw?: number;
   /** Savings in today's dollars at this size (Recommendation's npv): drawn as a curve over the track when given. */
   value?: number;
 }
@@ -21,10 +19,9 @@ const HOLD_DELAY_MS = 400;
 const HOLD_REPEAT_MS = 70;
 
 /**
- * System size picker: the panel count and what it makes a year as two big figures, then the slider
- * through the roof's panel configs (not single panels), with −/+ steppers for a precise step (hold to
- * repeat), a caret under the track at the recommended size, and a line under it that says you're on it
- * or takes you back.
+ * System size picker. Moves through the roof's panel configs (not single panels), with −/+ steppers
+ * for a precise step (hold to repeat), the value curve over the track, a caret under the track at the
+ * recommended size, and a line under it that says you're on it or takes you back.
  */
 export function SizeSlider({
   steps,
@@ -49,28 +46,22 @@ export function SizeSlider({
   const curve = steps.length > 1 && steps.every((s) => s.value !== undefined) ? steps.map((s) => s.value!) : null;
 
   return (
-    <section aria-labelledby="size-heading" className="grid gap-3">
-      <h2 id="size-heading" className="text-headline">
-        System size
-      </h2>
-      {/* The size and what it makes, big: they change as you drag. */}
-      <dl className="grid grid-cols-2 gap-2" aria-live="polite">
-        <div className="flex flex-col-reverse gap-0.5 rounded-md bg-fill-quiet p-3">
-          <dt className="text-callout text-ink-secondary">
-            {current.panels === 1 ? 'panel' : 'panels'}
-            {current.kw !== undefined && ` · ${current.kw.toFixed(1)} kW`}
-          </dt>
-          <dd className="font-rounded text-metric-xl tabular-nums">{current.panels}</dd>
-        </div>
-        <div className="flex flex-col-reverse gap-0.5 rounded-md bg-fill-quiet p-3">
-          <dt className="text-callout text-ink-secondary">kWh a year</dt>
-          <dd className="font-rounded text-metric-xl tabular-nums text-sky-700">{kwh(current.acKwhYear1)}</dd>
-        </div>
-      </dl>
+    <section aria-labelledby="size-heading" className="grid gap-2">
+      <div className="flex items-baseline justify-between gap-2">
+        <h2 id="size-heading" className="text-body text-ink-secondary">
+          System size
+        </h2>
+        <p className="font-rounded text-metric tabular-nums" aria-live="polite">
+          {current.panels}
+          <small className="ml-1 font-sans text-callout text-ink-secondary">
+            {current.panels === 1 ? 'panel' : 'panels'} · {kwh(current.acKwhYear1)} kWh
+          </small>
+        </p>
+      </div>
 
       <div className={cn('flex gap-3 print:hidden', curve ? 'items-end' : 'items-center')}>
         <Stepper icon="minus" label="Fewer panels" value={value} next={step(-1)} disabled={value <= 0} onChange={onChange} />
-        <div className={cn('relative flex-1', curve && 'pt-8')}>
+        <div className={cn('relative flex-1', curve && 'pt-[76px]')}>
           {curve && <ValueCurve values={curve} at={value} />}
           <input
             type="range"
@@ -203,7 +194,7 @@ function Stepper({
  */
 function ValueCurve({ values, at }: { values: number[]; at: number }) {
   const W = 1000;
-  const H = 28;
+  const H = 72;
   const lo = Math.min(0, ...values);
   const hi = Math.max(0, ...values);
   const y = (v: number) => (hi === lo ? H / 2 : 2 + ((hi - v) / (hi - lo)) * (H - 4));
@@ -217,7 +208,7 @@ function ValueCurve({ values, at }: { values: number[]; at: number }) {
       aria-hidden="true"
       viewBox={`0 0 ${W} ${H}`}
       preserveAspectRatio="none"
-      className="pointer-events-none absolute top-0 left-[13px] h-7 w-[calc(100%-26px)] overflow-visible"
+      className="pointer-events-none absolute top-0 left-[13px] h-[72px] w-[calc(100%-26px)] overflow-visible"
     >
       <defs>
         <clipPath id={`${id}-above`}>

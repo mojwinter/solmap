@@ -9,7 +9,6 @@ import { rebateCapKw } from '@/lib/finance/project';
 import { FLAGS, type Flags } from '@/lib/flags';
 import type { BuildingResponse } from '@/src/types/app';
 import { KeyFigures } from './analysis/KeyFigures';
-import { FirstYear } from './analysis/FirstYear';
 import { MonthlyChart } from './analysis/MonthlyChart';
 import { PanelOutputChart } from './analysis/PanelOutputChart';
 import { Card } from './Card';
@@ -217,17 +216,12 @@ function reportCards(
       ),
     };
   }
-  const steps = recommendation.scenarios.map((s) => ({ panels: s.panelsCount, acKwhYear1: s.acKwhYear1, kw: s.systemKwDc, value: s.npv }));
+  const steps = recommendation.scenarios.map((s) => ({ panels: s.panelsCount, acKwhYear1: s.acKwhYear1, value: s.npv }));
   // Install year for PaybackHero and the chart, read once so they agree. The roof is fetched after
   // mount, so this only ever runs in the browser (the user's clock), never in server HTML.
   const startYear = new Date().getFullYear();
   // The usage the engine actually ran (clamped to INPUT_RANGES), so charts drawn from inputs agree with the scenario.
   const modelled = clampInputs(inputs).inputs;
-  const firstYear = (
-    <Card>
-      <FirstYear scenario={selected} />
-    </Card>
-  );
   const monthly = (
     <MonthlyChart
       building={building}
@@ -259,22 +253,18 @@ function reportCards(
       <div className="grid gap-5 md:gap-6">
         <KeyFigures scenario={selected} sunHours={building.roof.maxSunshineHoursPerYear} />
         <Assumptions warnings={selected.warnings} />
-        {/* Under the house: the savings chart, or without charts, the first year (so the column isn't short). */}
-        {flags.charts ? (
+        {flags.charts && (
           <Card>
             <CashFlowChart scenario={selected} startYear={startYear} />
           </Card>
-        ) : (
-          firstYear
         )}
       </div>
     ),
-    // Two stacks, balanced by height. `order` is the phone reading order: house 1, answer 2,
+    // Two stacks. `order` is the phone reading order: house 1, answer 2,
     // controls 3, figures + savings 4, then these.
     main: flags.charts ? [{ key: 'monthly', order: 6, node: <Card>{monthly}</Card> }] : [],
     side: flags.charts
       ? [
-          { key: 'first-year', order: 5, node: firstYear },
           {
             key: 'panels',
             order: 7,
@@ -339,7 +329,7 @@ function ExplorePanel({
               <MoneyTiles scenario={selected} />
             </SolarPotential>
             <SizeSlider
-              steps={recommendation.scenarios.map((s) => ({ panels: s.panelsCount, acKwhYear1: s.acKwhYear1, kw: s.systemKwDc, value: s.npv }))}
+              steps={recommendation.scenarios.map((s) => ({ panels: s.panelsCount, acKwhYear1: s.acKwhYear1, value: s.npv }))}
               value={selectedIndex}
               recommendedIndex={recommendation.recommendedIndex}
               onChange={setSelectedIndex}

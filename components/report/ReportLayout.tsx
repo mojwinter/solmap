@@ -76,22 +76,16 @@ export function ReportLayout({
           {
             key: 'extras',
             order: 90,
-            // When it's the side's last block and stretches, its first card takes the extra height.
-            node: <div className="grid gap-5 md:gap-6 lg:flex lg:h-full lg:flex-col lg:gap-6 lg:[&>*:first-child]:flex-1">{extras}</div>,
+            node: <div className="grid gap-5 md:gap-6">{extras}</div>,
           },
         ]
       : []),
   ];
-  // The last block of each stack grows (and its card with it), so both columns end level.
   const stack = (blocks: LayoutBlock[]) =>
     [...blocks]
       .sort((a, b) => a.order - b.order)
-      .map((b, i, all) => (
-        <div
-          key={b.key}
-          className={i === all.length - 1 ? 'min-w-0 lg:flex-1 lg:[&>*]:h-full print:[&>*]:h-auto' : 'min-w-0'}
-          style={{ order: b.order }}
-        >
+      .map((b) => (
+        <div key={b.key} className="min-w-0" style={{ order: b.order }}>
           {b.node}
         </div>
       ));
@@ -118,7 +112,7 @@ export function ReportLayout({
         {/* Printed: one flex column, so the blocks keep their reading order (order needs a flex/grid parent). */}
         <div
           data-print-stack
-          className="grid grid-cols-[minmax(0,1fr)] items-start gap-5 md:gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-stretch xl:grid-cols-[minmax(0,1fr)_400px] print:flex print:flex-col print:items-stretch print:gap-6"
+          className="grid grid-cols-[minmax(0,1fr)] items-start gap-5 md:gap-6 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_400px] print:flex print:flex-col print:items-stretch print:gap-6"
         >
           <div className="contents lg:flex lg:min-w-0 lg:flex-col lg:gap-6 print:contents">{stack(mainBlocks)}</div>
           <div className="contents lg:flex lg:min-w-0 lg:flex-col lg:gap-6 print:contents">{stack(sideBlocks)}</div>
