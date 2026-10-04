@@ -12,10 +12,12 @@ export function PrintButton() {
     <button
       type="button"
       onClick={() => window.print()}
-      className="inline-flex items-center gap-1.5 rounded-pill bg-fill-quiet px-3 py-1 text-callout font-semibold text-sky-700 hover:bg-fill-selected focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
+      aria-label="Save as PDF"
+      title="Save as PDF"
+      className="inline-flex items-center gap-1.5 rounded-pill bg-fill-quiet px-2.5 py-1 sm:px-3 text-callout font-semibold text-sky-700 hover:bg-fill-selected focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring print:hidden"
     >
       <Icon name="layers" size={14} />
-      Save as PDF
+      <span className="hidden sm:inline">Save as PDF</span>
     </button>
   );
 }

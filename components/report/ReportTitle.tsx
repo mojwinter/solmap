@@ -76,7 +76,7 @@ export function ReportTitle({
       <div className="flex flex-wrap items-center gap-2">
         {imagery ? <ConfidenceBadge imagery={imagery} /> : <ConfidenceBadgePlaceholder pulse={loading} />}
         {imagery && (print || actions) && (
-          <span className="ml-auto flex flex-wrap items-center gap-2">
+          <span className="ml-auto flex items-center gap-1.5 sm:gap-2">
             {actions}
             {print && <PrintButton />}
           </span>
