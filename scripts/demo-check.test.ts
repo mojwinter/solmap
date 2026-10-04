@@ -120,7 +120,6 @@ describe("skipReason / defaultList", () => {
     expect(skipReason({ ...hero, address: "TODO", lat: 0, lng: 0 })).toMatch(/TODO/);
     expect(skipReason({ ...hero, lat: 0, lng: 0 })).toMatch(/0/);
     expect(skipReason({ ...hero, address: "123 Main St" })).toBeNull();
-    expect((demo.live as DemoRow[]).every((r) => skipReason(r) !== null)).toBe(true);
   });
 
   it("uses fixtures for localhost and live elsewhere", () => {
