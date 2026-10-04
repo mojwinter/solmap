@@ -8,7 +8,7 @@ import { SolarMap } from '@/components/map/SolarMap';
 import { Icon } from '@/components/common/Icon';
 import type { PickedPlace } from '@/lib/geo/place';
 import type { BuildingResponse, LatLngLiteral } from '@/src/types/app';
-import { HOUSE_WINDOW_RADIUS, HOUSE_WINDOW_SIZE, HouseCard } from './HouseCard';
+import { HOUSE_WINDOW_CLIP, HOUSE_WINDOW_RADIUS, HOUSE_WINDOW_SIZE, HouseCard } from './HouseCard';
 import { MapLayerToggle } from './MapLayerToggle';
 
 /** closed: the locked window in the report. opening/closing: growing to / shrinking from the screen. open: exploring. */
@@ -17,7 +17,7 @@ type Phase = 'closed' | 'opening' | 'open' | 'closing';
 const DURATION_MS = 420;
 const EASE = 'cubic-bezier(0.2, 0.8, 0.2, 1)';
 /** HOUSE_WINDOW_RADIUS in px, for the open / close clip. */
-const WINDOW_RADIUS = '29px';
+const WINDOW_RADIUS = '23px';
 
 /**
  * The house window, and the full-screen map it opens into. In the report it's locked on the roof;
@@ -146,6 +146,9 @@ export function HouseWindow({
               ? `relative size-full overflow-hidden ${HOUSE_WINDOW_RADIUS}`
               : 'fixed inset-0 z-50 overflow-hidden bg-sky-100'
           }
+          // Closed, the rounded corners also come from a clip-path: overflow + border-radius alone let
+          // Google's WebGL map canvas through square in Chrome. Opening and closing animate this clip.
+          style={phase === 'closed' ? { clipPath: HOUSE_WINDOW_CLIP } : undefined}
         >
           <div ref={content} className="size-full">
           <SolarMap
