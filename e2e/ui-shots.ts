@@ -23,8 +23,8 @@ interface Case {
   path: string;
   /** Runs after load, before the screenshots. */
   act?: (page: Page) => Promise<void>;
-  /** Intercept the building API (loading / error states). */
-  api?: 'hang' | 'upstream';
+  /** Intercept the building API (loading / error states, or a roof Google places outside BC). */
+  api?: 'hang' | 'upstream' | 'outside-bc-area';
   /** Don't wait for the report to finish loading. */
   loading?: boolean;
   /** The API answers 4xx/5xx on purpose: the browser's "Failed to load resource" log is expected. */
@@ -41,6 +41,25 @@ const CASES: Case[] = [
       for (let i = 0; i < 3; i++) await page.getByRole('button', { name: 'More panels' }).click();
     },
   },
+  {
+    name: 'bill-2-months',
+    path: '/report/49.25/-123.15',
+    act: async (page) => {
+      await page.getByLabel('Bill amount').fill('240');
+      await page.getByRole('button', { name: '2 months' }).click();
+    },
+  },
+  {
+    name: 'annual-kwh-flat',
+    path: '/report/49.25/-123.15',
+    act: async (page) => {
+      await page.getByRole('button', { name: 'Annual usage (kWh)' }).click();
+      await page.getByLabel('Electricity used in a year').fill('16000');
+      await page.getByRole('button', { name: 'Flat' }).click();
+    },
+  },
+  // Near the border: the API normally 404s these, so fake a 200 to see the fallback banner.
+  { name: 'outside-bc-area', path: '/report/49.25/-123.15', api: 'outside-bc-area' },
   { name: 'weak-shaded', path: '/report/49.2615/-123.1702' },
   { name: 'tiny-roof', path: '/report/49.888/-119.496' },
   { name: 'multi-unit', path: '/report/49.1666/-123.1336' },
@@ -90,6 +109,12 @@ async function main() {
       });
       page.on('pageerror', (e) => problems.push(`${tag} pageerror: ${e.message}`));
       if (c.api === 'hang') await page.route('**/api/solar/building**', () => new Promise(() => {}));
+      if (c.api === 'outside-bc-area') {
+        await page.route('**/api/solar/building**', async (r) => {
+          const res = await r.fetch();
+          r.fulfill({ response: res, json: { ...(await res.json()), administrativeArea: 'WA' } });
+        });
+      }
       if (c.api === 'upstream') {
         await page.route('**/api/solar/building**', (r) =>
           r.fulfill({ status: 502, json: { error: 'UPSTREAM', message: "The solar data service didn't answer. Please try again in a minute." } }),
@@ -107,9 +132,10 @@ async function main() {
       await page.addStyleTag({ content: 'nextjs-portal{display:none!important}' });
       if (c.act) await c.act(page);
 
-      await page.screenshot({ path: path.join(OUT, `${c.name}-${vpName}.png`) });
+      // caret: 'initial' — the default hides the caret with a style that can land before hydration (hydration mismatch).
+      await page.screenshot({ path: path.join(OUT, `${c.name}-${vpName}.png`), caret: 'initial' });
       if (vpName === 'desktop') await page.addStyleTag({ content: UNCLIP });
-      await page.screenshot({ path: path.join(OUT, `${c.name}-${vpName}-full.png`), fullPage: true });
+      await page.screenshot({ path: path.join(OUT, `${c.name}-${vpName}-full.png`), fullPage: true, caret: 'initial' });
       await page.close();
     }
     await context.close();

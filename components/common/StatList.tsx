@@ -22,8 +22,8 @@ const TILE = {
 export function StatList({ items, className }: { items: StatItem[]; className?: string }) {
   return (
     <ul className={cn('rounded-md bg-fill-quiet px-3', className)}>
-      {items.map((it) => (
-        <li key={it.label} className="flex items-center gap-3 border-separator py-3 not-first:border-t">
+      {items.map((it, i) => (
+        <li key={`${i}-${it.label}`} className="flex items-center gap-3 border-separator py-3 not-first:border-t">
           <span className={cn('grid size-[30px] flex-none place-items-center rounded-sm', TILE[it.tone ?? 'neutral'])}>
             <Icon name={it.icon} size={18} />
           </span>

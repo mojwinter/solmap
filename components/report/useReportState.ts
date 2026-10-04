@@ -12,7 +12,7 @@ import type { BuildingResponse, FinanceInputs } from '@/src/types/app';
  * picked size doesn't.
  */
 export function useReportState(building: BuildingResponse | null) {
-  // The usage inputs UI (#19) will call setInputs.
+  // UsageInputs (bill / annual kWh, rate plan) calls setInputs.
   const [inputs, setInputs] = useState<FinanceInputs>(DEFAULT_INPUTS);
   const recommendation = useMemo(() => (building ? recommend(building, inputs) : null), [building, inputs]);
   const [picked, setPicked] = useState<number | null>(null);
