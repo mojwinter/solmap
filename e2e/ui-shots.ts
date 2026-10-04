@@ -33,6 +33,8 @@ interface Case {
 
 // Synthetic roofs (fixtures/synthetic/*): each served at its own centre in SOLAR_SOURCE=fixtures.
 const CASES: Case[] = [
+  // Nothing on the landing waits for client JS, so let it hydrate before the screenshot touches the DOM.
+  { name: 'landing', path: '/', act: (page) => page.waitForLoadState('networkidle') },
   { name: 'hero', path: '/report/49.25/-123.15?address=4127%20Oak%20Street' },
   {
     name: 'hero-15-panels',
