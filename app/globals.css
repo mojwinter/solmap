@@ -289,3 +289,62 @@
     @apply font-sans;
   }
 }
+
+/*
+ * Print / "Save as PDF" (#33): the report panel becomes a plain page. The map, search and every control
+ * hide (print:hidden on each, plus the rules below); frost and shadows go; rows and tiles don't split.
+ */
+@media print {
+  @page {
+    margin: 16mm 14mm;
+  }
+  body {
+    background: #fff;
+  }
+  .glass,
+  .glass-thin {
+    background: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    border: 0;
+    box-shadow: none;
+  }
+  /* Controls do nothing on paper; closed disclosures would print as a lone summary line. */
+  button,
+  input,
+  details:not([open]) {
+    display: none !important;
+  }
+  /*
+   * Chromium won't split a grid item across pages, so the report column (a grid of sections, each a grid)
+   * would push a tall section like the spec sheet whole onto the next page. Lay them out as blocks on paper.
+   * Unlayered, so it beats the `grid` utility; the :not() leaves print:hidden sections hidden.
+   */
+  [data-flags],
+  [data-flags] > section:not([class*="print:hidden"]) {
+    display: block;
+  }
+  [data-flags] > * + * {
+    margin-top: 1.5rem;
+  }
+  [data-flags] > section > * + * {
+    margin-top: 0.75rem;
+  }
+  /* Rows and tiles stay whole; whole sections may split, or a tall one strands a near-empty page. */
+  li,
+  tr,
+  dl > div,
+  .rounded-md {
+    break-inside: avoid;
+  }
+  h2,
+  h3 {
+    break-after: avoid;
+  }
+  a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.8em;
+    color: var(--ink-tertiary);
+    word-break: break-all;
+  }
+}

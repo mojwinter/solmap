@@ -46,7 +46,7 @@ export function SizeSlider({
         </p>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 print:hidden">
         <Stepper icon="minus" label="Fewer panels" disabled={value <= 0} onClick={() => onChange(value - 1)} />
         <div className="relative flex-1 pt-3">
           {recommendedIndex !== null && (

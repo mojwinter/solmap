@@ -15,6 +15,7 @@ import { MoneyBreakdown } from './money/MoneyBreakdown';
 import { PaybackHero } from './money/PaybackHero';
 import { LargeBuildingNote } from './notices/LargeBuildingNote';
 import { OutsideBcBanner } from './notices/OutsideBcBanner';
+import { PrintButton, PrintHeader } from './PrintBar';
 import { ReportLayout } from './ReportLayout';
 import { SizeSlider } from './size/SizeSlider';
 import { SpecSheet } from './spec/SpecSheet';
@@ -135,14 +136,16 @@ function Report({
   const onRecommended = selectedIndex === recommendation.recommendedIndex;
 
   return (
-    // No P1 UI on the report yet: gate the first ones (heatmap toggle, battery, charts, print) with `flags`.
+    // P1 UI renders only behind its flag (the print button so far; print CSS always applies).
     // data-flags shows which are on, for ops and the E2E smoke test.
     <div className="grid gap-6" data-flags={FLAGS.filter((f) => flags[f]).join(' ')}>
+      <PrintHeader />
       <header className="grid gap-1.5">
         <h1 className="font-display text-title">{address ?? 'Your roof'}</h1>
         <div className="flex flex-wrap items-center gap-2">
           {building.postalCode && <span className="text-callout text-ink-secondary">{building.postalCode}</span>}
           <ConfidenceBadge imagery={building.imagery} />
+          {flags.print && <span className="ml-auto"><PrintButton /></span>}
         </div>
       </header>
       <OutsideBcBanner administrativeArea={building.administrativeArea} />
