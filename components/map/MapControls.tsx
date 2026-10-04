@@ -54,7 +54,7 @@ export function MapControls() {
             role="img"
             aria-label={LEGEND_LABEL}
             title="Darker panels make more energy"
-            className="absolute right-[476px] bottom-6 hidden h-60 w-3 rounded-pill shadow-control ring-1 ring-white/70 md:block"
+            className="absolute right-[476px] bottom-6 hidden h-60 w-3 rounded-pill shadow-control md:block motion-safe:animate-in motion-safe:fade-in motion-safe:duration-300"
             style={{ backgroundImage: panelGradient("to top") }}
           />
           <span
@@ -62,7 +62,7 @@ export function MapControls() {
             aria-label={LEGEND_LABEL}
             title="Darker panels make more energy"
             // Level with the 40px controls row (bottom-9): 36 + (40 − 12) / 2 = 50px.
-            className="absolute right-4 bottom-[50px] h-3 w-20 rounded-pill shadow-control ring-1 ring-white/70 md:hidden"
+            className="absolute right-4 bottom-[50px] h-3 w-20 rounded-pill shadow-control md:hidden motion-safe:animate-in motion-safe:fade-in motion-safe:duration-300"
             style={{ backgroundImage: panelGradient("to right") }}
           />
         </>
