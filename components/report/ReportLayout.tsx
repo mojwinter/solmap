@@ -11,6 +11,7 @@ import { Wordmark } from '@/components/common/Wordmark';
  * The right column runs on by itself, so its cards never wait for the house row to end. Narrower,
  * one column in reading order: house, summary, controls, analysis, extras (the right column's
  * wrapper is `display: contents` there, so its cards take their own place in the order).
+ * Under both columns, `details` runs full width (the charts, as a grid of its own), then `footer`.
  * Printed, the cards become plain blocks (globals.css) and the map hides.
  */
 export function ReportLayout({
@@ -22,6 +23,8 @@ export function ReportLayout({
   controls,
   analysis,
   extras,
+  details,
+  footer,
   flags,
 }: {
   /** Top bar, right end: looking up another address. */
@@ -40,6 +43,10 @@ export function ReportLayout({
   analysis?: ReactNode;
   /** The rest of the right column. */
   extras?: ReactNode;
+  /** Full width under the columns: the analysis dashboard. */
+  details?: ReactNode;
+  /** Last line of the page: sources and attribution. */
+  footer?: ReactNode;
   /** The P1 flags that are on, space-separated: ops and the E2E smoke test read data-flags. */
   flags?: string;
 }) {
@@ -77,6 +84,8 @@ export function ReportLayout({
           </div>
           {analysis && <div className="order-4 min-w-0 xl:col-start-1 xl:row-start-2">{analysis}</div>}
         </div>
+        {details}
+        {footer}
       </main>
     </div>
   );

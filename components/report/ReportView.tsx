@@ -1,22 +1,26 @@
 'use client';
 
-import { useEffect, useState, type ComponentProps } from 'react';
+import { useEffect, useState, type ComponentProps, type ReactNode } from 'react';
 import { MapsProvider } from '@/components/map/MapsProvider';
 import { verdictFor } from '@/lib/finance';
 import { FLAGS, type Flags } from '@/lib/flags';
 import type { BuildingResponse } from '@/src/types/app';
+import { KeyFigures } from './analysis/KeyFigures';
+import { FirstYear } from './analysis/FirstYear';
+import { SizeSweepChart } from './analysis/SizeSweepChart';
 import { Card } from './Card';
 import { HeaderSearch } from './HeaderSearch';
 import { HouseWindow } from './HouseWindow';
 import { Assumptions } from './money/Assumptions';
 import { CashFlowChart } from './money/CashFlowChart';
-import { MoneyTiles, YearlyStats } from './money/MoneyStats';
+import { MoneyTiles } from './money/MoneyStats';
 import { ImpactCard } from './impact/ImpactCard';
 import { NextStep } from './NextStep';
 import { SolarPotential } from './potential/SolarPotential';
 import { PaybackHero } from './money/PaybackHero';
 import { LargeBuildingNote } from './notices/LargeBuildingNote';
 import { OutsideBcBanner } from './notices/OutsideBcBanner';
+import { ReportFooter } from './ReportFooter';
 import { ReportLayout } from './ReportLayout';
 import { ReportTitle } from './ReportTitle';
 import { SizeSlider } from './size/SizeSlider';
@@ -28,6 +32,7 @@ import { useAddress } from './useAddress';
 import { useBuilding, type BuildingState } from './useBuilding';
 import { reportSearch, type ReportQuery } from './urlState';
 import { useReportState } from './useReportState';
+import { ReasonChips } from './verdict/ReasonChips';
 import { VerdictCard } from './verdict/VerdictCard';
 
 /** The spot being reported on: from the URL or an address pick. */
@@ -174,11 +179,12 @@ function ReportPage({
         }
         house={house}
         {...cards}
+        footer={roof && <ReportFooter source={roof.source} />}
       />
   );
 }
 
-type Cards = Pick<ComponentProps<typeof ReportLayout>, 'summary' | 'controls' | 'analysis' | 'extras'>;
+type Cards = Pick<ComponentProps<typeof ReportLayout>, 'summary' | 'controls' | 'analysis' | 'extras' | 'details'>;
 
 /**
  * The cards round the house once there's a roof: the answer top right with the size slider under it,
@@ -220,6 +226,7 @@ function reportCards(
           lifetimeYears={inputs.lifetimeYears}
         />
         <MoneyTiles scenario={selected} />
+        <ReasonChips reasons={recommendation.reasons} />
       </SolarPotential>
     ),
     controls: (
@@ -228,15 +235,15 @@ function reportCards(
       </Card>
     ),
     analysis: (
-      <Card className="grid gap-5">
-        <YearlyStats scenario={selected} sunHours={building.roof.maxSunshineHoursPerYear} />
-        {flags.charts && (
-          <div className="border-t border-separator pt-5">
-            <CashFlowChart scenario={selected} startYear={startYear} />
-          </div>
-        )}
+      <div className="grid gap-5 md:gap-6">
+        <KeyFigures scenario={selected} />
         <Assumptions warnings={selected.warnings} />
-      </Card>
+        {flags.charts && (
+          <Card>
+            <CashFlowChart scenario={selected} startYear={startYear} />
+          </Card>
+        )}
+      </div>
     ),
     extras: (
       <>
@@ -244,7 +251,38 @@ function reportCards(
         <NextStep />
       </>
     ),
+    details: (
+      <AnalysisGrid>
+        {flags.charts && (
+          <Card className="lg:col-span-2">
+            <SizeSweepChart
+              scenarios={recommendation.scenarios}
+              selectedIndex={selectedIndex}
+              recommendedIndex={recommendation.recommendedIndex}
+              lifetimeYears={inputs.lifetimeYears}
+              discountRate={inputs.discountRate}
+              onSelect={setSelectedIndex}
+            />
+          </Card>
+        )}
+        <Card>
+          <FirstYear scenario={selected} />
+        </Card>
+        <Card className="lg:col-span-3">
+          <SpecSheet building={building} scenario={selected} inputs={inputs} />
+        </Card>
+      </AnalysisGrid>
+    ),
   };
+}
+
+/** The dashboard under the house: three columns on wide screens, one on phones. */
+function AnalysisGrid({ children }: { children: ReactNode }) {
+  return (
+    <section aria-label="Analysis" className="grid items-start gap-5 md:gap-6 lg:grid-cols-3 print:block">
+      {children}
+    </section>
+  );
 }
 
 /**

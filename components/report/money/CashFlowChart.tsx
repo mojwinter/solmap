@@ -14,9 +14,8 @@ import {
 } from 'recharts';
 import type { ScenarioResult } from '@/src/types/app';
 import { breakEvenYear as yearOf, cad, signedCad } from '@/lib/format';
+import { AXIS_TEXT, ChartSection, GRID, NumbersTable, TooltipCard } from '../analysis/chart';
 import { cashFlowPoints, cashFlowTicks, type CashFlowPoint } from './cashflow';
-
-const AXIS_TEXT = { fill: 'var(--ink-tertiary)', fontSize: 12 };
 
 /** Near either end of the x axis a centred label would run off the chart: anchor it inward instead. */
 function labelAnchor(fraction: number): 'start' | 'middle' | 'end' {
@@ -52,20 +51,34 @@ export function CashFlowChart({
   const summary =
     breakEvenYear === null
       ? `Still ${cad(-final)} short after ${lastYear} years: it doesn't pay back within the panels' lifetime.`
-      : `Pays for itself in ${breakEvenYear}, then you're ${cad(final)} ahead by ${startYear + lastYear}.`;
+      : `You start ${cad(scenario.netCost)} down on install day. Savings pay that back by ${breakEvenYear}, then you're ${cad(final)} ahead by ${startYear + lastYear}.`;
+  const savingsIn = (year: number) => scenario.years.find((y) => y.year === year)?.savings;
 
   return (
-    <section aria-labelledby={headingId} className="grid gap-2">
-      <h2 id={headingId} className="text-headline">
-        Savings chart
-      </h2>
+    <ChartSection
+      id={headingId}
+      title="Savings over time"
+      summary={summary}
+      table={
+        <NumbersTable
+          head={['Year', 'Saved that year', 'Net so far']}
+          rows={points
+            .filter((p) => Number.isInteger(p.year))
+            .map((p) => [
+              `${startYear + p.year}${p.year === 0 ? ' (install)' : ''}`,
+              p.year === 0 ? cad(-scenario.netCost) : cad(savingsIn(p.year) ?? 0),
+              signedCad(p.cumulative),
+            ])}
+        />
+      }
+    >
 
       {/* role="img" + summary for screen readers; the table below carries every number. Recharts'
           keyboard layer is off, as a focusable control inside role="img" would have no name. */}
-      <div role="img" aria-label={`Cumulative net savings by year. ${summary}`} className="h-[200px]">
+      <div role="img" aria-label={`Cumulative net savings by year. ${summary}`} className="h-[220px]">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={points} margin={{ top: 22, right: 16, bottom: 0, left: 0 }} accessibilityLayer={false}>
-            <CartesianGrid vertical={false} stroke="var(--separator)" />
+            <CartesianGrid vertical={false} stroke={GRID} />
             <XAxis
               dataKey="year"
               type="number"
@@ -87,7 +100,9 @@ export function CashFlowChart({
             />
             <ReferenceLine y={0} stroke="var(--control-border)" />
             <Tooltip
-              content={({ active, payload }) => <CashFlowTooltip active={active} payload={payload} startYear={startYear} />}
+              content={({ active, payload }) => (
+                <CashFlowTooltip active={active} payload={payload} startYear={startYear} savingsIn={savingsIn} />
+              )}
               cursor={{ stroke: 'var(--control-border)', strokeWidth: 1 }}
               isAnimationActive={false}
             />
@@ -141,33 +156,7 @@ export function CashFlowChart({
         </ResponsiveContainer>
       </div>
 
-      <details className="text-callout text-ink-secondary">
-        <summary className="cursor-pointer select-none">Year by year</summary>
-        <table className="mt-2 w-full tabular-nums">
-          <thead>
-            <tr className="text-left">
-              <th className="py-1 font-medium">Year</th>
-              <th className="py-1 text-right font-medium">Net so far</th>
-            </tr>
-          </thead>
-          <tbody>
-            {points
-              .filter((p) => Number.isInteger(p.year))
-              .map((p) => (
-                <tr key={p.year} className="border-t border-separator">
-                  <td className="py-1">
-                    {startYear + p.year}
-                    {p.year === 0 && ' (install)'}
-                  </td>
-                  <td className={p.cumulative >= 0 ? 'py-1 text-right text-good-ink' : 'py-1 text-right text-poor-ink'}>
-                    {signedCad(p.cumulative)}
-                  </td>
-                </tr>
-              ))}
-          </tbody>
-        </table>
-      </details>
-    </section>
+    </ChartSection>
   );
 }
 
@@ -175,10 +164,12 @@ function CashFlowTooltip({
   active,
   payload,
   startYear,
+  savingsIn,
 }: {
   active?: boolean;
   payload?: readonly { payload?: unknown }[];
   startYear: number;
+  savingsIn: (year: number) => number | undefined;
 }) {
   const point = payload?.[0]?.payload as CashFlowPoint | undefined;
   if (!active || !point) return null;
@@ -187,10 +178,12 @@ function CashFlowTooltip({
       ? `${startYear} · install`
       : `${startYear + point.year} · year ${point.year}`
     : `Break-even · ${yearOf(startYear, point.year)}`;
+  const saved = Number.isInteger(point.year) && point.year > 0 ? savingsIn(point.year) : undefined;
   return (
-    <div className="grid gap-0.5 rounded-md bg-popover px-3 py-2 shadow-(--elev-control)">
-      <span className="font-rounded text-headline tabular-nums text-ink">{signedCad(point.cumulative)}</span>
-      <span className="text-callout text-ink-secondary">{label}</span>
-    </div>
+    <TooltipCard
+      value={signedCad(point.cumulative)}
+      label={label}
+      rows={saved === undefined ? undefined : [{ label: 'Saved that year', value: cad(saved) }]}
+    />
   );
 }
