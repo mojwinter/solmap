@@ -418,3 +418,16 @@
     word-break: break-all;
   }
 }
+
+/* Recharts draws a chart only once ResponsiveContainer has measured its box (a few frames after the
+   card appears): fade the plot in then, instead of it popping into an empty card. */
+@media (prefers-reduced-motion: no-preference) {
+  .recharts-wrapper {
+    animation: chart-in 200ms ease-out both;
+  }
+}
+@keyframes chart-in {
+  from {
+    opacity: 0;
+  }
+}

@@ -30,6 +30,7 @@ import { SizeSlider, type SizeStep } from './size/SizeSlider';
 import { SpecSheet } from './spec/SpecSheet';
 import { ApiErrorState } from './states/ApiErrorState';
 import { NoCoverage } from './states/NoCoverage';
+import { loadingCards } from './states/loadingCards';
 import { ReportSkeleton } from './states/ReportSkeleton';
 import { useAddress } from './useAddress';
 import { useBuilding, type BuildingState } from './useBuilding';
@@ -127,6 +128,7 @@ function ReportPage({
       address={address}
       imagery={roof?.imagery}
       loading={building.status === 'loading'}
+      actionsPending={building.status === 'loading' ? { settings: flags.assumptions, pdf: flags.print } : undefined}
       print={flags.print}
       actions={
         flags.assumptions && report.selected && <AdvancedSettings inputs={report.inputs} onChange={report.setInputs} />
@@ -137,19 +139,7 @@ function ReportPage({
   const cards = ((): Cards => {
     switch (building.status) {
       case 'loading':
-        return {
-          summary: (
-            <Card>
-              <ReportSkeleton />
-            </Card>
-          ),
-          controls: (
-            <Card>
-              <ReportSkeleton variant="slider" />
-            </Card>
-          ),
-          analysis: <ReportSkeleton variant="figures" />,
-        };
+        return loadingCards(flags.charts);
       case 'no_coverage':
       case 'outside_bc':
         return {
