@@ -189,7 +189,7 @@ function Report({
                   </>
                 ),
               },
-              { value: 'usage', label: 'Your usage', content: <UsageInputs inputs={inputs} onChange={setInputs} /> },
+              { value: 'usage', label: 'Your usage', content: <UsageInputs inputs={inputs} onChange={setInputs} />, print: false },
               // Sun-hours are on the map, pinned to the roof outline (components/map/RoofCallout.tsx).
               { value: 'roof', label: 'Roof', content: <SpecSheet building={building} scenario={selected} inputs={inputs} /> },
             ]}
