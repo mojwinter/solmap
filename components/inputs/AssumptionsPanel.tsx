@@ -52,10 +52,21 @@ const KNOBS: Record<Knob, { label: string; step: number; format: (v: number) => 
 
 /**
  * [P1, `assumptions` flag] The assumptions drawer (DESIGN.md §3): every knob in FinanceInputs that's
- * ours to guess, with its range, BC default and why, and the fixed BC facts beside them. Every change
- * reruns the whole report. "Reset to BC defaults" puts the knobs back (your usage and plan stay).
+ * ours to guess, with its range and BC default (and why, behind each ⓘ). Every change reruns the whole
+ * report. Reset puts the knobs back to BC's defaults (usage and plan stay). `heading` replaces the
+ * default title (a dialog passes its own), and `actions` go after Reset (e.g. a close button).
  */
-export function AssumptionsPanel({ inputs, onChange }: { inputs: FinanceInputs; onChange: (next: FinanceInputs) => void }) {
+export function AssumptionsPanel({
+  inputs,
+  onChange,
+  heading,
+  actions,
+}: {
+  inputs: FinanceInputs;
+  onChange: (next: FinanceInputs) => void;
+  heading?: ReactNode;
+  actions?: ReactNode;
+}) {
   const id = useId();
   const knobs = Object.keys(KNOBS) as Knob[];
   const changed = knobs.some((k) => inputs[k] !== DEFAULT_INPUTS[k]) || inputs.rebateEligible !== DEFAULT_INPUTS.rebateEligible;
@@ -67,40 +78,53 @@ export function AssumptionsPanel({ inputs, onChange }: { inputs: FinanceInputs; 
     });
 
   return (
-    <section aria-labelledby={id} className="grid gap-4 print:hidden">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 id={id} className="text-headline">
-          What we assumed
-        </h2>
+    <section
+      aria-labelledby={heading ? undefined : id}
+      aria-label={heading ? 'What we assumed' : undefined}
+      className="grid gap-4 print:hidden"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          {heading ?? (
+            <h2 id={id} className="text-headline">
+              What we assumed
+            </h2>
+          )}
+        </div>
         <button
           type="button"
           onClick={reset}
           disabled={!changed}
+          aria-label="Reset to BC defaults"
+          title="Reset to BC defaults"
           className="inline-flex min-h-[32px] items-center rounded-pill bg-fill-quiet px-3 text-callout font-semibold text-ink hover:bg-fill-selected focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring disabled:cursor-not-allowed disabled:opacity-45 motion-safe:active:scale-[.97]"
         >
-          Reset to BC defaults
+          Reset
         </button>
+        {actions}
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {knobs.map((k) => (
-          <KnobControl key={k} knob={k} value={inputs[k]} onChange={(v) => onChange({ ...inputs, [k]: v })} />
-        ))}
-        <Tile>
-          <div className="flex items-center justify-between gap-3">
-            <span className="flex items-center gap-1">
-              <label htmlFor={`${id}-rebate`} className="text-body">
-                BC Hydro rebate
-              </label>
-              <InfoPopover label="About the BC Hydro rebate">
-                <span className="block max-w-64">Needs BC Hydro approval before you buy, and an HPCN installer.</span>
-              </InfoPopover>
-            </span>
-            <Switch id={`${id}-rebate`} checked={inputs.rebateEligible} onChange={(on) => onChange({ ...inputs, rebateEligible: on })} />
-          </div>
-        </Tile>
+      {/* Columns by the panel's own width (it lives in a dialog): two from 512px, three from 896px. */}
+      <div className="@container">
+        <div className="grid gap-3 @lg:grid-cols-2 @4xl:grid-cols-3">
+          {knobs.map((k) => (
+            <KnobControl key={k} knob={k} value={inputs[k]} onChange={(v) => onChange({ ...inputs, [k]: v })} />
+          ))}
+          <Tile>
+            <div className="flex items-center justify-between gap-3">
+              <span className="flex items-center gap-1">
+                <label htmlFor={`${id}-rebate`} className="text-body">
+                  BC Hydro rebate
+                </label>
+                <InfoPopover label="About the BC Hydro rebate">
+                  <span className="block max-w-64">Needs BC Hydro approval before you buy, and an HPCN installer.</span>
+                </InfoPopover>
+              </span>
+              <Switch id={`${id}-rebate`} checked={inputs.rebateEligible} onChange={(on) => onChange({ ...inputs, rebateEligible: on })} />
+            </div>
+          </Tile>
+        </div>
       </div>
-
     </section>
   );
 }

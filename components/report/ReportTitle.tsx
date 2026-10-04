@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import type { BuildingResponse } from '@/src/types/app';
 import { PrintButton, PrintHeader } from './PrintBar';
 import { ConfidenceBadge, ConfidenceBadgePlaceholder } from './verdict/ConfidenceBadge';
@@ -15,6 +16,7 @@ export function ReportTitle({
   imagery,
   loading = false,
   print = false,
+  actions,
 }: {
   address: string;
   /** The roof's imagery, once it has loaded. */
@@ -22,6 +24,8 @@ export function ReportTitle({
   loading?: boolean;
   /** Show "Save as PDF" (the `print` flag) once there's a roof. */
   print?: boolean;
+  /** More buttons at the right end of the badge row (e.g. Advanced settings). */
+  actions?: ReactNode;
 }) {
   return (
     <header className="grid gap-1.5">
@@ -29,9 +33,10 @@ export function ReportTitle({
       <h1 className="font-display text-title text-balance md:text-display">{address}</h1>
       <div className="flex flex-wrap items-center gap-2">
         {imagery ? <ConfidenceBadge imagery={imagery} /> : <ConfidenceBadgePlaceholder pulse={loading} />}
-        {imagery && print && (
-          <span className="ml-auto">
-            <PrintButton />
+        {imagery && (print || actions) && (
+          <span className="ml-auto flex flex-wrap items-center gap-2">
+            {actions}
+            {print && <PrintButton />}
           </span>
         )}
       </div>

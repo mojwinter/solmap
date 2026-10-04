@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ComponentProps } from 'react';
 import { MapsProvider } from '@/components/map/MapsProvider';
-import { AssumptionsPanel } from '@/components/inputs/AssumptionsPanel';
+import { AdvancedSettings } from '@/components/inputs/AdvancedSettings';
 import { verdictFor } from '@/lib/finance';
 import { clampInputs } from '@/lib/finance/clamp';
 import { rebateCapKw } from '@/lib/finance/project';
@@ -122,7 +122,15 @@ function ReportPage({
   );
 
   const title = (
-    <ReportTitle address={address} imagery={roof?.imagery} loading={building.status === 'loading'} print={flags.print} />
+    <ReportTitle
+      address={address}
+      imagery={roof?.imagery}
+      loading={building.status === 'loading'}
+      print={flags.print}
+      actions={
+        flags.assumptions && report.selected && <AdvancedSettings inputs={report.inputs} onChange={report.setInputs} />
+      }
+    />
   );
 
   const cards = ((): Cards => {
@@ -191,7 +199,7 @@ type Cards = Pick<ComponentProps<typeof ReportLayout>, 'summary' | 'controls' | 
  */
 function reportCards(
   building: BuildingResponse,
-  { inputs, setInputs, recommendation, selectedIndex, selected, setSelectedIndex }: ReturnType<typeof useReportState>,
+  { inputs, recommendation, selectedIndex, selected, setSelectedIndex }: ReturnType<typeof useReportState>,
   flags: Flags,
 ): Cards {
   // No configs: nothing fits, so there's no money to show.
@@ -218,11 +226,6 @@ function reportCards(
   const firstYear = (
     <Card>
       <FirstYear scenario={selected} />
-    </Card>
-  );
-  const assumptions = (
-    <Card className="print:hidden">
-      <AssumptionsPanel inputs={inputs} onChange={setInputs} />
     </Card>
   );
   const monthly = (
@@ -295,7 +298,6 @@ function reportCards(
         <NextStep />
       </>
     ),
-    details: flags.assumptions && assumptions,
   };
 }
 

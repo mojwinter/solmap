@@ -60,12 +60,13 @@ key figures (4 tiles)               | size slider (with a value curve over the t
 savings over time [charts]          | where your solar goes + yearly bill [charts; else under the house]
 month by month [charts]             | panel by panel [charts]
                                     | environmental impact · get real quotes
-─────────────── what we assumed [assumptions] (full width) ───────────────
 footer: attribution + sources
 ```
+"Advanced settings" [assumptions] sits in the title row beside "Save as PDF" and opens What we assumed in a
+dialog.
 
 Narrower (and printed), one column in reading order (each block's `order`: house, answer, slider,
-figures and savings, first year, month by month, panels, impact, quotes, then assumptions).
+figures and savings, first year, month by month, panels, impact, quotes).
 
 **Keep it clean (like the original answer card):** each card is a title, the visual and its key number.
 No explanatory paragraphs or sub-notes on screen: each chart's takeaway sentence is screen-reader only
@@ -127,9 +128,10 @@ waterfall (without solar → minus solar used → minus export credit → with s
   at home and sold, against the household's daytime use.
 - *Panel by panel:* every panel spot's year-1 kWh, best first, the ones in use highlighted.
 
-**[P1, `assumptions`] What we assumed**: install cost, price rises, daytime use share, discount rate and
-panel size as sliders (range from `INPUT_RANGES`, BC default, why), the rebate as a switch, the fixed BC
-facts beside them, and "Reset to BC defaults".
+**[P1, `assumptions`] Advanced settings** (`components/inputs/AdvancedSettings.tsx`): a pill in the title row
+that opens a dialog with install cost, price rises, daytime use share, interest elsewhere (discount rate) and
+panel size as sliders (range from `INPUT_RANGES`, BC default, why behind each ⓘ), the rebate as a switch, and
+Reset. The report updates live behind it; a dot on the pill means something differs from BC's defaults.
 
 ### States
 | State | Behaviour |
