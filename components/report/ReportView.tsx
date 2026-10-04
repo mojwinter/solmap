@@ -5,7 +5,6 @@ import { MapsProvider } from '@/components/map/MapsProvider';
 import { verdictFor } from '@/lib/finance';
 import { FLAGS, type Flags } from '@/lib/flags';
 import type { BuildingResponse } from '@/src/types/app';
-import { Attribution } from './Attribution';
 import { Card } from './Card';
 import { HeaderSearch } from './HeaderSearch';
 import { HouseWindow } from './HouseWindow';
@@ -111,13 +110,6 @@ function ReportPage({
       visibleCount={selected?.panelsCount ?? 0}
       heatmap={flags.heatmap}
       onPick={lookUp}
-      footer={
-        roof && (
-          <div className="px-3 pt-2 pb-1">
-            <Attribution source={roof.source} />
-          </div>
-        )
-      }
       panel={<ExplorePanel building={building} report={report} address={address} />}
     />
   );
