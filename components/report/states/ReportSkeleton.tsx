@@ -22,13 +22,14 @@ export function ReportSkeleton({ variant = 'money' }: { variant?: 'money' | 'sli
     );
   }
   if (variant === 'slider') {
-    // SizeSlider's rows (heading and size, the value curve, steppers round the track, the recommended
-    // line), so the cards under it don't move when it replaces this.
+    // SizeSlider's rows (heading, panels and kWh, the value curve, steppers round the track, the
+    // recommended line), so the cards under it don't move when it replaces this.
     return (
       <div className="grid gap-2" aria-busy="true" aria-label="Loading your roof">
-        <div className="flex h-7 items-center justify-between gap-2">
-          <div className={`${block} h-[21px] w-24`} />
-          <div className={`${block} h-7 w-32`} />
+        <div className={`${block} h-[21px] w-24`} />
+        <div className="flex h-9 items-center gap-5">
+          <div className={`${block} h-8 w-24`} />
+          <div className={`${block} h-8 w-44`} />
         </div>
         {/* The value curve over the track (76px), then the 28px track row the steppers sit beside. */}
         <div className="flex items-end gap-3">

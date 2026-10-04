@@ -47,17 +47,22 @@ export function SizeSlider({
 
   return (
     <section aria-labelledby="size-heading" className="grid gap-2">
-      <div className="flex items-baseline justify-between gap-2">
-        <h2 id="size-heading" className="text-body text-ink-secondary">
-          System size
-        </h2>
-        <p className="font-rounded text-metric tabular-nums" aria-live="polite">
+      <h2 id="size-heading" className="text-body text-ink-secondary">
+        System size
+      </h2>
+      {/* The size and what it makes a year, side by side: they change as you drag. */}
+      <p className="flex flex-wrap items-baseline gap-x-5 gap-y-1" aria-live="polite">
+        <span className="font-rounded text-[30px] leading-9 font-bold tracking-tight tabular-nums">
           {current.panels}
-          <small className="ml-1 font-sans text-callout text-ink-secondary">
-            {current.panels === 1 ? 'panel' : 'panels'} · {kwh(current.acKwhYear1)} kWh
+          <small className="ml-1.5 font-sans text-callout font-medium tracking-normal text-ink-secondary">
+            {current.panels === 1 ? 'panel' : 'panels'}
           </small>
-        </p>
-      </div>
+        </span>
+        <span className="font-rounded text-[30px] leading-9 font-bold tracking-tight tabular-nums text-sky-700">
+          {kwh(current.acKwhYear1)}
+          <small className="ml-1.5 font-sans text-callout font-medium tracking-normal text-ink-secondary">kWh a year</small>
+        </span>
+      </p>
 
       <div className={cn('flex gap-3 print:hidden', curve ? 'items-end' : 'items-center')}>
         <Stepper icon="minus" label="Fewer panels" value={value} next={step(-1)} disabled={value <= 0} onChange={onChange} />

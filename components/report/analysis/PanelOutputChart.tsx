@@ -83,7 +83,7 @@ export function PanelOutputChart({
         />
       }
     >
-      <div role="img" aria-label={`First-year output of each panel spot, best first. ${summary}`} className={`h-[200px] ${onPickPanels ? 'cursor-pointer' : ''}`}>
+      <div role="img" aria-label={`First-year output of each panel spot, best first. ${summary}`} className={`h-[230px] ${onPickPanels ? 'cursor-pointer' : ''}`}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={bars}
@@ -96,7 +96,16 @@ export function PanelOutputChart({
             }}
           >
             <CartesianGrid vertical={false} stroke={GRID} />
-            <XAxis dataKey="rank" ticks={xTicks} interval={0} tick={AXIS_TEXT} tickLine={false} axisLine={false} />
+            <XAxis
+              dataKey="rank"
+              ticks={xTicks}
+              interval={0}
+              tick={AXIS_TEXT}
+              tickLine={false}
+              axisLine={false}
+              height={36}
+              label={{ value: 'Panels, best first', position: 'insideBottom', fill: 'var(--ink-tertiary)', fontSize: 12 }}
+            />
             <YAxis
               domain={[0, ticks[ticks.length - 1]]}
               ticks={ticks}
@@ -104,7 +113,9 @@ export function PanelOutputChart({
               tick={AXIS_TEXT}
               tickLine={false}
               axisLine={false}
-              width={axisWidth(ticks, kwh)}
+              // Room for the rotated axis title beside the ticks.
+              width={axisWidth(ticks, kwh) + 18}
+              label={{ value: 'kWh a year', angle: -90, position: 'insideLeft', fill: 'var(--ink-tertiary)', fontSize: 12, style: { textAnchor: 'middle' } }}
             />
             <Tooltip
               cursor={{ fill: 'var(--fill-quiet)' }}
