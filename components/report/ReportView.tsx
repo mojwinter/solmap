@@ -217,7 +217,7 @@ function reportCards(
       ),
     };
   }
-  const steps = recommendation.scenarios.map((s) => ({ panels: s.panelsCount, acKwhYear1: s.acKwhYear1, value: s.npv }));
+  const steps = recommendation.scenarios.map((s) => ({ panels: s.panelsCount, acKwhYear1: s.acKwhYear1, kw: s.systemKwDc, value: s.npv }));
   // Install year for PaybackHero and the chart, read once so they agree. The roof is fetched after
   // mount, so this only ever runs in the browser (the user's clock), never in server HTML.
   const startYear = new Date().getFullYear();
@@ -339,7 +339,7 @@ function ExplorePanel({
               <MoneyTiles scenario={selected} />
             </SolarPotential>
             <SizeSlider
-              steps={recommendation.scenarios.map((s) => ({ panels: s.panelsCount, acKwhYear1: s.acKwhYear1, value: s.npv }))}
+              steps={recommendation.scenarios.map((s) => ({ panels: s.panelsCount, acKwhYear1: s.acKwhYear1, kw: s.systemKwDc, value: s.npv }))}
               value={selectedIndex}
               recommendedIndex={recommendation.recommendedIndex}
               onChange={setSelectedIndex}

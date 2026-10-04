@@ -1,60 +1,12 @@
 import { useId } from 'react';
 import type { ScenarioResult } from '@/src/types/app';
-import { cad, cents } from '@/lib/format';
-import { SELF_GENERATION } from '@/src/config/bc';
+import { cad } from '@/lib/format';
 import { billImpact } from './derive';
 
-/**
- * Year one in two pictures: where the panels' power goes (used at home vs sold to BC Hydro), then the
- * yearly bill as a waterfall from "without solar" to what's left to pay (before GST, same usage).
- */
+/** Year one's power bill as a waterfall, from "without solar" to what's left to pay (before GST, same usage). */
 export function FirstYear({ scenario }: { scenario: ScenarioResult }) {
   return (
-    // Side by side when the card is wide (under the house without charts), stacked in a narrow column.
-    <div className="@container">
-      <div className="grid gap-6 @3xl:grid-cols-2 @3xl:gap-8">
-        <EnergySplit scenario={scenario} />
-        <BillWaterfall scenario={scenario} />
-      </div>
-    </div>
-  );
-}
-
-function EnergySplit({ scenario }: { scenario: ScenarioResult }) {
-  const id = useId();
-  const { selfUsedKwh, exportedKwh } = scenario.year1;
-  const made = selfUsedKwh + exportedKwh;
-  const selfShare = made > 0 ? selfUsedKwh / made : 0;
-  const pct = (n: number) => `${Math.round(n * 100)}%`;
-
-  return (
-    <section aria-labelledby={id} className="grid content-start gap-3 print:break-inside-avoid">
-      <h2 id={id} className="text-headline">
-        Where your solar goes
-      </h2>
-
-      <div aria-hidden="true" className="flex h-3 gap-0.5 overflow-hidden rounded-pill">
-        <span className="h-full bg-sky-600" style={{ width: `${selfShare * 100}%` }} />
-        <span className="h-full flex-1 bg-chart-sun" />
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <Part color="var(--sky-600)" label="Used at home" share={pct(selfShare)} />
-        <Part color="var(--chart-sun)" label={`Sold at ${cents(SELF_GENERATION.exportRatePerKwh)}/kWh`} share={pct(1 - selfShare)} />
-      </div>
-    </section>
-  );
-}
-
-function Part({ color, label, share }: { color: string; label: string; share: string }) {
-  return (
-    <div className="grid gap-0.5 rounded-md bg-fill-quiet p-3">
-      <span className="font-rounded text-metric tabular-nums">{share}</span>
-      <span className="flex items-center gap-1.5 text-callout text-ink-secondary">
-        <span aria-hidden="true" className="size-2.5 flex-none rounded-full" style={{ background: color }} />
-        {label}
-      </span>
-    </div>
+    <BillWaterfall scenario={scenario} />
   );
 }
 

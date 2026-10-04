@@ -22,13 +22,14 @@ export function ReportSkeleton({ variant = 'money' }: { variant?: 'money' | 'sli
     );
   }
   if (variant === 'slider') {
-    // SizeSlider's rows (heading and size, the value curve, steppers round the track, the recommended
-    // line), so the cards under it don't move when it replaces this.
+    // SizeSlider's rows (heading, the panels / kWh tiles, the value curve, steppers round the track, the
+    // recommended line), so the cards under it don't move when it replaces this.
     return (
-      <div className="grid gap-2" aria-busy="true" aria-label="Loading your roof">
-        <div className="flex h-7 items-center justify-between gap-2">
-          <div className={`${block} h-[21px] w-24`} />
-          <div className={`${block} h-7 w-32`} />
+      <div className="grid gap-3" aria-busy="true" aria-label="Loading your roof">
+        <div className={`${block} h-[22px] w-28`} />
+        <div className="grid grid-cols-2 gap-2">
+          <div className={`${block} h-[94px]`} />
+          <div className={`${block} h-[94px]`} />
         </div>
         {/* The value curve over the track (pt-8), then the 28px track row the steppers sit beside. */}
         <div className="flex items-end gap-3">
@@ -48,7 +49,7 @@ export function ReportSkeleton({ variant = 'money' }: { variant?: 'money' | 'sli
   return (
     <div className="grid gap-4" aria-busy="true" aria-label="Loading your roof">
       {/* PaybackHero and MoneyTiles' heights, so the card keeps its size when they replace this. */}
-      <div className={`${block} h-[78px]`} />
+      <div className={`${block} h-[83px]`} />
       <div className="grid grid-cols-2 gap-2">
         <div className={`${block} h-[70px]`} />
         <div className={`${block} h-[70px]`} />

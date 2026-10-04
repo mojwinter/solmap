@@ -51,13 +51,14 @@ Landing ──► type address (PlaceAutocompleteElement → place.location)
 ### Report page
 
 Layout (`components/report/ReportLayout.tsx`): from 1024px, two independent stacks (a short card
-never leaves a gap beside a tall one), with cards assigned so the two end about level:
+never leaves a gap beside a tall one), with cards assigned so the two end about level; the last card
+of the shorter stack stretches so they end exactly level:
 
 ```
 main (wide)                         | side (360–400px)
 house window                        | answer (payback year, verdict, install cost, 25-year savings)
-key figures (4 tiles)               | size slider (with a value curve over the track)
-savings over time [charts]          | where your solar goes + yearly bill [charts; else under the house]
+key figures (4 tiles)               | system size: panels and kWh a year, big, over the slider
+savings over time [charts]          | your yearly power bill [charts; else under the house]
 month by month [charts]             | panel by panel [charts]
                                     | environmental impact · get real quotes
 footer: attribution + sources
@@ -119,8 +120,8 @@ chart are in a closed "See the numbers" table, so nothing depends on hovering or
 (year one; the ⓘ says it grows with price rises, less panel wear) and share off the bill. Number and
 label only; each ⓘ shows the sum.
 
-**Where your solar goes** (always on): year-1 split used at home vs sold at 10¢, and the yearly bill as a
-waterfall (without solar → minus solar used → minus export credit → with solar).
+**Your yearly power bill** (always on): year one as a waterfall (without solar → minus solar used → minus
+export credit → with solar).
 
 **[P1, `charts`] Charts**
 - *Savings over time (cash flow):* cumulative net savings, years 0–25, break-even marked.
