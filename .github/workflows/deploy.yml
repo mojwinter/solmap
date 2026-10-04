@@ -79,6 +79,17 @@ jobs:
           fi
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
+      # An unset repo variable expands to "", the image still builds, and prod ships with address
+      # search disabled and the map in development mode. Fail here instead.
+      - name: Require the browser Maps key
+        env:
+          MAPS_KEY: ${{ vars.NEXT_PUBLIC_MAPS_API_KEY }}
+        run: |
+          if [ -z "$MAPS_KEY" ]; then
+            echo "::error::Repo variable NEXT_PUBLIC_MAPS_API_KEY is empty (Settings → Secrets and variables → Actions → Variables, not Secrets). See docs/INFRA.md → One-time VPS setup, step 4."
+            exit 1
+          fi
+
       - uses: docker/setup-buildx-action@v4
 
       - name: Build and push
