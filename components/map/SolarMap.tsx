@@ -52,8 +52,6 @@ function resolvePadding(padding: FitPadding, div: HTMLElement): Pad {
       if (!overlapsMap) continue;
       if (el.dataset.mapInset === "top") p.top = Math.max(p.top, r.bottom - box.top + OVERLAY_GAP);
       if (el.dataset.mapInset === "bottom") p.bottom = Math.max(p.bottom, box.bottom - r.top + OVERLAY_GAP);
-      // e.g. the panel legend beside the results card
-      if (el.dataset.mapInset === "right") p.right = Math.max(p.right, box.right - r.left + OVERLAY_GAP);
     }
     // The sun-hours callout sits on the spotlit roof's top edge: keep room for it under the search box.
     p.top += roofCalloutSpace();
@@ -115,6 +113,8 @@ interface SolarMapState {
   /** Sun exposure can be chosen: flag on, a roof is shown, and it isn't known to have no sun map. */
   sunAvailable: boolean;
   sunStatus: SunStatus;
+  /** Panels are on the map right now (Satellite, a roof with panels): the panel-shade legend shows. */
+  panelsShown: boolean;
 }
 
 const SolarMapContext = createContext<SolarMapState>({
@@ -123,6 +123,7 @@ const SolarMapContext = createContext<SolarMapState>({
   setLayer: () => {},
   sunAvailable: false,
   sunStatus: "idle",
+  panelsShown: false,
 });
 
 /** For controls inside <SolarMap>: the map layer, the sun map's status and recentre(). */
@@ -213,11 +214,12 @@ export function SolarMap({
       map.moveCamera({ center: location, zoom: ROOF_ZOOM });
     }
   }, [map, bounds, fitPadding, location]);
-  const context = useMemo(
-    () => ({ recentre, layer, setLayer, sunAvailable, sunStatus }),
-    [recentre, layer, setLayer, sunAvailable, sunStatus],
-  );
   const sunLayers = layer === "sun" && sun?.status === "ready" ? sun.layers : undefined;
+  const panelsShown = !sunLayers && (building?.panels.length ?? 0) > 0;
+  const context = useMemo(
+    () => ({ recentre, layer, setLayer, sunAvailable, sunStatus, panelsShown }),
+    [recentre, layer, setLayer, sunAvailable, sunStatus, panelsShown],
+  );
   const sunNotice =
     sunStatus === "none" ? "No sun map for this roof." : sunStatus === "error" ? "Couldn't load the sun map. Try again." : null;
 

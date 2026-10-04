@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { AddressSearch } from "@/components/map/AddressSearch";
 import { MapControls } from "@/components/map/MapControls";
 import { MapsProvider } from "@/components/map/MapsProvider";
-import { PanelLegend } from "@/components/map/PanelLegend";
 import { SolarMap } from "@/components/map/SolarMap";
 import { ATTRIBUTION } from "@/src/config/bc";
 import type { ApiError, BuildingResponse, LatLngLiteral } from "@/src/types/app";
@@ -103,7 +102,6 @@ export function DevMap({ start, heatmap = false }: { start?: LatLngLiteral; heat
             className="h-full"
           >
             <MapControls />
-            <PanelLegend building={building} />
           </SolarMap>
           <div className="absolute top-4 right-4 left-4 md:top-6 md:right-auto md:left-6 md:w-[440px]">
             <AddressSearch

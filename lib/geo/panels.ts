@@ -82,12 +82,6 @@ export function panelGradient(direction: "to top" | "to right"): string {
   return `linear-gradient(${direction}, ${PANEL_LEAST}, ${PANEL_MOST})`;
 }
 
-/** The lowest and highest panel output on the roof (kWh/yr per panel), or null with no panels. */
-export function panelEnergyRange(panels: Pick<PanelLite, "yearlyEnergyDcKwh">[]): { min: number; max: number } | null {
-  if (panels.length === 0) return null;
-  const energies = panels.map((p) => p.yearlyEnergyDcKwh);
-  return { min: Math.min(...energies), max: Math.max(...energies) };
-}
 
 /**
  * One fill colour per panel, same order. Normalised over all of the roof's panels (not just the

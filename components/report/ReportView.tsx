@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { AddressSearch } from '@/components/map/AddressSearch';
 import { MapControls } from '@/components/map/MapControls';
 import { MapsProvider } from '@/components/map/MapsProvider';
-import { PanelLegend } from '@/components/map/PanelLegend';
 import { SolarMap } from '@/components/map/SolarMap';
 import { verdictFor } from '@/lib/finance';
 import { FLAGS, type Flags } from '@/lib/flags';
@@ -91,7 +90,6 @@ export function ReportView({ lat, lng, address, query = {}, flags }: Place & { q
             className="h-full"
           >
             <MapControls />
-            <PanelLegend building={roof} />
           </SolarMap>
         }
         search={<AddressSearch onSelect={(p) => lookUp({ lat: p.lat, lng: p.lng, address: p.address || undefined })} />}
