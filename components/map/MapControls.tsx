@@ -20,7 +20,7 @@ export function MapControls({ layer = "satellite", onLayerChange, sunAvailable =
   return (
     // Inset 16/24px from the left (Daylight), but lifted clear of the Google logo in the bottom-left
     // corner, which must stay visible (CLAUDE.md rule 3).
-    <div className="absolute bottom-9 left-4 flex gap-3 md:left-6">
+    <div data-map-inset="bottom" className="absolute bottom-9 left-4 flex gap-3 md:left-6">
       <SegmentedControl
         label="Map style"
         value={layer}

@@ -19,12 +19,47 @@ const ROOF_ZOOM = 20;
  */
 export type FitPadding = "report" | number | google.maps.Padding;
 
-function resolvePadding(padding: FitPadding): number | google.maps.Padding {
-  if (padding !== "report") return padding;
-  const desktop = typeof window !== "undefined" && window.matchMedia("(min-width: 768px)").matches;
-  // Desktop: clear of the search box (top), the 440px card (right) and the controls (bottom).
-  // Phones: the map is a strip with the search box on top and the controls at the bottom.
-  return desktop ? { top: 112, right: 488, bottom: 88, left: 24 } : { top: 96, right: 16, bottom: 84, left: 16 };
+/** Gap between an overlay and the fitted roof. */
+const OVERLAY_GAP = 12;
+/** Padding may use at most this share of the map's width or height, so the roof always stays readable. */
+const MAX_PADDING_SHARE = 0.5;
+
+/**
+ * The padding for fitBounds, sized to the map as it is right now. "report" measures the overlays
+ * marked data-map-inset="top" (AddressSearch) and ="bottom" (MapControls) instead of guessing
+ * their height, keeps the 440px card clear on desktop, then clamps everything so a short phone
+ * strip still shows the roof zoomed in rather than the whole city.
+ */
+type Pad = { top: number; right: number; bottom: number; left: number };
+
+function resolvePadding(padding: FitPadding, div: HTMLElement): Pad {
+  const box = div.getBoundingClientRect();
+  let p: Pad;
+  if (padding === "report") {
+    const desktop = window.matchMedia("(min-width: 768px)").matches;
+    p = desktop ? { top: 24, right: 488, bottom: 24, left: 24 } : { top: 16, right: 16, bottom: 16, left: 16 };
+    for (const el of document.querySelectorAll<HTMLElement>("[data-map-inset]")) {
+      const r = el.getBoundingClientRect();
+      const overlapsMap = r.width > 0 && r.bottom > box.top && r.top < box.bottom && r.right > box.left && r.left < box.right;
+      if (!overlapsMap) continue;
+      if (el.dataset.mapInset === "top") p.top = Math.max(p.top, r.bottom - box.top + OVERLAY_GAP);
+      if (el.dataset.mapInset === "bottom") p.bottom = Math.max(p.bottom, box.bottom - r.top + OVERLAY_GAP);
+    }
+  } else {
+    p =
+      typeof padding === "number"
+        ? { top: padding, right: padding, bottom: padding, left: padding }
+        : { top: padding.top ?? 0, right: padding.right ?? 0, bottom: padding.bottom ?? 0, left: padding.left ?? 0 };
+  }
+  // Never let padding take more than half the map: shrink it proportionally instead.
+  const clamp = (a: number, b: number, size: number): [number, number] => {
+    const max = size * MAX_PADDING_SHARE;
+    const total = a + b;
+    return total > max && total > 0 ? [(a * max) / total, (b * max) / total] : [a, b];
+  };
+  [p.top, p.bottom] = clamp(p.top, p.bottom, box.height);
+  [p.left, p.right] = clamp(p.left, p.right, box.width);
+  return p;
 }
 
 interface Props {
@@ -88,7 +123,7 @@ export function SolarMap({
     if (bounds) {
       map.fitBounds(
         { south: bounds.sw.lat, west: bounds.sw.lng, north: bounds.ne.lat, east: bounds.ne.lng },
-        resolvePadding(fitPadding),
+        resolvePadding(fitPadding, map.getDiv()),
       );
     } else {
       map.moveCamera({ center: location, zoom: ROOF_ZOOM });
@@ -206,21 +241,23 @@ function FitBuilding({ bounds, padding }: { bounds: BuildingResponse["boundingBo
   const { sw, ne } = bounds;
   useEffect(() => {
     if (!map) return;
-    const fit = () =>
-      map.fitBounds({ south: sw.lat, west: sw.lng, north: ne.lat, east: ne.lng }, resolvePadding(padding));
     const div = map.getDiv();
-    const hasSize = () => div.offsetWidth > 0 && div.offsetHeight > 0;
-    if (hasSize()) {
-      fit();
-      return;
-    }
-    // fitBounds on a hidden (0×0) map zooms out to city level, so wait until it's laid out
-    // (a collapsed section or tab that opens later).
+    let fitted = { w: 0, h: 0 };
+    const fit = () => {
+      fitted = { w: div.offsetWidth, h: div.offsetHeight };
+      map.fitBounds({ south: sw.lat, west: sw.lng, north: ne.lat, east: ne.lng }, resolvePadding(padding, div));
+    };
+    const changed = (a: number, b: number) => Math.abs(a - b) > 0.15 * Math.max(b, 1);
+    // A hidden (0×0) map can't be fitted (fitBounds would zoom out to city level), so the first fit
+    // waits until it's laid out. After that, refit only when the size changes noticeably (pane
+    // resize, phone rotation), so small jitter like a phone's address bar doesn't fight the user's panning.
     const observer = new ResizeObserver(() => {
-      if (!hasSize()) return;
-      observer.disconnect();
-      fit();
+      const w = div.offsetWidth;
+      const h = div.offsetHeight;
+      if (w === 0 || h === 0) return;
+      if (fitted.w === 0 || changed(w, fitted.w) || changed(h, fitted.h)) fit();
     });
+    if (div.offsetWidth > 0 && div.offsetHeight > 0) fit();
     observer.observe(div);
     return () => observer.disconnect();
     // padding objects are usually inline literals, so key on the mode/number only.
