@@ -30,7 +30,6 @@ export function SizeSlider({
   const last = steps.length - 1;
   const at = (i: number) => (last === 0 ? 0 : (i / last) * 100);
   const current = steps[value];
-  const isRecommended = value === recommendedIndex;
 
   return (
     <section aria-labelledby="size-heading" className="grid gap-2">
@@ -74,25 +73,6 @@ export function SizeSlider({
         <Stepper icon="plus" label="More panels" disabled={value >= last} onClick={() => onChange(value + 1)} />
       </div>
 
-      {recommendedIndex !== null && (
-        <p className="flex min-h-8 items-center justify-between gap-2 text-callout text-ink-secondary">
-          <span className="inline-flex items-center gap-1">
-            <Icon name="star" size={12} strokeWidth={2} className="fill-current text-sun-500" />
-            {isRecommended
-              ? 'Recommended size'
-              : `We recommend ${panelsLabel(steps[recommendedIndex].panels, steps[recommendedIndex].systemKwDc)}`}
-          </span>
-          {!isRecommended && (
-            <button
-              type="button"
-              onClick={() => onChange(recommendedIndex)}
-              className="rounded-pill px-3 py-1 font-semibold text-sky-700 hover:bg-fill-quiet focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
-            >
-              Use it
-            </button>
-          )}
-        </p>
-      )}
     </section>
   );
 }

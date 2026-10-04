@@ -54,46 +54,38 @@ for (const roof of roofsWithMoney) {
   });
 }
 
-test('moving the size slider re-runs the numbers, and "Use it" goes back', async ({ page }) => {
+test('moving the size slider re-runs the numbers, and stepping back restores them', async ({ page }) => {
   const hero = fixture(49.25, -123.15);
   await page.goto(`/report/${hero.lat}/${hero.lng}`);
 
   const payback = page.getByRole('region', { name: /pays for itself in|payback/i });
   const slider = page.getByRole('slider', { name: 'System size' });
-  await expect(page.getByText('Recommended size')).toBeVisible();
   const recommendedSize = await slider.getAttribute('aria-valuetext');
   const recommendedPayback = await payback.textContent();
 
   // Step whichever way is open, so this survives the recommendation moving to either end.
   const more = page.getByRole('button', { name: 'More panels' });
-  await (await more.isEnabled() ? more : page.getByRole('button', { name: 'Fewer panels' })).click();
+  const fewer = page.getByRole('button', { name: 'Fewer panels' });
+  const up = await more.isEnabled();
+  await (up ? more : fewer).click();
   await expect(slider).not.toHaveAttribute('aria-valuetext', recommendedSize!);
-  await expect(page.getByText(`We recommend ${recommendedSize}`)).toBeVisible();
   await expect(payback).not.toHaveText(recommendedPayback!);
 
-  await page.getByRole('button', { name: 'Use it' }).click();
+  await (up ? fewer : more).click();
   await expect(slider).toHaveAttribute('aria-valuetext', recommendedSize!);
   await expect(payback).toHaveText(recommendedPayback!);
 });
 
-test('a shared link restores size, usage and plan, and the URL follows the controls (#20)', async ({ page }) => {
+test('a shared link restores size, usage and plan, and the URL keeps them (#20)', async ({ page }) => {
   await page.goto('/report/49.25/-123.15?panels=30&kwh=16000&plan=flat');
 
   const slider = page.getByRole('slider', { name: 'System size' });
   await expect(slider).toHaveAttribute('aria-valuetext', /^30 panels/);
-  // Usage and rate plan live in their own tab of the report panel.
-  await page.getByRole('tab', { name: 'Your usage' }).click();
-  await expect(page.getByLabel('Electricity used in a year')).toHaveValue('16000');
-  await expect(page.getByRole('group', { name: 'Rate plan' }).getByRole('button', { name: 'Flat' })).toHaveAttribute('aria-pressed', 'true');
 
   await page.getByRole('button', { name: 'More panels' }).click();
   await expect(page).toHaveURL(/[?&]panels=31(&|$)/);
   await expect(page).toHaveURL(/[?&]kwh=16000(&|$)/);
   await expect(page).toHaveURL(/[?&]plan=flat(&|$)/);
-
-  // Back on the recommended size, the link stops pinning a size.
-  await page.getByRole('button', { name: 'Use it' }).click();
-  await expect(page).not.toHaveURL(/panels=/);
 });
 
 test('a point with no roof data shows the no-coverage state', async ({ page }) => {

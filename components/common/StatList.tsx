@@ -5,9 +5,11 @@ import { Icon, type IconName } from './Icon';
 export interface StatItem {
   icon: IconName;
   label: string;
-  /** Small grey unit beside the label, never after the number ("kWh a year"). */
+  /** Small grey unit beside the label ("kWh a year"): for units that read as a description. */
   unit?: string;
   value: ReactNode;
+  /** Small grey unit after the number instead ("4,763 kWh"): for short units. */
+  valueUnit?: string;
   /** sun = energy / sunshine tile; good = savings tile. */
   tone?: 'sun' | 'good';
 }
@@ -31,7 +33,10 @@ export function StatList({ items, className }: { items: StatItem[]; className?: 
             {it.label}
             {it.unit && <span className="ml-1 text-callout text-ink-secondary">{it.unit}</span>}
           </span>
-          <span className="font-rounded text-headline tabular-nums">{it.value}</span>
+          <span className="font-rounded text-headline tabular-nums">
+            {it.value}
+            {it.valueUnit && <small className="ml-1 font-sans text-callout text-ink-secondary">{it.valueUnit}</small>}
+          </span>
         </li>
       ))}
     </ul>

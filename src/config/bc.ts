@@ -252,6 +252,18 @@ export const MANUAL = {
  * Rough BC bounding box for request validation. It also covers bits of Washington, Alberta and
  * the Yukon, so the report warns when BuildingResponse.administrativeArea isn't "BC".
  */
+/**
+ * CO₂ the grid emits per kWh, so the report can show what solar avoids (CLAUDE.md rule 6: always with
+ * the caveat). Integrated Grid factor for 2025, which includes net imports: it more than doubled from
+ * 2024 (9.9) after drought years made BC a net importer. Fort Nelson's separate grid is far higher; ignored.
+ */
+export const GRID_EMISSIONS = {
+  kgCo2ePerKwh: 0.0228, // 22.8 t CO₂e/GWh
+  year: 2025,
+  asOf: '2026-10-03',
+  source: 'https://www2.gov.bc.ca/gov/content/environment/climate-change/data/electricity',
+} as const;
+
 export const BC_BOUNDS = { latMin: 48.2, latMax: 60.0, lngMin: -139.1, lngMax: -114.0 } as const;
 
 export const ATTRIBUTION = 'Source: Includes solar data from Google';
