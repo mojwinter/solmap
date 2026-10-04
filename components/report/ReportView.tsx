@@ -152,7 +152,6 @@ function Report({
       <header className="grid gap-1.5">
         <h1 className="font-display text-title">{address}</h1>
         <div className="flex flex-wrap items-center gap-2">
-          {building.postalCode && <span className="text-callout text-ink-secondary">{building.postalCode}</span>}
           <ConfidenceBadge imagery={building.imagery} />
           {flags.print && <span className="ml-auto"><PrintButton /></span>}
         </div>
@@ -176,7 +175,7 @@ function Report({
             recommendedIndex={recommendation.recommendedIndex}
             onChange={setSelectedIndex}
           />
-          <MoneyBreakdown scenario={selected} inputs={inputs} />
+          <MoneyBreakdown scenario={selected} inputs={inputs} sunHours={building.roof.maxSunshineHoursPerYear} />
           {flags.charts && <CashFlowChart scenario={selected} startYear={startYear} />}
           <Assumptions warnings={selected.warnings} />
         </>
