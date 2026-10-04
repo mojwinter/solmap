@@ -10,7 +10,7 @@ import { Card } from './Card';
 import { HouseWindow } from './HouseWindow';
 import { Assumptions } from './money/Assumptions';
 import { CashFlowChart } from './money/CashFlowChart';
-import { CostStats, YearlyStats } from './money/MoneyStats';
+import { CostStats, MoneyTiles, YearlyStats } from './money/MoneyStats';
 import { ImpactCard } from './impact/ImpactCard';
 import { NextStep } from './NextStep';
 import { SolarPotential } from './potential/SolarPotential';
@@ -226,7 +226,6 @@ function reportCards(
       ),
     };
   }
-  const onRecommended = selectedIndex === recommendation.recommendedIndex;
   const steps = recommendation.scenarios.map((s) => ({ panels: s.panelsCount, systemKwDc: s.systemKwDc }));
   // Install year for PaybackHero and the chart, read once so they agree. The roof is fetched after
   // mount, so this only ever runs in the browser (the user's clock), never in server HTML.
@@ -239,11 +238,10 @@ function reportCards(
         <PaybackHero
           scenario={selected}
           verdict={verdictFor(selected)}
-          headline={onRecommended ? recommendation.headline : undefined}
           startYear={startYear}
           lifetimeYears={inputs.lifetimeYears}
         />
-        <YearlyStats scenario={selected} sunHours={building.roof.maxSunshineHoursPerYear} />
+        <MoneyTiles scenario={selected} />
       </SolarPotential>
     ),
     controls: (
@@ -254,6 +252,10 @@ function reportCards(
     analysis: (
       <Card className="grid gap-5">
         <CostStats scenario={selected} inputs={inputs} />
+        {/* The power side, moved off the answer card so it leads with money. */}
+        <div className="border-t border-separator pt-5">
+          <YearlyStats scenario={selected} sunHours={building.roof.maxSunshineHoursPerYear} />
+        </div>
         {flags.charts && (
           <div className="border-t border-separator pt-5">
             <CashFlowChart scenario={selected} startYear={startYear} />
@@ -303,11 +305,10 @@ function ExplorePanel({
               <PaybackHero
                 scenario={selected}
                 verdict={verdictFor(selected)}
-                headline={selectedIndex === recommendation.recommendedIndex ? recommendation.headline : undefined}
                 startYear={new Date().getFullYear()}
                 lifetimeYears={inputs.lifetimeYears}
               />
-              <YearlyStats scenario={selected} sunHours={building.data.roof.maxSunshineHoursPerYear} />
+              <MoneyTiles scenario={selected} />
             </SolarPotential>
             <SizeSlider
               steps={recommendation.scenarios.map((s) => ({ panels: s.panelsCount, systemKwDc: s.systemKwDc }))}

@@ -24,6 +24,28 @@ export function CostStats({ scenario, inputs }: { scenario: ScenarioResult; inpu
   );
 }
 
+/**
+ * The answer card's two money tiles under the payback year: what the panels save in the first
+ * year (bill savings + export credit) and what they're worth over their lifetime. Number first,
+ * short label under it, so the money reads at a glance.
+ */
+export function MoneyTiles({ scenario }: { scenario: ScenarioResult }) {
+  const net = scenario.lifetimeNetSavings;
+  const lifetime = scenario.years.length;
+  return (
+    <dl className="grid grid-cols-2 gap-2">
+      <div className="grid rounded-md bg-fill-quiet p-3">
+        <dd className="font-rounded text-metric tabular-nums">{cad(scenario.year1.total)}</dd>
+        <dt className="text-callout text-ink-secondary">saved a year</dt>
+      </div>
+      <div className="grid rounded-md bg-fill-quiet p-3">
+        <dd className={`font-rounded text-metric tabular-nums ${net >= 0 ? "text-good-ink" : "text-poor-ink"}`}>{signedCad(net)}</dd>
+        <dt className="text-callout text-ink-secondary">over {lifetime} years</dt>
+      </div>
+    </dl>
+  );
+}
+
 /** A year's sun on the roof's sunniest spot, production, how much of average use it covers and the CO₂ it avoids. */
 export function YearlyStats({ scenario, sunHours }: { scenario: ScenarioResult; sunHours: number }) {
   const co2Kg = scenario.acKwhYear1 * GRID_EMISSIONS.kgCo2ePerKwh;
