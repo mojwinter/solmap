@@ -10,13 +10,14 @@ export interface StatItem {
   value: ReactNode;
   /** Small grey unit after the number instead ("4,763 kWh"): for short units. */
   valueUnit?: string;
-  /** sun = energy / sunshine tile; good = savings tile. */
-  tone?: 'sun' | 'good';
+  /** sun = sunshine tile; sky = energy tile; good = savings tile. */
+  tone?: 'sun' | 'sky' | 'good';
 }
 
 const TILE = {
   neutral: 'bg-fill-quiet text-ink-secondary',
   sun: 'bg-sun-500 text-on-sun-500',
+  sky: 'bg-sky-600/15 text-sky-700',
   good: 'bg-good-soft text-good-ink',
 };
 
