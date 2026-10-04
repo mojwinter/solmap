@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { UsageInputs } from '@/components/inputs/UsageInputs';
 import { AddressSearch } from '@/components/map/AddressSearch';
 import { MapControls } from '@/components/map/MapControls';
 import { MapsProvider } from '@/components/map/MapsProvider';
@@ -12,8 +13,11 @@ import { Attribution } from './Attribution';
 import { Assumptions } from './money/Assumptions';
 import { MoneyBreakdown } from './money/MoneyBreakdown';
 import { PaybackHero } from './money/PaybackHero';
+import { LargeBuildingNote } from './notices/LargeBuildingNote';
+import { OutsideBcBanner } from './notices/OutsideBcBanner';
 import { ReportLayout } from './ReportLayout';
 import { SizeSlider } from './size/SizeSlider';
+import { SpecSheet } from './spec/SpecSheet';
 import { ApiErrorState } from './states/ApiErrorState';
 import { NoCoverage } from './states/NoCoverage';
 import { ReportSkeleton } from './states/ReportSkeleton';
@@ -124,7 +128,7 @@ function Report({
   address?: string;
   flags: Flags;
 }) {
-  const { inputs, recommendation, selectedIndex, selected, setSelectedIndex } = report;
+  const { inputs, setInputs, recommendation, selectedIndex, selected, setSelectedIndex } = report;
   // Always set when there's a roof; this only narrows the type.
   if (!recommendation) return null;
   const steps = recommendation.scenarios.map((s) => ({ panels: s.panelsCount, systemKwDc: s.systemKwDc }));
@@ -141,6 +145,8 @@ function Report({
           <ConfidenceBadge imagery={building.imagery} />
         </div>
       </header>
+      <OutsideBcBanner administrativeArea={building.administrativeArea} />
+      <LargeBuildingNote maxPanels={building.roof.maxPanels} />
 
       {selected && selectedIndex !== null ? (
         <>
@@ -161,11 +167,13 @@ function Report({
           <MoneyBreakdown scenario={selected} inputs={inputs} />
           <ReasonChips reasons={recommendation.reasons} title="About this roof" />
           <Assumptions warnings={selected.warnings} inputs={inputs} />
+          <UsageInputs inputs={inputs} onChange={setInputs} />
         </>
       ) : (
         // No configs: nothing fits, so there's no money to show.
         <VerdictCard recommendation={recommendation} />
       )}
+      <SpecSheet building={building} scenario={selected} inputs={inputs} />
 
       <Attribution source={building.source} />
     </div>
