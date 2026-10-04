@@ -71,18 +71,18 @@ export function ReportLayout({
         {notices}
         <div
           data-print-stack
-          className="grid grid-cols-[minmax(0,1fr)] items-start gap-5 md:gap-6 xl:grid-cols-[minmax(0,1fr)_400px] xl:grid-rows-[auto_1fr] print:block"
+          className="grid grid-cols-[minmax(0,1fr)] items-start gap-5 md:gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:grid-rows-[auto_1fr] xl:grid-cols-[minmax(0,1fr)_400px] print:block"
         >
-          <div className="order-1 min-w-0 xl:col-start-1 xl:row-start-1">{house}</div>
+          <div className="order-1 min-w-0 lg:col-start-1 lg:row-start-1">{house}</div>
           <div
             data-print-stack
-            className="contents xl:col-start-2 xl:row-span-2 xl:row-start-1 xl:grid xl:content-start xl:gap-6 print:block"
+            className="contents lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:grid lg:content-start lg:gap-6 print:block"
           >
             {summary && <div className="order-2 min-w-0">{summary}</div>}
             {controls && <div className="order-3 min-w-0">{controls}</div>}
             {extras && <div className="order-5 grid min-w-0 gap-5 md:gap-6">{extras}</div>}
           </div>
-          {analysis && <div className="order-4 min-w-0 xl:col-start-1 xl:row-start-2">{analysis}</div>}
+          {analysis && <div className="order-4 min-w-0 lg:col-start-1 lg:row-start-2">{analysis}</div>}
         </div>
         {details}
         {footer}

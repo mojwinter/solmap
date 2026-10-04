@@ -116,7 +116,12 @@ export function SizeSweepChart({
       ? ` Past that, each extra panel mostly sells power at 10¢${biggest[money] < 0 ? ', and a full roof loses money' : ' and the total falls'}.`
       : ' Bigger sizes add little.';
     const why = metric === 'npv' ? ` Future savings count ${pct}% a year less, like money you could have invested instead.` : '';
-    return top + after + why;
+    // recommend() takes the smallest size within a few dollars of the best value, so it can sit below the peak.
+    const close =
+      metric === 'npv' && recommended && recommended.index !== peak.index
+        ? ` We recommend ${kw(recommended.kw)} kW: within ${cad(peak.npv - recommended.npv)} of the peak, for ${recommended.panels < peak.panels ? 'fewer panels' : 'a different size'}.`
+        : '';
+    return top + close + after + why;
   })();
 
   const valueOf = (p: SweepPoint) => (metric === 'payback' ? p.payback : p[metric]);
