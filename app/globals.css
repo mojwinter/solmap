@@ -303,6 +303,16 @@
   color: var(--ink);
 }
 
+/*
+ * The report's house window has 23px rounded corners, and Google pins its imagery credit and Terms
+ * link flush to the bottom-right corner, so the curve cut "Terms" off. Google requires both to stay
+ * visible, so we move them in from the corner instead of hiding them. (.gm-style-cc is Google's class
+ * for those items.)
+ */
+[data-house-window] .gm-style-cc {
+  translate: -16px 0;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

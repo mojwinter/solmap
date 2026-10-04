@@ -180,6 +180,7 @@ export function HouseWindow({
           role={exploring ? 'dialog' : undefined}
           aria-modal={exploring || undefined}
           aria-label={exploring ? 'Map' : undefined}
+          data-house-window={phase === 'closed' ? '' : undefined}
           className={
             phase === 'closed'
               ? `relative size-full overflow-hidden ${HOUSE_WINDOW_RADIUS}`
