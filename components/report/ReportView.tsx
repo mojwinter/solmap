@@ -7,7 +7,7 @@ import { verdictFor } from '@/lib/finance';
 import { clampInputs } from '@/lib/finance/clamp';
 import { rebateCapKw } from '@/lib/finance/project';
 import { FLAGS, type Flags } from '@/lib/flags';
-import type { BuildingResponse } from '@/src/types/app';
+import type { BuildingResponse, FinanceInputs, Recommendation } from '@/src/types/app';
 import { KeyFigures } from './analysis/KeyFigures';
 import { MonthlyChart } from './analysis/MonthlyChart';
 import { PanelOutputChart } from './analysis/PanelOutputChart';
@@ -23,9 +23,10 @@ import { SolarPotential } from './potential/SolarPotential';
 import { PaybackHero } from './money/PaybackHero';
 import { LargeBuildingNote } from './notices/LargeBuildingNote';
 import { OutsideBcBanner } from './notices/OutsideBcBanner';
+import { ReportFooter } from './ReportFooter';
 import { ReportLayout } from './ReportLayout';
 import { AddressSkeleton, ReportTitle } from './ReportTitle';
-import { SizeSlider } from './size/SizeSlider';
+import { SizeSlider, type SizeStep } from './size/SizeSlider';
 import { SpecSheet } from './spec/SpecSheet';
 import { ApiErrorState } from './states/ApiErrorState';
 import { NoCoverage } from './states/NoCoverage';
@@ -186,11 +187,21 @@ function ReportPage({
         }
         house={house}
         {...cards}
+        footer={roof && <ReportFooter source={roof.source} />}
       />
   );
 }
 
 type Cards = Pick<ComponentProps<typeof ReportLayout>, 'summary' | 'controls' | 'analysis' | 'extras' | 'main' | 'side' | 'details'>;
+
+/** The size slider's steps. It shows DC production, so undo the engine's DC→AC derate. */
+function sizeSteps(recommendation: Recommendation, inputs: FinanceInputs): SizeStep[] {
+  return recommendation.scenarios.map((s) => ({
+    panels: s.panelsCount,
+    dcKwhYear1: s.acKwhYear1 / inputs.dcToAcDerate,
+    value: s.npv,
+  }));
+}
 
 /**
  * The cards round the house once there's a roof: the answer top right with the size slider under it,
@@ -216,7 +227,7 @@ function reportCards(
       ),
     };
   }
-  const steps = recommendation.scenarios.map((s) => ({ panels: s.panelsCount, acKwhYear1: s.acKwhYear1, value: s.npv }));
+  const steps = sizeSteps(recommendation, inputs);
   // Install year for PaybackHero and the chart, read once so they agree. The roof is fetched after
   // mount, so this only ever runs in the browser (the user's clock), never in server HTML.
   const startYear = new Date().getFullYear();
@@ -330,7 +341,7 @@ function ExplorePanel({
               <MoneyTiles scenario={selected} />
             </SolarPotential>
             <SizeSlider
-              steps={recommendation.scenarios.map((s) => ({ panels: s.panelsCount, acKwhYear1: s.acKwhYear1, value: s.npv }))}
+              steps={sizeSteps(recommendation, inputs)}
               value={selectedIndex}
               recommendedIndex={recommendation.recommendedIndex}
               onChange={setSelectedIndex}

@@ -49,8 +49,8 @@ export function years(n: number): string {
 }
 
 /** "12 panels · 4,782 kWh" (the size slider's label). */
-export function panelsLabel(panels: number, acKwhYear1: number): string {
-  return `${panels} ${panels === 1 ? 'panel' : 'panels'} · ${kwh(acKwhYear1)} kWh`;
+export function panelsLabel(panels: number, dcKwhYear1: number): string {
+  return `${panels} ${panels === 1 ? 'panel' : 'panels'} · ${kwh(dcKwhYear1)} kWh`;
 }
 
 const COMPASS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'] as const;

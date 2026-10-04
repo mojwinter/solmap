@@ -41,7 +41,7 @@ export function SpecSheet({
         </>
       )}
 
-      {/* On screen the "Get real quotes" card says this; paper has no card, so it prints here. */}
+      {/* On screen the "See more on rebates" card says this; paper has no card, so it prints here. */}
       {scenario && (
         <div className="hidden gap-3 print:grid">
           <SubHeading>Next steps</SubHeading>

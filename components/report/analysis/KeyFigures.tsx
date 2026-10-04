@@ -25,7 +25,7 @@ export function KeyFigures({ scenario, sunHours }: { scenario: ScenarioResult; s
         <Figure
           label="Sun hours/yr"
           value={kwh(sunHours)}
-          info={<p className="max-w-64">Annual sunshine on the sunniest part of your roof, from Google’s aerial data.</p>}
+          info={<p className="max-w-64">Annual sunshine on your roof.</p>}
         />
         <Figure
           label="Yearly savings"
@@ -36,8 +36,7 @@ export function KeyFigures({ scenario, sunHours }: { scenario: ScenarioResult; s
                 ['Solar you use yourself', cad(scenario.year1.selfUsedValue)],
                 ['Solar you sell back', cad(scenario.year1.exportValue)],
               ]}
-              total={['First-year savings', cad(scenario.year1.total)]}
-              foot="Year one. It grows a little each year as power prices rise, less about 0.5% a year as panels age."
+              total={['Total savings', cad(scenario.year1.total)]}
             />
           }
         />
@@ -52,7 +51,6 @@ export function KeyFigures({ scenario, sunHours }: { scenario: ScenarioResult; s
                 ['Less export credit', cad(-bill.exportCredit)],
               ]}
               total={['What you’d still pay', cad(bill.net)]}
-              foot="Year one, before GST, same usage."
             />
           }
         />

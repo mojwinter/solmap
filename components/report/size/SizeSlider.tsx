@@ -8,8 +8,8 @@ import styles from '@/components/common/Range.module.css';
 
 export interface SizeStep {
   panels: number;
-  /** First-year AC production: the sum of these panels' own output, so each step adds a different amount. */
-  acKwhYear1: number;
+  /** First-year DC production: the sum of these panels' own output, so each step adds a different amount. */
+  dcKwhYear1: number;
   /** Savings in today's dollars at this size (Recommendation's npv): drawn as a curve over the track when given. */
   value?: number;
 }
@@ -59,7 +59,7 @@ export function SizeSlider({
           </small>
         </span>
         <span className="font-rounded text-[30px] leading-9 font-bold tracking-tight tabular-nums text-sky-700">
-          {kwh(current.acKwhYear1)}
+          {kwh(current.dcKwhYear1)}
           <small className="ml-1.5 font-sans text-callout font-medium tracking-normal text-ink-secondary">kWh a year</small>
         </span>
       </p>
@@ -76,7 +76,7 @@ export function SizeSlider({
             value={value}
             onChange={(e) => onChange(Number(e.target.value))}
             aria-label="System size"
-            aria-valuetext={panelsLabel(current.panels, current.acKwhYear1) + (onRecommended ? ', recommended' : '')}
+            aria-valuetext={panelsLabel(current.panels, current.dcKwhYear1) + (onRecommended ? ', recommended' : '')}
             className={styles.range}
             style={{ '--pct': `${at(value)}%` } as CSSProperties}
           />
