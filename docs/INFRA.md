@@ -1,7 +1,7 @@
 # Infrastructure
 
 Owner: **B (API & Infra)**. Goal: every merge to `main` is live at
-**https://solmap.yardstick.football** within a few minutes. Solmap shares a VPS with puckbank and
+**https://sunscore.tech** within a few minutes. Solmap shares a VPS with puckbank and
 yardstick and deploys exactly the way yardstick does.
 
 ## Shape
@@ -21,7 +21,8 @@ Shared VPS 2.24.120.101 (Hostinger, Ubuntu 24.04, ~8 GB RAM): also runs puckbank
 
 Cloudflare (proxied, Full Strict, Access) → puckbank's Caddy :443 ─┬─ puckbank.com …
                                                                    ├─ yardstick.football         → yardstick:3000
-                                                                   └─ solmap.yardstick.football  → solmap:3000
+                                                                   ├─ sunscore.tech              → solmap:3000
+                                                                   └─ solmap.yardstick.football  → 301 to sunscore.tech
                                       (all on the docker network `puckbank_puckbank`)
 ```
 
@@ -52,14 +53,24 @@ docker network inspect puckbank_puckbank >/dev/null && echo "network ok"
 
 Never `git clean` in `~/solmap`: `ops/.env` and `ops/solar-cache/` are untracked on purpose.
 
-**2. Caddy (a PR to mojwinter/puckbank).** Add to `apps/ops/Caddyfile`, next to the yardstick blocks:
+**2. Caddy (a PR to mojwinter/puckbank).** These blocks live in `apps/ops/Caddyfile`, after the yardstick blocks:
 
 ```
 # Solmap: BC rooftop-solar estimator (hackathon). Own compose stack in ~/solmap-ops, joined to this
 # stack's `puckbank` network. Gated by Cloudflare Access until demo day.
-solmap.yardstick.football {
+sunscore.tech {
 	import common
 	reverse_proxy solmap:3000
+}
+
+# www → apex 301 redirect, matching www.puckbank.com.
+www.sunscore.tech {
+	redir https://sunscore.tech{uri} permanent
+}
+
+# The original hostname: kept as a redirect so links shared before the move still work.
+solmap.yardstick.football {
+	redir https://sunscore.tech{uri} permanent
 }
 ```
 
@@ -74,11 +85,17 @@ git pull && docker compose config -q && docker compose up -d --force-recreate --
 `--no-deps` matters: without it compose can recreate puckbank's frontend/backend too, which strands their
 tailscale sidecar. The recreate drops connections for every site on the box for a second or two.
 
-**3. Cloudflare (yardstick.football zone)**
-- DNS: `solmap` → A record to the VPS IP, **DNS only (gray cloud)** until
-  `docker compose logs caddy | grep -i solmap` shows the certificate was obtained, then **Proxied (orange)**.
-  The zone already runs Full (Strict).
-- Zero Trust → Access → Applications → Self-hosted: `solmap.yardstick.football`, policy "Allow" for the
+**3. Cloudflare (sunscore.tech zone)**
+- SSL/TLS: **Full (Strict)**, like the other zones on the box.
+- DNS: `@` and `www` → A records to the VPS IP, **DNS only (gray cloud)** until
+  `docker compose logs caddy | grep -i sunscore` shows a certificate was obtained for each, then **Proxied
+  (orange)**. Keep them proxied: the rate limiter trusts `CF-Connecting-IP`, which only Cloudflare can vouch for.
+  While a record is gray the edge doesn't enforce Access, but the origin check (`proxy.ts`) still 403s anyone
+  without an Access token, so keep that window short rather than worrying about it.
+- The old `solmap` record in the yardstick.football zone stays (proxied) for the redirect above.
+- Zero Trust → Access → Applications → Self-hosted: one app covering `sunscore.tech`, `www.sunscore.tech` and
+  `solmap.yardstick.football`. Keep it **one** app: the origin accepts tokens for a single `CF_ACCESS_AUD`, and
+  a second app would have its own AUD. Policy "Allow" for the
   team's emails (one-time PIN). Scripts (e.g. `/demo-check`) need an Access **service token**
   (`CF-Access-Client-Id` / `CF-Access-Client-Secret` headers) while it's on, and the policy needs a
   **Service Auth** rule for that token. On demo day remove the app **and** clear `CF_ACCESS_TEAM_DOMAIN` /
@@ -118,7 +135,7 @@ value fails closed. If the host key ever changes (rebuilt box), update the varia
 first push creates the `ghcr.io/mojwinter/solmap` package as **private**, so the box's pull fails until you
 make it public: github.com/users/mojwinter/packages/container/solmap/settings → Change visibility →
 Public (same as puckbank's images). Then re-run the workflow and check
-`https://solmap.yardstick.football/api/health` → `{"ok":true}`.
+`https://sunscore.tech/api/health` → `{"ok":true}`.
 
 **Box budget.** The `solmap` container idles at ~150–250 MB; heatmap renders spike briefly. Compose caps it
 at 768 MB and 1 CPU (`mem_limit`, `cpus`) so it can't starve puckbank or yardstick; past the memory cap it's
@@ -162,7 +179,7 @@ hardening flags, only the cache dirs writable, writable solar-cache mount) on ev
 broken Dockerfile shows up before a deploy does.
 
 Google Cloud: restrict the **server key** to the VPS's public IPv4 **and** IPv6. Restrict the **browser key**
-to `https://solmap.yardstick.football/*` and `http://localhost:3000/*`.
+to `https://sunscore.tech/*`, `https://www.sunscore.tech/*` and `http://localhost:3000/*`.
 
 ## Demo-day runbook
 
@@ -270,7 +287,7 @@ for (const f of fs.readdirSync(dir).filter((f) => f.endsWith(".json")).sort()) {
 ```
 
 Verify: each demo roof's lat/lng appears with `ok` (status 200, or 404 for the no-coverage roof). `ENOENT`
-means nothing is cached yet. The end-to-end check is `/demo-check https://solmap.yardstick.football`: every
+means nothing is cached yet. The end-to-end check is `/demo-check https://sunscore.tech`: every
 `live` address must come back with `source` `cache`. A `live` there means it wasn't warm (and that request
 just warmed it).
 
@@ -290,7 +307,7 @@ Then warm with **one** of:
 
   ```bash
   curl -s -H "CF-Access-Client-Id: $CF_ACCESS_CLIENT_ID" -H "CF-Access-Client-Secret: $CF_ACCESS_CLIENT_SECRET" \
-    "https://solmap.yardstick.football/api/solar/building?lat=<lat>&lng=<lng>"
+    "https://sunscore.tech/api/solar/building?lat=<lat>&lng=<lng>"
   ```
 
 - **`pnpm solar:warm` on B's machine** (its IP must be on the server key; `SOLAR_API_KEY` in `.env.local`).
@@ -329,22 +346,22 @@ docker compose up -d --pull never solmap
 docker compose exec solmap sh -c 'echo "team=[$CF_ACCESS_TEAM_DOMAIN] aud=[$CF_ACCESS_AUD]"'
 ```
 
-The last line must print `team=[] aud=[]`. Then Cloudflare Zero Trust → Access → Applications →
-`solmap.yardstick.football` → Delete.
+The last line must print `team=[] aud=[]`. Then Cloudflare Zero Trust → Access → Applications → the solmap
+app (it covers `sunscore.tech`, `www.sunscore.tech` and `solmap.yardstick.football`) → Delete.
 
 Verify from a laptop that isn't logged in to Access (private window, or no cookies with curl). This query
 is rejected before any lookup, so it never costs a Google call:
 
 ```bash
-curl -s -o /dev/null -w "%{http_code}\n" https://solmap.yardstick.football/
-curl -s "https://solmap.yardstick.football/api/solar/building?lat=0&lng=0"
+curl -s -o /dev/null -w "%{http_code}\n" https://sunscore.tech/
+curl -s "https://sunscore.tech/api/solar/building?lat=0&lng=0"
 ```
 
 - Good: `200`, then `{"error":"BAD_REQUEST",…}`.
 - A `302` (redirect to `….cloudflareaccess.com`) or a Cloudflare login page means the Access app is still there.
 - A `403` or `{"error":"FORBIDDEN"}` means the origin check is still on: check `.env` and recreate.
 
-Then re-run `/demo-check https://solmap.yardstick.football` **without** `CF_ACCESS_CLIENT_ID` /
+Then re-run `/demo-check https://sunscore.tech` **without** `CF_ACCESS_CLIENT_ID` /
 `CF_ACCESS_CLIENT_SECRET` in the shell, from a laptop tethered to a phone on cellular data (not the venue
 Wi-Fi). Also open the site on that phone with Wi-Fi off, search the hero address and check the report loads
 with no Access login.
@@ -355,9 +372,9 @@ and an unquoted `&` splits the command), `NUL` instead of `/dev/null`, `%VAR%` i
 words as extra URLs. In PowerShell, type `curl.exe`, because `curl` there is `Invoke-WebRequest`.
 
 ```bat
-curl -s -o NUL -w "%{http_code}\n" https://solmap.yardstick.football/
-curl -s "https://solmap.yardstick.football/api/solar/building?lat=0&lng=0"
-curl -s -H "CF-Access-Client-Id: %CF_ACCESS_CLIENT_ID%" -H "CF-Access-Client-Secret: %CF_ACCESS_CLIENT_SECRET%" "https://solmap.yardstick.football/api/solar/building?lat=0&lng=0"
+curl -s -o NUL -w "%{http_code}\n" https://sunscore.tech/
+curl -s "https://sunscore.tech/api/solar/building?lat=0&lng=0"
+curl -s -H "CF-Access-Client-Id: %CF_ACCESS_CLIENT_ID%" -H "CF-Access-Client-Secret: %CF_ACCESS_CLIENT_SECRET%" "https://sunscore.tech/api/solar/building?lat=0&lng=0"
 ```
 
 (In a `.bat` file, double the `%` in `%{http_code}`: `%%{http_code}`.)
@@ -409,13 +426,13 @@ cached (replace `<lat>` and `<lng>`). 40 quick requests must all be `200`; if th
 one costs one Google call and the other 39 are still free:
 
 ```bash
-for i in $(seq 40); do curl -s -o /dev/null -w "%{http_code}\n" "https://solmap.yardstick.football/api/solar/building?lat=<lat>&lng=<lng>"; done | sort | uniq -c
+for i in $(seq 40); do curl -s -o /dev/null -w "%{http_code}\n" "https://sunscore.tech/api/solar/building?lat=<lat>&lng=<lng>"; done | sort | uniq -c
 ```
 
 Good: `40 200`. Windows `cmd.exe` (one line; it prints `40`):
 
 ```bat
-(for /L %i in (1,1,40) do @curl -s -o NUL -w "%{http_code}\n" "https://solmap.yardstick.football/api/solar/building?lat=<lat>&lng=<lng>") | find /c "200"
+(for /L %i in (1,1,40) do @curl -s -o NUL -w "%{http_code}\n" "https://sunscore.tech/api/solar/building?lat=<lat>&lng=<lng>") | find /c "200"
 ```
 
 In a `.bat` file, double both: `%%i` and `%%{http_code}`. While Access is still on (the #35 rehearsal), add the
@@ -462,7 +479,7 @@ gh variable set DEPLOY_ENABLED --body false     # from a laptop, first: otherwis
 docker compose down                             # on the box; leaves puckbank's network alone (it's external)
 ```
 
-Verify: `docker compose ps` lists nothing, and `https://solmap.yardstick.football/` gives an error page (502).
+Verify: `docker compose ps` lists nothing, and `https://sunscore.tech/` gives an error page (502).
 
 Or put Access back. Recreating the Access app gives it a **new AUD tag**, so copy the new tag from the app's
 Overview, restore the env vars from the backup, and set the new AUD:

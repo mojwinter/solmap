@@ -124,7 +124,7 @@ Imports: `@/src/types/app`, `@/src/types/solar`, `@/src/config/bc` (alias `@/*` 
    `EXPANDED_COVERAGE` retry is behind `SOLAR_EXPANDED_COVERAGE`; see docs/SOLAR_API.md.
 8. Money in the UI is **CAD**, rounded to whole dollars. Energy in **kWh**, power in **kW**.
 9. Small PRs, one owner per folder (see `PLAN.md` → Team). Rebase on `main` before
-   pushing. `main` auto-deploys to https://solmap.yardstick.football (behind Cloudflare Access until demo day).
+   pushing. `main` auto-deploys to https://sunscore.tech (behind Cloudflare Access until demo day).
 
 ## Domain cheat-sheet
 

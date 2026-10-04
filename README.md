@@ -26,7 +26,7 @@ not the app itself. Drop it into a fresh Next.js repo at hour 0 (see `docs/INFRA
 | `app/`, `package.json`, configs | everyone | The scaffolded Next.js 16 app (hour 0). Only `app/api/health` and one config test so far |
 
 "Solmap" is the working name. Identifiers (the GHCR image, `~/solmap`, the hostname, the repo) use lowercase `solmap`. It's served at
-`solmap.yardstick.football` for now.
+`sunscore.tech` (the old `solmap.yardstick.football` redirects there).
 
 ## Changes in the 2026-10-03 revision
 

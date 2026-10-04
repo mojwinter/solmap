@@ -12,7 +12,7 @@ export async function proxy(request: NextRequest) {
   if (pathname.startsWith("/api/")) {
     return Response.json({ error: "FORBIDDEN" }, { status: 403, headers: { "Cache-Control": "private, no-store" } });
   }
-  return new Response("403 Forbidden: open this site through https://solmap.yardstick.football.\n", {
+  return new Response("403 Forbidden: open this site through https://sunscore.tech.\n", {
     status: 403,
     headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "private, no-store" },
   });
