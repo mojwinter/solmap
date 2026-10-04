@@ -14,6 +14,7 @@ import { Wordmark } from '@/components/common/Wordmark';
  * Printed, the cards become plain blocks (globals.css) and the map hides.
  */
 export function ReportLayout({
+  search,
   title,
   notices,
   house,
@@ -23,7 +24,9 @@ export function ReportLayout({
   extras,
   flags,
 }: {
-  /** The address and its badges (and the search dot). */
+  /** Top bar, right end: looking up another address. */
+  search?: ReactNode;
+  /** The address and its badges. */
   title?: ReactNode;
   /** Banners that apply to the whole report. */
   notices?: ReactNode;
@@ -47,8 +50,9 @@ export function ReportLayout({
         className="pointer-events-none absolute -top-40 -right-32 size-[440px] rounded-full bg-[radial-gradient(circle,var(--sun-300)_0%,transparent_68%)] opacity-70 print:hidden"
       />
 
-      <header className="relative mx-auto w-full max-w-[1320px] px-4 py-4 sm:px-8 print:hidden">
+      <header className="relative mx-auto flex min-h-[68px] w-full max-w-[1320px] items-center justify-between gap-4 px-4 py-3 sm:min-h-[84px] sm:px-8 sm:py-5 print:hidden">
         <Wordmark href="/" />
+        {search}
       </header>
 
       <main

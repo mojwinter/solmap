@@ -182,14 +182,14 @@
   --radius-xl: 30px;
   --radius-pill: 999px;
 
-  /* The search dot opening into the address field: the field is revealed from the dot's edge rightwards. */
+  /* The phone search button opening into the address field: revealed from the button at the bar's right end, leftwards. */
   --animate-search-open: search-open 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
   @keyframes search-open {
     from {
-      clip-path: inset(0 calc(100% - 46px) 0 0 round 23px);
+      clip-path: inset(0 0 0 calc(100% - 44px) round 22px);
     }
     to {
-      clip-path: inset(-100px round 30px);
+      clip-path: inset(-100px round 22px);
     }
   }
 

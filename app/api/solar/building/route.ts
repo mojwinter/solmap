@@ -18,7 +18,7 @@ export async function GET(request: Request) {
     if (result.status === 404) {
       // Same 404 either way (DESIGN.md §6); the header lets the report show "BC only" instead of "no imagery".
       if (result.reason === "outside-bc") {
-        const message = "That building is outside BC, and Solmap only covers BC.";
+        const message = "That building is outside BC, and Sunscore only covers BC.";
         return reply({ error: "NO_COVERAGE", message }, 404, { [REASON_HEADER]: "outside-bc" });
       }
       return reply({ error: "NO_COVERAGE", message: "We can't see this roof yet: there's no solar data for this spot." }, 404);

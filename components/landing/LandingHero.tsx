@@ -15,7 +15,8 @@ export function LandingHero() {
         className="pointer-events-none absolute -top-32 -right-28 size-[360px] sm:-top-40 sm:-right-30 sm:size-[520px] rounded-full bg-[radial-gradient(circle,var(--sun-300)_0%,transparent_68%)]"
       />
 
-      <header className="relative px-4 py-4 sm:px-8">
+      {/* Same box as the report's top bar, so the wordmark doesn't move between pages. */}
+      <header className="relative mx-auto flex min-h-[68px] w-full max-w-[1320px] items-center px-4 py-3 sm:min-h-[84px] sm:px-8 sm:py-5">
         <Wordmark />
       </header>
 
