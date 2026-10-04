@@ -17,6 +17,7 @@ import { LargeBuildingNote } from './notices/LargeBuildingNote';
 import { OutsideBcBanner } from './notices/OutsideBcBanner';
 import { ReportLayout } from './ReportLayout';
 import { SizeSlider } from './size/SizeSlider';
+import { SweetSpotChart } from './size/SweetSpotChart';
 import { SpecSheet } from './spec/SpecSheet';
 import { ApiErrorState } from './states/ApiErrorState';
 import { NoCoverage } from './states/NoCoverage';
@@ -135,7 +136,7 @@ function Report({
   const onRecommended = selectedIndex === recommendation.recommendedIndex;
 
   return (
-    // No P1 UI on the report yet: gate the first ones (heatmap toggle, battery, charts, print) with `flags`.
+    // P1 UI renders only behind its flag (charts so far; battery, print and the drawer to come).
     // data-flags shows which are on, for ops and the E2E smoke test.
     <div className="grid gap-6" data-flags={FLAGS.filter((f) => flags[f]).join(' ')}>
       <header className="grid gap-1.5">
@@ -164,6 +165,16 @@ function Report({
             recommendedIndex={recommendation.recommendedIndex}
             onChange={setSelectedIndex}
           />
+          {flags.charts && (
+            <SweetSpotChart
+              scenarios={recommendation.scenarios}
+              recommendedIndex={recommendation.recommendedIndex}
+              selectedIndex={selectedIndex}
+              onSelect={setSelectedIndex}
+              exportRate={inputs.exportRate}
+              lifetimeYears={inputs.lifetimeYears}
+            />
+          )}
           <MoneyBreakdown scenario={selected} inputs={inputs} />
           <ReasonChips reasons={recommendation.reasons} title="About this roof" />
           <Assumptions warnings={selected.warnings} inputs={inputs} />

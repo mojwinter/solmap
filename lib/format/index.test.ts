@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cad, cents, compass, imageryLabel, isLowConfidence, kw, kwh, MINUS, monthYear, panelsLabel, signedCad, years } from '.';
+import { cad, cents, compactCad, compass, imageryLabel, isLowConfidence, kw, kwh, MINUS, monthYear, panelsLabel, signedCad, years } from '.';
 
 describe('money', () => {
   it('rounds to whole dollars with thousands separators', () => {
@@ -12,6 +12,17 @@ describe('money', () => {
     expect(signedCad(10131.1)).toBe('+$10,131');
     expect(signedCad(-4200)).toBe('−$4,200');
     expect(signedCad(0.4)).toBe('$0');
+  });
+
+  it('shortens chart ticks', () => {
+    expect(compactCad(0)).toBe('$0');
+    expect(compactCad(950)).toBe('$950');
+    expect(compactCad(2500)).toBe('$2.5k');
+    expect(compactCad(-10000)).toBe(`${MINUS}$10k`);
+    expect(compactCad(12345)).toBe('$12k');
+    expect(compactCad(3000)).toBe('$3k');
+    expect(compactCad(1_250_000)).toBe('$1.3M');
+    expect(compactCad(-0.3)).toBe('$0');
   });
 
   it('formats a per-kWh rate in cents', () => {

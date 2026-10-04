@@ -29,6 +29,16 @@ export function kw(n: number): string {
   return n.toFixed(1);
 }
 
+/** Chart axis ticks: 950 → "$950", −10000 → "−$10k", 2500 → "$2.5k", 1250000 → "$1.3M". */
+export function compactCad(n: number): string {
+  const a = Math.abs(n);
+  const sign = n < 0 && Math.round(a) !== 0 ? MINUS : '';
+  const short = (v: number) => (v >= 10 || Number.isInteger(Math.round(v * 10) / 10) ? Math.round(v).toString() : v.toFixed(1));
+  if (a >= 999_500) return `${sign}$${short(a / 1e6)}M`;
+  if (a >= 1000) return `${sign}$${short(a / 1000)}k`;
+  return `${sign}$${Math.round(a)}`;
+}
+
 /** 0.135 $/kWh → "13.5¢". */
 export function cents(dollarsPerKwh: number): string {
   const c = Math.round(dollarsPerKwh * 1000) / 10;
