@@ -1,4 +1,4 @@
-# CLAUDE.md — Solmap (working name)
+# CLAUDE.md — Sunscore (codename Solmap)
 
 @AGENTS.md
 

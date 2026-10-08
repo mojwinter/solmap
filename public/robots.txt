@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+# Every /api/solar call can cost a Google Solar API request.
+Disallow: /api/
