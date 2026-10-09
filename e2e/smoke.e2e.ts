@@ -134,13 +134,10 @@ test("daily Google budget spent (503) gets its own copy", async ({ page }) => {
   await expect(errorState(page)).toContainText(DAILY_LIMIT_MESSAGE);
 });
 
-test('P1 flags are all off in production when SOLMAP_FLAGS is unset', async ({ page }) => {
-  test.skip(!!process.env.BASE_URL, 'only the server this config starts is known to run without SOLMAP_FLAGS');
+test('the production build shows the charts and Advanced settings', async ({ page }) => {
   await page.goto('/report/49.25/-123.15');
-  // data-flags lists the P1 flags the page was rendered with (components/report/ReportView.tsx).
-  const report = page.locator('[data-flags]');
-  await expect(report).toBeVisible();
-  await expect(report).toHaveAttribute('data-flags', '');
+  await expect(page.getByRole('region', { name: 'Savings over time' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Advanced settings' })).toBeVisible();
 });
 
 test('health check answers ok', async ({ request }) => {

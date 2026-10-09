@@ -4,7 +4,7 @@ import { Icon } from '@/components/common/Icon';
 
 /**
  * #33. `PrintButton` opens the browser's print dialog, where "Save as PDF" lives (a CSS print
- * stylesheet, not a PDF library: PLAN.md). Behind the `print` flag. `PrintHeader` shows only on paper:
+ * stylesheet, not a PDF library: PLAN.md). `PrintHeader` shows only on paper:
  * where the report came from and the link back to it, so an installer can open the same numbers.
  */
 export function PrintButton() {

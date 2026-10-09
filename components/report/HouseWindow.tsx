@@ -30,14 +30,12 @@ export function HouseWindow({
   location,
   building,
   visibleCount,
-  heatmap,
   panel,
   onPick,
 }: {
   location: LatLngLiteral;
   building: BuildingResponse | null;
   visibleCount: number;
-  heatmap: boolean;
   /** The floating results panel while exploring (desktop). */
   panel?: ReactNode;
   /** A clicked spot or a searched address while exploring. */
@@ -198,7 +196,6 @@ export function HouseWindow({
             visibleCount={visibleCount}
             fitPadding={laidOut ? 'report' : 'window'}
             captions={false}
-            heatmap={heatmap}
             locked={!exploring}
             holdCamera={phase === 'opening' || phase === 'closing'}
             onMapClick={laidOut ? onPick : undefined}
@@ -222,7 +219,7 @@ export function HouseWindow({
                   <Icon name="pin" size={14} />
                   Click to explore the map
                 </span>
-                {building && heatmap && <MapLayerToggle />}
+                {building && <MapLayerToggle />}
               </>
             )}
             {laidOut && (

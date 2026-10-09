@@ -5,8 +5,8 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Design tokens from the Solmap design system ("Daylight", Claude Design):
- * https://claude.ai/artifact/K7zzamvLTAppqvdqZcZtK3 — read its README for usage rules.
+ * Design tokens from our design system ("Daylight", made in Claude Design). The full rules live in the
+ * team's private copy (https://claude.ai/artifact/K7zzamvLTAppqvdqZcZtK3); DESIGN.md §4 has the summary.
  * Raw tokens keep the design's names; shadcn's variables below point at them.
  * Day = :root, Dusk = .dark.
  */
@@ -370,14 +370,14 @@
    * would push a tall card whole onto the next page. On paper it's one column of blocks: the layout marks
    * its grid and columns print:block; the cards follow here. Unlayered, so it beats the `grid` utility.
    */
-  [data-flags] .card {
+  [data-report] .card {
     display: block;
   }
-  [data-flags] > * + *,
+  [data-report] > * + *,
   [data-print-stack] > * + * {
     margin-top: 1.5rem;
   }
-  [data-flags] .card > * + * {
+  [data-report] .card > * + * {
     margin-top: 0.75rem;
   }
   /* Rows and tiles stay whole; whole sections may split, or a tall one strands a near-empty page. */

@@ -143,9 +143,9 @@ Reset. The report updates live behind it; a dot on the pill means something diff
 
 ## 4. Visual direction
 
-**Source of truth for anything visual: the Solmap design system (Claude Design, "Daylight")**:
-https://claude.ai/artifact/K7zzamvLTAppqvdqZcZtK3. Its README has the full rules and every
-component's guidelines. Tokens are in `app/globals.css` under the same names. If this section
+**Source of truth for anything visual: our design system, "Daylight"** (made in Claude Design;
+the team's copy is private: https://claude.ai/artifact/K7zzamvLTAppqvdqZcZtK3). Its tokens are in
+`app/globals.css` under the same names, and the main rules are summarised below. If this section
 and the design disagree, the design wins; data, finance and copy rules elsewhere in this
 file and in CLAUDE.md still apply.
 

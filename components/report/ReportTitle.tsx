@@ -54,7 +54,7 @@ export function ReportTitle({
   /** The roof's imagery, once it has loaded. */
   imagery?: BuildingResponse['imagery'];
   loading?: boolean;
-  /** Show "Save as PDF" (the `print` flag) once there's a roof. */
+  /** Show "Save as PDF" once there's a roof. */
   print?: boolean;
   /** More buttons at the right end of the badge row (e.g. Advanced settings). */
   actions?: ReactNode;
