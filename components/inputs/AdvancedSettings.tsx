@@ -11,7 +11,7 @@ import { AssumptionsPanel } from './AssumptionsPanel';
 const KNOBS = ['costPerWatt', 'costIncrease', 'daytimeLoadShare', 'discountRate', 'panelWatts', 'rebateEligible'] as const;
 
 /**
- * [P1, `assumptions` flag] "Advanced settings": a pill in the title row (beside Save as PDF) that opens
+ * "Advanced settings": a pill in the title row (beside Save as PDF) that opens
  * What we assumed in a modal dialog. Every change reruns the report behind it, live. Escape, the close
  * button or a click outside closes it; focus returns to the button.
  */

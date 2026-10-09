@@ -51,7 +51,7 @@ const KNOBS: Record<Knob, { label: string; step: number; format: (v: number) => 
 };
 
 /**
- * [P1, `assumptions` flag] The assumptions drawer (DESIGN.md §3): every knob in FinanceInputs that's
+ * The assumptions drawer (DESIGN.md §3): every knob in FinanceInputs that's
  * ours to guess, with its range and BC default (and why, behind each ⓘ). Every change reruns the whole
  * report. Reset puts the knobs back to BC's defaults (usage and plan stay). `heading` replaces the
  * default title (a dialog passes its own), and `actions` go after Reset (e.g. a close button).

@@ -1,4 +1,4 @@
-# Copy to the repo root at hour 0. Keeps secrets, local builds and real Google responses out of the image.
+# Keeps secrets, local builds and real Google responses out of the image.
 .git
 node_modules
 .next

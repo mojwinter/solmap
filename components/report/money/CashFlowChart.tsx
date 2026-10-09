@@ -25,7 +25,7 @@ function labelAnchor(fraction: number): 'start' | 'middle' | 'end' {
 }
 
 /**
- * [P1, `charts` flag] Cumulative net savings for the selected size, from −netCost on install day
+ * Cumulative net savings for the selected size, from −netCost on install day
  * to the end of the panels' life: red while you're still paying it off, green once you're ahead,
  * break-even marked with its year. PaybackHero says in words when it never pays back; the summary
  * here is for screen readers. A "Year by year" table carries every number, so nothing depends on

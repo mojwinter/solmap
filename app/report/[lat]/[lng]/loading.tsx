@@ -20,7 +20,6 @@ export default function Loading() {
   return (
     <ReportLayout
       search={<HeaderSearchPlaceholder />}
-      // As with the charts below: the title's buttons are assumed on, as on prod.
       title={<ReportTitle address={address} loading actionsPending={{ settings: true, pdf: true }} />}
       house={
         <HouseCard>
@@ -29,9 +28,7 @@ export default function Loading() {
           </div>
         </HouseCard>
       }
-      // Charts assumed on (they are on prod): this client screen can't read the server-side flags,
-      // and reading them here would make the screen wait for the server instead of showing at once.
-      {...loadingCards(true)}
+      {...loadingCards()}
       fadeIn
     />
   );

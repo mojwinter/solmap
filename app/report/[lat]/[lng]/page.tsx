@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { ReportView } from '@/components/report/ReportView';
 import { parseReportQuery } from '@/components/report/urlState';
-import { getFlags } from '@/lib/flags.server';
 
 function parseCoord(raw: string, limit: number): number | null {
   const n = Number(raw);
@@ -19,8 +18,5 @@ export default async function ReportPage({ params, searchParams }: PageProps<'/r
   if (lat === null || lng === null) notFound();
 
   const query = parseReportQuery(await searchParams);
-  // P1 features render only when their flag is on (docs/INFRA.md → Feature flags; all off on prod by default).
-  const flags = await getFlags();
-
-  return <ReportView lat={lat} lng={lng} address={query.address} query={query} flags={flags} />;
+  return <ReportView lat={lat} lng={lng} address={query.address} query={query} />;
 }

@@ -33,7 +33,6 @@ export function ReportLayout({
   side = [],
   details,
   footer,
-  flags,
   fadeIn = false,
 }: {
   /** Top bar, right end: looking up another address. */
@@ -60,8 +59,6 @@ export function ReportLayout({
   details?: ReactNode;
   /** Last line of the page (e.g. sources and attribution). */
   footer?: ReactNode;
-  /** The P1 flags that are on, space-separated: ops and the E2E smoke test read data-flags. */
-  flags?: string;
   /**
    * Fade the page in. Only the route's loading screen does: the report that replaces it is a new
    * layout, and fading that in again blanked the page mid-load.
@@ -110,7 +107,7 @@ export function ReportLayout({
 
       <main
         aria-label="Solar report"
-        data-flags={flags}
+        data-report
         className={`relative mx-auto grid w-full max-w-[1320px] flex-1 grid-cols-[minmax(0,1fr)] content-start gap-5 px-4 pt-2 pb-10 sm:px-8 md:gap-6 print:block print:p-0 ${fadeIn ? 'motion-safe:animate-in motion-safe:fade-in motion-safe:duration-250' : ''}`}
       >
         {title}

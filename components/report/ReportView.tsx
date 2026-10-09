@@ -6,7 +6,6 @@ import { AdvancedSettings } from '@/components/inputs/AdvancedSettings';
 import { verdictFor } from '@/lib/finance';
 import { clampInputs } from '@/lib/finance/clamp';
 import { rebateCapKw } from '@/lib/finance/project';
-import { FLAGS, type Flags } from '@/lib/flags';
 import type { BuildingResponse, FinanceInputs, Recommendation } from '@/src/types/app';
 import { KeyFigures } from './analysis/KeyFigures';
 import { MonthlyChart } from './analysis/MonthlyChart';
@@ -59,10 +58,8 @@ function reportPath({ lat, lng, address }: Place, state: Omit<ReportQuery, 'addr
  * lookup doesn't reload it; a search in the top bar swaps the place in state and rewrites the URL
  * without a navigation, so the report stays shareable. The size on screen, annual kWh and rate plan
  * ride along as `?panels=&kwh=&plan=` (only when they differ from the defaults).
- * `flags` comes from the page (server-read SOLMAP_FLAGS): render each P1 feature only behind its flag,
- * e.g. `{flags.battery && <BatteryToggle … />}`, and add new names to lib/flags.ts first.
  */
-export function ReportView({ lat, lng, address, query = {}, flags }: Place & { query?: ReportQuery; flags: Flags }) {
+export function ReportView({ lat, lng, address, query = {} }: Place & { query?: ReportQuery }) {
   const [place, setPlace] = useState<Place>({ lat, lng, address });
 
   // A real navigation (e.g. a demo link in NoCoverage) brings new props: follow them.
@@ -86,7 +83,7 @@ export function ReportView({ lat, lng, address, query = {}, flags }: Place & { q
 
   return (
     <MapsProvider>
-      <ReportPage place={place} building={building} report={report} flags={flags} lookUp={lookUp} />
+      <ReportPage place={place} building={building} report={report} lookUp={lookUp} />
     </MapsProvider>
   );
 }
@@ -96,13 +93,11 @@ function ReportPage({
   place,
   building,
   report,
-  flags,
   lookUp,
 }: {
   place: Place;
   building: BuildingState & { retry: () => void };
   report: ReturnType<typeof useReportState>;
-  flags: Flags;
   lookUp: (next: Place) => void;
 }) {
   const roof = building.status === 'ready' ? building.data : null;
@@ -117,7 +112,6 @@ function ReportPage({
       location={{ lat: place.lat, lng: place.lng }}
       building={roof}
       visibleCount={selected?.panelsCount ?? 0}
-      heatmap={flags.heatmap}
       onPick={lookUp}
       panel={<ExplorePanel building={building} report={report} address={address} />}
     />
@@ -128,18 +122,16 @@ function ReportPage({
       address={address}
       imagery={roof?.imagery}
       loading={building.status === 'loading'}
-      actionsPending={building.status === 'loading' ? { settings: flags.assumptions, pdf: flags.print } : undefined}
-      print={flags.print}
-      actions={
-        flags.assumptions && report.selected && <AdvancedSettings inputs={report.inputs} onChange={report.setInputs} />
-      }
+      actionsPending={building.status === 'loading' ? { settings: true, pdf: true } : undefined}
+      print
+      actions={report.selected && <AdvancedSettings inputs={report.inputs} onChange={report.setInputs} />}
     />
   );
 
   const cards = ((): Cards => {
     switch (building.status) {
       case 'loading':
-        return loadingCards(flags.charts);
+        return loadingCards();
       case 'no_coverage':
       case 'outside_bc':
         return {
@@ -158,13 +150,12 @@ function ReportPage({
           ),
         };
       case 'ready':
-        return reportCards(building.data, report, flags);
+        return reportCards(building.data, report);
     }
   })();
 
   return (
     <ReportLayout
-        flags={FLAGS.filter((f) => flags[f]).join(' ')}
         search={<HeaderSearch onSelect={(p) => lookUp({ lat: p.lat, lng: p.lng, address: p.address || undefined })} />}
         title={title}
         notices={
@@ -200,7 +191,6 @@ function sizeSteps(recommendation: Recommendation, inputs: FinanceInputs): SizeS
 function reportCards(
   building: BuildingResponse,
   { inputs, recommendation, selectedIndex, selected, setSelectedIndex }: ReturnType<typeof useReportState>,
-  flags: Flags,
 ): Cards {
   // No configs: nothing fits, so there's no money to show.
   if (!recommendation || !selected || selectedIndex === null) {
@@ -254,35 +244,31 @@ function reportCards(
       <div className="grid gap-5 md:gap-6">
         <KeyFigures scenario={selected} sunHours={building.roof.maxSunshineHoursPerYear} />
         <Assumptions warnings={selected.warnings} />
-        {flags.charts && (
-          <Card>
-            <CashFlowChart scenario={selected} startYear={startYear} />
-          </Card>
-        )}
+        <Card>
+          <CashFlowChart scenario={selected} startYear={startYear} />
+        </Card>
       </div>
     ),
     // Two stacks. `order` is the phone reading order: house 1, answer 2,
     // controls 3, figures + savings 4, then these.
-    main: flags.charts ? [{ key: 'monthly', order: 6, node: <Card>{monthly}</Card> }] : [],
-    side: flags.charts
-      ? [
-          {
-            key: 'panels',
-            order: 7,
-            node: (
-              <Card>
-                <PanelOutputChart
-                  building={building}
-                  scenario={selected}
-                  scenarios={recommendation.scenarios}
-                  rebateCapKw={modelled.rebateEligible ? rebateCapKw(modelled.costPerWatt) : undefined}
-                  onPickPanels={(n) => setSelectedIndex(configIndexFor(building.configs, n))}
-                />
-              </Card>
-            ),
-          },
-        ]
-      : [],
+    main: [{ key: 'monthly', order: 6, node: <Card>{monthly}</Card> }],
+    side: [
+      {
+        key: 'panels',
+        order: 7,
+        node: (
+          <Card>
+            <PanelOutputChart
+              building={building}
+              scenario={selected}
+              scenarios={recommendation.scenarios}
+              rebateCapKw={modelled.rebateEligible ? rebateCapKw(modelled.costPerWatt) : undefined}
+              onPickPanels={(n) => setSelectedIndex(configIndexFor(building.configs, n))}
+            />
+          </Card>
+        ),
+      },
+    ],
     extras: (
       <>
         <ImpactCard scenario={selected} />

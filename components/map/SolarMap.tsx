@@ -181,11 +181,6 @@ interface Props {
   /** Sizes the map (give it a height, or h-full for a full-screen canvas). */
   className?: string;
   /**
-   * The `heatmap` P1 flag (lib/flags.ts; read with getFlags() in the server page). Off by default:
-   * "Sun exposure" then stays disabled and Data Layers is never called.
-   */
-  heatmap?: boolean;
-  /**
    * A fixed window on the house: no panning, zooming or keyboard moves, and the roof is refitted
    * whenever the window changes size. Pair with fitPadding="window" and no onMapClick.
    */
@@ -206,7 +201,7 @@ interface SolarMapState {
   recentre: () => void;
   layer: MapLayer;
   setLayer: (layer: MapLayer) => void;
-  /** Sun exposure can be chosen: flag on, a roof is shown, and it isn't known to have no sun map. */
+  /** Sun exposure can be chosen: a roof is shown, and it isn't known to have no sun map. */
   sunAvailable: boolean;
   sunStatus: SunStatus;
   /** Panels are on the map right now (Satellite, a roof with panels): the panel-shade legend shows. */
@@ -231,7 +226,7 @@ export const useSolarMap = () => useContext(SolarMapContext);
  *
  *   <SolarMap location={{ lat, lng }} building={building} visibleCount={building?.configs[i]?.panelsCount ?? 0}
  *             onMapClick={(p) => router.replace(`/report/${p.lat.toFixed(6)}/${p.lng.toFixed(6)}`)}
- *             fitPadding="report" captions={false} heatmap={flags.heatmap} className="h-full">
+ *             fitPadding="report" captions={false} className="h-full">
  *     <MapControls />
  *   </SolarMap>
  */
@@ -242,7 +237,6 @@ export function SolarMap({
   onMapClick,
   fitPadding = 40,
   captions = true,
-  heatmap = false,
   locked = false,
   holdCamera = false,
   className,
@@ -275,14 +269,14 @@ export function SolarMap({
   const [sunRoof, setSunRoof] = useState<string | null>(null);
   const [sunResult, setSunResult] = useState<{ roof: string; status: SunStatus; layers?: SolarLayersResponse } | null>(null);
   const sunCache = useRef(new globalThis.Map<string, { status: "ready" | "none"; layers?: SolarLayersResponse }>());
-  const layer: MapLayer = heatmap && roofId !== null && sunRoof === roofId ? "sun" : "satellite";
+  const layer: MapLayer = roofId !== null && sunRoof === roofId ? "sun" : "satellite";
   const sun = sunResult && sunResult.roof === roofId ? sunResult : null;
   const sunStatus: SunStatus = sun?.status ?? "idle";
-  const sunAvailable = heatmap && building !== null && sunStatus !== "none";
+  const sunAvailable = building !== null && sunStatus !== "none";
 
   const setLayer = useCallback(
     (next: MapLayer) => {
-      if (next === "satellite" || !building || !heatmap) {
+      if (next === "satellite" || !building) {
         setSunRoof(null);
         return;
       }
@@ -316,7 +310,7 @@ export function SolarMap({
           setSunRoof((r) => (r === roof ? null : r));
         });
     },
-    [building, heatmap],
+    [building],
   );
 
   const recentre = useCallback(() => {

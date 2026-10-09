@@ -31,8 +31,7 @@ out there still assume the old rules, so this is how we stand out. See
 | Map | `@vis.gl/react-google-maps` (Maps JS API + Places) | Solar results must be displayed on a Google Map if shown on a map (Google policy) |
 | Validation | Zod | Validate every request body and every Google response we depend on |
 | Tests | Vitest | Finance engine is pure TS; golden cases in `fixtures/finance-golden.json` |
-| Rasters (P1) | `geotiff` npm | Decode dataLayers GeoTIFFs for the sun heatmap overlay |
-| DB (P1, optional) | Postgres + Drizzle | Only for share links: store inputs, **never** Solar API responses |
+| Rasters | `geotiff` npm | Decode dataLayers GeoTIFFs for the sun heatmap overlay |
 | Deploy | GHCR image → shared VPS (with puckbank + yardstick), puckbank's Caddy for HTTPS | See `docs/INFRA.md` |
 
 Package manager: **pnpm**. Node 22 LTS.
@@ -54,30 +53,30 @@ Strong) and `49.2615, -123.1702` (shaded-gable, Weak); anything else → 404 in 
 **Build all UI against fixtures first** so nobody is blocked on keys, quota or coverage.
 PLAN.md → Data roadmap says which data comes online when.
 
-## Repo layout (target)
+## Repo layout
 
 ```
 app/
   page.tsx                      # landing + address search
   report/[lat]/[lng]/page.tsx   # the report (URL is shareable, no DB needed)
   api/solar/building/route.ts   # GET → proxies buildingInsights:findClosest, returns BuildingResponse
-  api/solar/layers/route.ts     # GET → dataLayers:get, returns SolarLayersResponse (P1)
-  api/solar/heatmap/route.ts    # GET → heatmap PNG rendered from cached rasters (P1)
+  api/solar/layers/route.ts     # GET → dataLayers:get, returns SolarLayersResponse
+  api/solar/heatmap/route.ts    # GET → heatmap PNG rendered from cached rasters
   api/health/route.ts           # { ok: true } for the Docker healthcheck
 components/
-  map/                          # Map, BuildingOutline, PanelOverlay, FluxOverlay
-  report/                       # VerdictCard, MoneyCard, SpecSheet, SizeSlider, charts
-  inputs/                       # BillInput, RatePlanToggle, AssumptionsDrawer
+  map/                          # SolarMap, PanelOverlay, FluxOverlay, MapControls, AddressSearch
+  report/                       # ReportView, verdict/, money/, size/, analysis/ (charts), spec/
+  inputs/                       # AdvancedSettings, AssumptionsPanel, UsageInputs (not wired in yet)
 lib/
   solar/client.ts               # `import 'server-only'`; fetch wrappers for Google (uses SOLAR_API_KEY)
   solar/schema.ts               # zod schemas for the parts of the response we use
   solar/trim.ts                 # raw BuildingInsightsResponse → BuildingResponse ({lat,lng} from here on)
   finance/                      # PURE functions, no React, no fetch → fully unit-tested
-    bill.ts  project.ts  recommend.ts  verdict.ts  manual.ts (P1)  index.ts (satisfies FinanceEngine)
+    bill.ts  project.ts  recommend.ts  verdict.ts  manual.ts (not in the UI yet)  index.ts (satisfies FinanceEngine)
   geo/panels.ts                 # panel center + azimuth → polygon corners for the map
-src/types/solar.ts              # Google Solar API types (provided in this kit)
-src/types/app.ts                # OUR contracts (provided in this kit) — change by PR only
-src/config/bc.ts                # every BC number with its source (provided in this kit)
+src/types/solar.ts              # Google Solar API types
+src/types/app.ts                # OUR contracts — change by PR only
+src/config/bc.ts                # every BC number with its source
 fixtures/finance-golden.json    # golden finance cases (C)
 fixtures/synthetic/             # hand-made roofs in the Google response shape: CI + hour-0 dev (committed)
 fixtures/solar/                 # disk cache of real Google responses: gitignored, auto-deleted after 25 days
@@ -89,7 +88,7 @@ docker/Dockerfile               # the image CI builds and pushes to ghcr.io/mojw
 
 Imports: `@/src/types/app`, `@/src/types/solar`, `@/src/config/bc` (alias `@/*` → repo root).
 
-## Contracts (frozen at hour 1, change by PR only)
+## Contracts (change by PR only)
 
 - `src/types/app.ts`: `BuildingResponse`, `FinanceInputs`, `ScenarioResult`, `Recommendation`,
   and `FinanceEngine` (the exact function signatures of `lib/finance`).
@@ -120,11 +119,11 @@ Imports: `@/src/types/app`, `@/src/types/solar`, `@/src/config/bc` (alias `@/*` 
    necessarily cut your footprint).
 7. **Handle the 404.** Call `findClosest` once with `requiredQuality=LOW` (a minimum, so you still
    get HIGH where it exists). `NOT_FOUND` means no data at any quality we accept: show a friendly
-   "we can't see this roof yet" state (P1: manual estimate from roof area + facing). The optional
+   "we can't see this roof yet" state (a manual estimate from roof area + facing is still to build). The optional
    `EXPANDED_COVERAGE` retry is behind `SOLAR_EXPANDED_COVERAGE`; see docs/SOLAR_API.md.
 8. Money in the UI is **CAD**, rounded to whole dollars. Energy in **kWh**, power in **kW**.
 9. Small PRs, one owner per folder (see `PLAN.md` → Team). Rebase on `main` before
-   pushing. `main` auto-deploys to https://sunscore.tech (behind Cloudflare Access until demo day).
+   pushing. `main` auto-deploys to https://sunscore.tech.
 
 ## Domain cheat-sheet
 
@@ -150,8 +149,7 @@ Imports: `@/src/types/app`, `@/src/types/solar`, `@/src/config/bc` (alias `@/*` 
 ## When working with Claude Code
 
 - Start by reading this file, `PLAN.md` (your role's section), and the doc for your area.
-- **What to work on next:** the pinned Roadmap issue (#24) lists every issue in build order by checkpoint.
-  Take the next open item for your role in the current checkpoint; don't start P1 before P0 is done.
+- **What to work on next:** the open GitHub issues. The Roadmap issue (#24) records the order we built things in.
 - **Issues are a frame, not a script.** Each issue's *Goal* and *Done when* are fixed; change them only
   with a comment saying why. Its *Starting sketch* (or *Plan*) was written before the work began: read the
   current code first, then rewrite the sketch in the issue (`gh issue edit`) to match what you'll actually

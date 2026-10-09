@@ -100,7 +100,7 @@ Some things we're happy with:
   committed to the repo or baked into the image. The Solar key never leaves the server.
 - **Keeping the bill under control.** Each roof costs one Google call, then it's cached. There are
   per-IP rate limits and daily caps per endpoint, so a busy demo room can't run up a surprise bill.
-- **Tests.** 427 Vitest tests across the finance model, the API response parsing, the cache, the
+- **Tests.** Over 400 Vitest tests across the finance model, the API response parsing, the cache, the
   map geometry and the report state, plus Playwright smoke tests. CI runs typecheck, lint, tests and
   a production build on every PR, and `main` deploys itself.
 
@@ -155,7 +155,7 @@ pnpm test:e2e    # Playwright
 | `docs/` | [Financial model](docs/FINANCIAL_MODEL.md), [Solar API notes](docs/SOLAR_API.md), [infrastructure](docs/INFRA.md) |
 
 "Solmap" was our working name, so you'll still see it in a few places (the Docker image, env vars
-like `SOLMAP_FLAGS`).
+like `SOLMAP_TAG`).
 
 ## What's next
 
